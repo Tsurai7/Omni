@@ -5,26 +5,35 @@ namespace Omni.Client.Models;
 
 public class AppUsageInfo : INotifyPropertyChanged
 {
-    public string AppName { get; set; }
-    public string Category { get; set; }
-    private TimeSpan _runningTime;
-    public string FormattedTime => _runningTime.ToString(@"hh\:mm\:ss");
-    
-    public Color CategoryColor => GetCategoryColor();
-    
-    private Color GetCategoryColor()
+    private static readonly Dictionary<string, Color> CategoryColors = new(StringComparer.OrdinalIgnoreCase)
     {
-        return Category switch
+        ["Gaming"] = Color.FromArgb("#FF6B6B"),
+        ["Browsing"] = Color.FromArgb("#4ECDC4"),
+        ["Coding"] = Color.FromArgb("#45B7D1"),
+        ["Messaging"] = Color.FromArgb("#A78BFA"),
+        ["Chilling"] = Color.FromArgb("#FF9E7D"),
+        ["Productivity"] = Color.FromArgb("#98C379"),
+    };
+
+    public string AppName { get; set; }
+
+    private string _category;
+    public string Category
+    {
+        get => _category;
+        set
         {
-            "Gaming" => Color.FromArgb("#FF6B6B"),
-            "Browsing" => Color.FromArgb("#4ECDC4"),
-            "Coding" => Color.FromArgb("#45B7D1"),
-            "Messaging" => Color.FromArgb("#A78BFA"),
-            "Chilling" => Color.FromArgb("#FF9E7D"),
-            "Productivity" => Color.FromArgb("#98C379"),
-            _ => Colors.Gray
-        };
+            if (_category == value) return;
+            _category = value;
+            _categoryColor = value != null && CategoryColors.TryGetValue(value, out var c) ? c : Colors.Gray;
+        }
     }
+    private TimeSpan _runningTime;
+    private Color _categoryColor = Colors.Gray;
+
+    public string FormattedTime => _runningTime.ToString(@"hh\:mm\:ss");
+
+    public Color CategoryColor => _categoryColor;
     
     public TimeSpan RunningTime
     {

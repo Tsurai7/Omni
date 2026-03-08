@@ -7,9 +7,22 @@
     Shell.FlyoutBehavior="Flyout"
     Title="Omni.Client">
 
-    <ShellContent
-        Title="Home"
-        ContentTemplate="{DataTemplate local:MainPage}"
-        Route="MainPage" />
-
+    <FlyoutItem Title="Home" Icon="dotnet_bot.png">
+        <ShellContent
+            Title="Home"
+            ContentTemplate="{DataTemplate local:MainPage}"
+            Route="MainPage" />
+    </FlyoutItem>
+    <FlyoutItem Title="Usage stats" Icon="dotnet_bot.png">
+        <ShellContent
+            Title="Usage stats"
+            ContentTemplate="{DataTemplate local:UsageStatsPage}"
+            Route="UsageStatsPage" />
+    </FlyoutItem>
+    <FlyoutItem Title="Account" Icon="dotnet_bot.png">
+        <ShellContent
+            Title="Account"
+            ContentTemplate="{DataTemplate local:AccountPage}"
+            Route="AccountPage" />
+    </FlyoutItem>
 </Shell>

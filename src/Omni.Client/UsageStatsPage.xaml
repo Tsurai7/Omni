@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Omni.Client.UsageStatsPage"
+             Title="Usage stats"
+             BackgroundColor="#0F0F0F">
+    <Grid RowDefinitions="Auto,Auto,*">
+        <Frame Grid.Row="0" CornerRadius="15" Margin="20" BackgroundColor="#1E1E1E" BorderColor="#2D2D2D" Padding="20" HasShadow="True">
+            <VerticalStackLayout Spacing="8">
+                <Label Text="Synced usage" FontSize="24" TextColor="#E0E0E0" FontAttributes="Bold"/>
+                <Label Text="Data syncs from Home every ~45s. Pull to refresh." FontSize="14" TextColor="#A0A0A0"/>
+            </VerticalStackLayout>
+        </Frame>
+        <Frame Grid.Row="1" CornerRadius="12" Margin="20,0,20,12" BackgroundColor="#1E1E1E" BorderColor="#2D2D2D" Padding="12" HasShadow="False">
+            <VerticalStackLayout Spacing="10">
+                <Label Text="View by" FontSize="12" TextColor="#A0A0A0"/>
+                <Picker x:Name="ViewPicker" Title="View by" TextColor="#E0E0E0" BackgroundColor="#2D2D2D" SelectedIndexChanged="OnViewChanged"/>
+                <Grid ColumnDefinitions="*,*">
+                    <VerticalStackLayout Grid.Column="0" Spacing="4">
+                        <Label Text="Category" FontSize="12" TextColor="#A0A0A0"/>
+                        <Picker x:Name="CategoryPicker" Title="All categories" TextColor="#E0E0E0" BackgroundColor="#2D2D2D" SelectedIndexChanged="OnCategoryChanged"/>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="4" Margin="12,0,0,0">
+                        <Label Text="App" FontSize="12" TextColor="#A0A0A0"/>
+                        <Picker x:Name="AppPicker" Title="All apps" TextColor="#E0E0E0" BackgroundColor="#2D2D2D" SelectedIndexChanged="OnAppFilterChanged"/>
+                    </VerticalStackLayout>
+                </Grid>
+            </VerticalStackLayout>
+        </Frame>
+        <RefreshView x:Name="RefreshView" Grid.Row="2" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsRefreshing}">
+            <ScrollView>
+                <VerticalStackLayout Spacing="0">
+                    <Frame x:Name="ChartsFrame" CornerRadius="12" Margin="20,0,20,16" BackgroundColor="#1E1E1E" BorderColor="#2D2D2D" Padding="16" HasShadow="False">
+                        <VerticalStackLayout Spacing="16">
+                            <Label Text="Usage overview" FontSize="16" TextColor="#E0E0E0" FontAttributes="Bold"/>
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                                <GraphicsView x:Name="PieChartView" HeightRequest="220" HorizontalOptions="Fill" VerticalOptions="Start"/>
+                                <GraphicsView x:Name="BarChartView" HeightRequest="220" Grid.Column="1" HorizontalOptions="Fill" VerticalOptions="Start"/>
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Frame>
+                    <CollectionView x:Name="UsageList"
+                                ItemsSource="{Binding GroupedEntries}"
+                                IsGrouped="True"
+                                EmptyView="{Binding EmptyView}"
+                                Margin="20,0">
+                    <CollectionView.GroupHeaderTemplate>
+                        <DataTemplate>
+                            <Grid Padding="20,12,20,6" BackgroundColor="#1E1E1E">
+                                <BoxView Color="#4ECCA3" HeightRequest="2" WidthRequest="40" VerticalOptions="Center"/>
+                                <Label Text="{Binding Date}" Margin="50,0,0,0" FontSize="16" TextColor="#E0E0E0" FontAttributes="Bold"/>
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.GroupHeaderTemplate>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Frame CornerRadius="12" Padding="16" Margin="20,0,20,8" BackgroundColor="#1E1E1E" BorderColor="#2D2D2D">
+                                <Grid ColumnDefinitions="*,Auto,Auto">
+                                    <VerticalStackLayout Grid.Column="0" Spacing="2">
+                                        <Label Text="{Binding AppName}" FontSize="15" TextColor="#E0E0E0"/>
+                                        <Label Text="{Binding Category}" FontSize="12" TextColor="#A0A0A0"/>
+                                    </VerticalStackLayout>
+                                    <Label Grid.Column="1" Text="{Binding FormattedTime}" FontSize="14" TextColor="#4ECCA3" VerticalOptions="Center"/>
+                                </Grid>
+                            </Frame>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+                </VerticalStackLayout>
+            </ScrollView>
+        </RefreshView>
+    </Grid>
+</ContentPage>

@@ -1,4 +1,6 @@
+using Microsoft.Extensions.Http;
 using Omni.Client.Abstractions;
+using Omni.Client.Services;
 
 namespace Omni.Client;
 
@@ -6,8 +8,25 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection ConfigureServices(this IServiceCollection services)
     {
-        services.AddTransient<MainPage>(); ;
-        
+        services.AddSingleton(_ => new BackendOptions { BaseUrl = "http://localhost:8080" });
+        services.AddHttpClient("OmniBackend", (sp, client) =>
+        {
+            var opts = sp.GetRequiredService<BackendOptions>();
+            client.BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/");
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+        services.AddSingleton<IAuthService>(sp =>
+            new AuthService(sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackend")));
+        services.AddSingleton<IUsageService>(sp =>
+            new UsageService(
+                sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackend"),
+                sp.GetRequiredService<IAuthService>(),
+                sp.GetRequiredService<IActiveWindowTracker>()));
+
+        services.AddTransient<MainPage>();
+        services.AddTransient<UsageStatsPage>();
+        services.AddTransient<AccountPage>();
+
         services.AddActiveWindowTracker();
         return services;
     }

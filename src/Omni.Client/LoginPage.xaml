@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Omni.Client.LoginPage"
+             Title="Sign in"
+             BackgroundColor="#0F0F0F">
+    <ScrollView>
+        <Frame CornerRadius="15"
+               Margin="20"
+               VerticalOptions="Center"
+               BackgroundColor="#1E1E1E"
+               BorderColor="#2D2D2D"
+               Padding="24"
+               HasShadow="True">
+            <VerticalStackLayout Spacing="16">
+                <Label Text="Sign in"
+                       FontSize="28"
+                       TextColor="#E0E0E0"
+                       FontAttributes="Bold"
+                       HorizontalOptions="Center"/>
+                <Label Text="Use your account to continue"
+                       FontSize="14"
+                       TextColor="#A0A0A0"
+                       HorizontalOptions="Center"/>
+                <BoxView HeightRequest="1" Color="#2D2D2D" Margin="0,8,0,8"/>
+
+                <Label Text="Email" TextColor="#A0A0A0" FontSize="14"/>
+                <Entry x:Name="EmailEntry"
+                       Placeholder="you@example.com"
+                       Keyboard="Email"
+                       TextColor="#E0E0E0"
+                       PlaceholderColor="#606060"
+                       BackgroundColor="#2D2D2D"
+                       Margin="0,0,0,8"/>
+
+                <Label Text="Password" TextColor="#A0A0A0" FontSize="14"/>
+                <Entry x:Name="PasswordEntry"
+                       Placeholder="••••••••"
+                       IsPassword="True"
+                       TextColor="#E0E0E0"
+                       PlaceholderColor="#606060"
+                       BackgroundColor="#2D2D2D"
+                       Margin="0,0,0,8"/>
+
+                <Label x:Name="ErrorLabel"
+                       TextColor="#FF6B6B"
+                       FontSize="13"
+                       IsVisible="False"
+                       Margin="0,4,0,0"/>
+
+                <Button x:Name="LoginButton"
+                        Text="Sign in"
+                        BackgroundColor="#4ECCA3"
+                        TextColor="#0F0F0F"
+                        FontAttributes="Bold"
+                        CornerRadius="10"
+                        HeightRequest="48"
+                        Margin="0,12,0,0"
+                        Clicked="OnLoginClicked"/>
+
+                <Label Margin="0,16,0,0" HorizontalOptions="Center">
+                    <Label.FormattedText>
+                        <FormattedString>
+                            <Span Text="Don't have an account? " TextColor="#A0A0A0" FontSize="14"/>
+                            <Span Text="Create one" TextColor="#4ECCA3" FontSize="14" FontAttributes="Bold"/>
+                        </FormattedString>
+                    </Label.FormattedText>
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnGoToRegister"/>
+                    </Label.GestureRecognizers>
+                </Label>
+            </VerticalStackLayout>
+        </Frame>
+    </ScrollView>
+</ContentPage>

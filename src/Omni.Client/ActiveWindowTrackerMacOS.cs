@@ -54,9 +54,12 @@ public class ActiveWindowTrackerMacOS : IActiveWindowTracker
 
     public void StartTracking()
     {
+        if (_timer != null && _timer.Enabled)
+            return;
         VerifyAutomationPermissions();
-        
-        _timer = new System.Timers.Timer(1000);
+
+        // 2s interval reduces CPU and process spawns (was 1s)
+        _timer = new System.Timers.Timer(2000);
         _timer.Elapsed += (s, e) => CheckActiveApp();
         _timer.Start();
     }
