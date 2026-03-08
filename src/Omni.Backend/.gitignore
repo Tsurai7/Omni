@@ -1,0 +1,12 @@
+# Environment (do not commit secrets)
+.env
+
+# Binary
+/server
+/cmd/server/server
+
+# Go
+*.exe
+*.test
+*.out
+vendor/
