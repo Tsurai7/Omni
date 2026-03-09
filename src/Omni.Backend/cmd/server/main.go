@@ -48,6 +48,7 @@ func main() {
 
 	authHandler := handlers.NewAuthHandler(pool, cfg.JWTSecret, cfg.JWTExpiry())
 	usageHandler := handlers.NewUsageHandler(pool)
+	sessionsHandler := handlers.NewSessionsHandler(pool)
 	api := router.Group("/api")
 	auth := api.Group("/auth")
 	{
@@ -58,6 +59,9 @@ func main() {
 	api.Group("/usage").Use(middleware.AuthRequired(cfg.JWTSecret)).
 		POST("/sync", usageHandler.Sync).
 		GET("", usageHandler.List)
+	api.Group("/sessions").Use(middleware.AuthRequired(cfg.JWTSecret)).
+		POST("/sync", sessionsHandler.Sync).
+		GET("", sessionsHandler.List)
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: router}
 	go func() {
