@@ -2,43 +2,39 @@ using System.Collections.ObjectModel;
 
 namespace Omni.Client.Models.Session;
 
-public sealed class SessionSyncEntry
-{
-    public string Name { get; set; } = "";
-    public string ActivityType { get; set; } = "other";
-    public string StartedAt { get; set; } = "";
-    public long DurationSeconds { get; set; }
+public record SessionSyncEntry(
+    string Name = "",
+    string ActivityType = "other",
+    string StartedAt = "",
+    long DurationSeconds = 0,
     /// <summary>Optional. Links session to a daily goal for backend analytics.</summary>
-    public string? GoalId { get; set; }
+    string? GoalId = null,
     /// <summary>Optional. Target minutes for this session (e.g. 25, 60).</summary>
-    public int? GoalTargetMinutes { get; set; }
+    int? GoalTargetMinutes = null,
     /// <summary>Optional. Concentration score 0–100 from distraction tracking.</summary>
-    public int? SessionScore { get; set; }
+    int? SessionScore = null,
     /// <summary>Optional. Number of distraction events during the session.</summary>
-    public int? DistractionEventCount { get; set; }
+    int? DistractionEventCount = null);
+
+public record SessionSyncRequest
+{
+    public List<SessionSyncEntry> Entries { get; init; } = new();
 }
 
-public sealed class SessionSyncRequest
-{
-    public List<SessionSyncEntry> Entries { get; set; } = new();
-}
-
-public sealed class SessionListEntry
-{
-    public string Id { get; set; } = "";
-    public string Name { get; set; } = "";
-    public string ActivityType { get; set; } = "";
-    public string StartedAt { get; set; } = "";
-    public long DurationSeconds { get; set; }
+public record SessionListEntry(
+    string Id = "",
+    string Name = "",
+    string ActivityType = "",
+    string StartedAt = "",
+    long DurationSeconds = 0,
     /// <summary>Optional. Concentration score 0–100 when provided by backend.</summary>
-    public int? SessionScore { get; set; }
+    int? SessionScore = null,
     /// <summary>Optional. Distraction event count when provided by backend.</summary>
-    public int? DistractionEventCount { get; set; }
-}
+    int? DistractionEventCount = null);
 
-public sealed class SessionListResponse
+public record SessionListResponse
 {
-    public List<SessionListEntry> Entries { get; set; } = new();
+    public List<SessionListEntry> Entries { get; init; } = new();
 }
 
 public sealed class SessionDateGroup : ObservableCollection<SessionDisplayItem>

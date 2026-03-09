@@ -1,26 +1,9 @@
 namespace Omni.Client.Models.Usage;
 
-public sealed class UsageSyncEntry
-{
-    public string AppName { get; set; } = "";
-    public string Category { get; set; } = "";
-    public long DurationSeconds { get; set; }
-}
+public record UsageSyncEntry(string AppName = "", string Category = "", long DurationSeconds = 0);
 
-public sealed class UsageSyncRequest
-{
-    public List<UsageSyncEntry> Entries { get; set; } = new();
-}
+public record UsageSyncRequest(List<UsageSyncEntry> Entries);
 
-public sealed class UsageListEntry
-{
-    public string Date { get; set; } = "";
-    public string AppName { get; set; } = "";
-    public string Category { get; set; } = "";
-    public long TotalSeconds { get; set; }
-}
+public record UsageListEntry(string Date = "", string AppName = "", string Category = "", long TotalSeconds = 0);
 
-public sealed class UsageListResponse
-{
-    public List<UsageListEntry> Entries { get; set; } = new();
-}
+public record UsageListResponse(List<UsageListEntry> Entries);

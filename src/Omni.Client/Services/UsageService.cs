@@ -61,7 +61,7 @@ public sealed class UsageService : IUsageService
 
         var request = new HttpRequestMessage(HttpMethod.Post, "api/usage/sync");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        request.Content = JsonContent.Create(new UsageSyncRequest { Entries = entries }, options: _jsonOptions);
+        request.Content = JsonContent.Create(new UsageSyncRequest(entries), options: _jsonOptions);
 
         using var response = await _http.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)

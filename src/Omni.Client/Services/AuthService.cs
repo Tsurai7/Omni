@@ -62,7 +62,7 @@ public sealed class AuthService : IAuthService
 
     public async Task<RegisterResponse?> RegisterAsync(string email, string password, CancellationToken cancellationToken = default)
     {
-        var request = new RegisterRequest { Email = email.Trim(), Password = password };
+        var request = new RegisterRequest(email.Trim(), password);
         using var response = await _http.PostAsJsonAsync("api/auth/register", request, _jsonOptions, cancellationToken);
         if (!response.IsSuccessStatusCode)
             return null;
@@ -77,7 +77,7 @@ public sealed class AuthService : IAuthService
 
     public async Task<TokenResponse?> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
     {
-        var request = new LoginRequest { Email = email.Trim(), Password = password };
+        var request = new LoginRequest(email.Trim(), password);
         using var response = await _http.PostAsJsonAsync("api/auth/login", request, _jsonOptions, cancellationToken);
         if (!response.IsSuccessStatusCode)
             return null;

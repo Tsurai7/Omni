@@ -22,19 +22,12 @@ public interface ISessionDistractionService
 }
 
 /// <summary>Reason and context for a distraction event.</summary>
-public sealed class DistractionEvent
-{
-    public string Reason { get; init; } = ""; // "distracting_category" or "frequent_switching"
-    public string? ActivityName { get; init; }
-    public string? CategoryOrDetail { get; init; }
-}
+public record DistractionEvent(string Reason = "", string? ActivityName = null, string? CategoryOrDetail = null);
 
 /// <summary>Result when a session ends.</summary>
-public sealed class SessionScoreResult
-{
-    public int Score { get; init; }       // 0-100
-    public string Summary { get; init; } = "";
-    public long TotalSeconds { get; init; }
-    public long DistractingSeconds { get; init; }
-    public int DistractionEventCount { get; init; }
-}
+public record SessionScoreResult(
+    int Score,
+    string Summary = "",
+    long TotalSeconds = 0,
+    long DistractingSeconds = 0,
+    int DistractionEventCount = 0);

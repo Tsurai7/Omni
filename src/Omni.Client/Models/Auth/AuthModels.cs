@@ -1,33 +1,11 @@
 namespace Omni.Client.Models.Auth;
 
-public sealed class LoginRequest
-{
-    public string Email { get; set; } = "";
-    public string Password { get; set; } = "";
-}
+public record LoginRequest(string Email = "", string Password = "");
 
-public sealed class RegisterRequest
-{
-    public string Email { get; set; } = "";
-    public string Password { get; set; } = "";
-}
+public record RegisterRequest(string Email = "", string Password = "");
 
-public sealed class TokenResponse
-{
-    public string Token { get; set; } = "";
-    public string ExpiresAt { get; set; } = "";
-}
+public record TokenResponse(string Token = "", string ExpiresAt = "");
 
-public sealed class RegisterResponse
-{
-    public string Id { get; set; } = "";
-    public string Email { get; set; } = "";
-    public string Token { get; set; } = "";
-    public string ExpiresAt { get; set; } = "";
-}
+public record RegisterResponse(string Id = "", string Email = "", string Token = "", string ExpiresAt = "");
 
-public sealed class UserResponse
-{
-    public string Id { get; set; } = "";
-    public string Email { get; set; } = "";
-}
+public record UserResponse(string Id = "", string Email = "");

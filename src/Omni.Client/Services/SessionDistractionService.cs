@@ -152,12 +152,7 @@ public sealed class SessionDistractionService : ISessionDistractionService
                 {
                     _distractionEventCount++;
                     _lastNotificationUtc = nowUtc;
-                    toNotify = new DistractionEvent
-                    {
-                        Reason = "distracting_category",
-                        ActivityName = _activityName,
-                        CategoryOrDetail = category
-                    };
+                    toNotify = new DistractionEvent("distracting_category", _activityName, category);
                 }
                 if (toNotify != null)
                 {
@@ -182,12 +177,7 @@ public sealed class SessionDistractionService : ISessionDistractionService
             {
                 _distractionEventCount++;
                 _lastNotificationUtc = nowUtc;
-                freqEvt = new DistractionEvent
-                {
-                    Reason = "frequent_switching",
-                    ActivityName = _activityName,
-                    CategoryOrDetail = $"{switchCountInWindow} switches"
-                };
+                freqEvt = new DistractionEvent("frequent_switching", _activityName, $"{switchCountInWindow} switches");
             }
             if (freqEvt != null)
                 NotifyDistraction(freqEvt);
@@ -219,14 +209,7 @@ public sealed class SessionDistractionService : ISessionDistractionService
 
     private void InvokeSessionEnded(int score, string summary, long totalSeconds, long distractingSeconds, int distractionEventCount)
     {
-        var result = new SessionScoreResult
-        {
-            Score = score,
-            Summary = summary,
-            TotalSeconds = totalSeconds,
-            DistractingSeconds = distractingSeconds,
-            DistractionEventCount = distractionEventCount
-        };
+        var result = new SessionScoreResult(score, summary, totalSeconds, distractingSeconds, distractionEventCount);
         if (Application.Current?.Dispatcher != null)
             Application.Current.Dispatcher.Dispatch(() => SessionEndedWithScore?.Invoke(result));
         else
