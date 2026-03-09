@@ -151,6 +151,24 @@ public class ActiveWindowTrackerMacOS : IActiveWindowTracker
         }
     }
 
+    public string GetCurrentAppName()
+    {
+        lock (_lock)
+        {
+            return string.IsNullOrEmpty(_currentApp) ? "Unknown" : _currentApp;
+        }
+    }
+
+    public string GetCurrentCategory()
+    {
+        lock (_lock)
+        {
+            var appName = string.IsNullOrEmpty(_currentApp) ? "" : _currentApp;
+            var nameForCategory = appName.Contains(" - ") ? appName.Split(" - ")[0] : appName;
+            return CategoryResolver.ResolveCategory(nameForCategory);
+        }
+    }
+
     private void UpdateAppUsage(string appName, DateTime startTime)
     {
         var elapsed = DateTime.Now - startTime;

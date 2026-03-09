@@ -11,6 +11,8 @@ namespace Omni.Client;
 public partial class SessionPage : ContentPage, INotifyPropertyChanged
 {
     private ISessionService? _sessionService;
+    private IRunningSessionState? _runningState;
+    private ISessionDistractionService? _distractionService;
     private bool _isRefreshing;
     private string _emptyView = "Pull to load session history.";
     private ObservableCollection<SessionDateGroup> _groupedEntries = new();
@@ -30,8 +32,20 @@ public partial class SessionPage : ContentPage, INotifyPropertyChanged
     private const int CustomDurationPresetIndex = 6;
     private DateTime _sessionStartTime;
     private DateTime? _sessionEndTime;
-    private IDispatcherTimer? _timer;
     private bool _isRunning;
+
+    private IRunningSessionState GetRunningState()
+    {
+        if (_runningState == null)
+            _runningState = MauiProgram.AppServices?.GetService<IRunningSessionState>();
+        return _runningState!;
+    }
+
+    private ISessionDistractionService? GetDistractionService()
+    {
+        _distractionService ??= MauiProgram.AppServices?.GetService<ISessionDistractionService>();
+        return _distractionService;
+    }
 
     public SessionPage()
     {
@@ -77,17 +91,104 @@ public partial class SessionPage : ContentPage, INotifyPropertyChanged
         set { _groupedEntries = value; OnPropertyChanged(); }
     }
 
+    private SessionScoreResult? _lastScoreResult;
+    public SessionScoreResult? LastScoreResult
+    {
+        get => _lastScoreResult;
+        set { _lastScoreResult = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsPostSessionSheetVisible)); OnPropertyChanged(nameof(ScoreLabel)); OnPropertyChanged(nameof(ScoreSummaryLabel)); }
+    }
+
+    public bool IsPostSessionSheetVisible => LastScoreResult != null;
+    public string ScoreLabel => LastScoreResult != null ? $"{LastScoreResult.Score}/100" : "";
+    public string ScoreSummaryLabel => LastScoreResult?.Summary ?? "";
+
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        var state = GetRunningState();
+        var distraction = GetDistractionService();
+        if (distraction != null)
+        {
+            distraction.SessionEndedWithScore -= OnSessionEndedWithScore;
+            distraction.SessionEndedWithScore += OnSessionEndedWithScore;
+        }
+        if (state != null)
+        {
+            state.Tick -= OnRunningStateTick;
+            state.CountdownReachedZero -= OnCountdownReachedZeroFromState;
+            state.Tick += OnRunningStateTick;
+            state.CountdownReachedZero += OnCountdownReachedZeroFromState;
+            if (state.IsRunning)
+            {
+                _sessionStartTime = state.StartTimeUtc;
+                _sessionEndTime = state.EndTimeUtc;
+                _isRunning = true;
+                StartButton.IsEnabled = false;
+                StopButton.IsEnabled = true;
+                ActivityNameEntry.IsEnabled = false;
+                ActivityTypePicker.IsEnabled = false;
+                DurationPicker.IsEnabled = false;
+                CustomDurationEntry.IsEnabled = false;
+                UpdateTimerDisplayFromState(state);
+            }
+        }
         _ = LoadAsync();
     }
 
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
-        _timer?.Stop();
-        _timer = null;
+        var distraction = GetDistractionService();
+        if (distraction != null)
+            distraction.SessionEndedWithScore -= OnSessionEndedWithScore;
+        var state = GetRunningState();
+        if (state != null)
+        {
+            state.Tick -= OnRunningStateTick;
+            state.CountdownReachedZero -= OnCountdownReachedZeroFromState;
+        }
+    }
+
+    private void OnRunningStateTick(int? remainingSeconds)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            var state = GetRunningState();
+            if (state == null || !state.IsRunning) return;
+            UpdateTimerDisplayFromState(state);
+        });
+    }
+
+    private void UpdateTimerDisplayFromState(IRunningSessionState state)
+    {
+        var remaining = state.GetRemainingSeconds();
+        if (remaining.HasValue)
+        {
+            if (remaining.Value <= 0)
+                return;
+            var total = remaining.Value;
+            var h = total / 3600;
+            var m = (total % 3600) / 60;
+            var sec = total % 60;
+            TimerLabel.Text = h > 0 ? $"{h}:{m:D2}:{sec:D2}" : $"{m:D2}:{sec:D2}";
+        }
+        else
+        {
+            var elapsed = state.GetElapsedSeconds();
+            var h = elapsed / 3600;
+            var m = (elapsed % 3600) / 60;
+            var s = elapsed % 60;
+            TimerLabel.Text = $"{(int)h:D2}:{m:D2}:{s:D2}";
+        }
+    }
+
+    private async void OnCountdownReachedZeroFromState()
+    {
+        var state = GetRunningState();
+        if (state == null || !state.IsRunning) return;
+        _isRunning = false;
+        await SaveAndStopSessionAsync(state.ActivityName, state.ActivityType, state.StartTimeUtc);
+        state.Stop();
     }
 
     private void OnActivityTypeChanged(object? sender, EventArgs e)
@@ -109,28 +210,24 @@ public partial class SessionPage : ContentPage, INotifyPropertyChanged
             CustomDurationEntry.Placeholder = "Enter minutes (e.g. 90)";
             return;
         }
-        _sessionStartTime = DateTime.UtcNow;
-        _sessionEndTime = durationSeconds > 0 ? _sessionStartTime.AddSeconds(durationSeconds) : null;
+        var typeIndex = ActivityTypePicker.SelectedIndex;
+        var activityType = typeIndex >= 0 && typeIndex < _activityTypes.Length ? _activityTypes[typeIndex] : "other";
 
+        var state = GetRunningState();
+        if (state == null) return;
+
+        state.Start(name, activityType, durationSeconds > 0 ? durationSeconds : null);
+
+        _sessionStartTime = state.StartTimeUtc;
+        _sessionEndTime = state.EndTimeUtc;
+        _isRunning = true;
         StartButton.IsEnabled = false;
         StopButton.IsEnabled = true;
         ActivityNameEntry.IsEnabled = false;
         ActivityTypePicker.IsEnabled = false;
         DurationPicker.IsEnabled = false;
         CustomDurationEntry.IsEnabled = false;
-        _isRunning = true;
-        _timer = Application.Current?.Dispatcher.CreateTimer();
-        if (_timer != null)
-        {
-            _timer.Interval = TimeSpan.FromSeconds(1);
-            _timer.Tick += (s, e) =>
-            {
-                if (!_isRunning) return;
-                MainThread.BeginInvokeOnMainThread(UpdateTimerDisplay);
-            };
-            _timer.Start();
-        }
-        UpdateTimerDisplay();
+        UpdateTimerDisplayFromState(state);
     }
 
     private int GetSelectedDurationSeconds()
@@ -151,72 +248,39 @@ public partial class SessionPage : ContentPage, INotifyPropertyChanged
 
     private bool IsCustomDurationSelected => DurationPicker.SelectedIndex == CustomDurationPresetIndex;
 
-    private void UpdateTimerDisplay()
-    {
-        if (_sessionEndTime.HasValue)
-        {
-            var remaining = _sessionEndTime.Value - DateTime.UtcNow;
-            if (remaining <= TimeSpan.Zero)
-            {
-                MainThread.BeginInvokeOnMainThread(() => _ = OnCountdownReachedZeroAsync());
-                return;
-            }
-            var total = (int)remaining.TotalSeconds;
-            var h = total / 3600;
-            var m = (total % 3600) / 60;
-            var sec = total % 60;
-            TimerLabel.Text = h > 0 ? $"{h}:{m:D2}:{sec:D2}" : $"{m:D2}:{sec:D2}";
-        }
-        else
-        {
-            var elapsed = DateTime.UtcNow - _sessionStartTime;
-            TimerLabel.Text = $"{(int)elapsed.TotalHours:D2}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
-        }
-    }
-
-    private async Task OnCountdownReachedZeroAsync()
-    {
-        if (!_isRunning) return;
-        _isRunning = false;
-        _timer?.Stop();
-        _timer = null;
-        await SaveAndStopSessionAsync();
-    }
-
     private async void OnStopClicked(object? sender, EventArgs e)
     {
         if (!_isRunning) return;
+        var state = GetRunningState();
+        if (state == null) return;
         _isRunning = false;
-        _timer?.Stop();
-        _timer = null;
-        await SaveAndStopSessionAsync();
+        await SaveAndStopSessionAsync(state.ActivityName, state.ActivityType, state.StartTimeUtc);
+        state.Stop();
     }
 
-    private async Task SaveAndStopSessionAsync()
+    private async Task SaveAndStopSessionAsync(string activityName, string activityType, DateTime startedAtUtc)
     {
         var endTime = DateTime.UtcNow;
-        var durationSeconds = (long)(endTime - _sessionStartTime).TotalSeconds;
+        var durationSeconds = (long)(endTime - startedAtUtc).TotalSeconds;
         if (durationSeconds <= 0)
         {
             ResetTimerControls();
             return;
         }
 
-        var name = (ActivityNameEntry.Text ?? "").Trim();
-        if (string.IsNullOrEmpty(name)) name = "Activity";
-        var typeIndex = ActivityTypePicker.SelectedIndex;
-        var activityType = typeIndex >= 0 && typeIndex < _activityTypes.Length ? _activityTypes[typeIndex] : "other";
+        var name = string.IsNullOrEmpty(activityName) ? "Activity" : activityName;
 
         var entry = new SessionSyncEntry
         {
             Name = name,
             ActivityType = activityType,
-            StartedAt = _sessionStartTime.ToString("O"),
+            StartedAt = startedAtUtc.ToString("O"),
             DurationSeconds = durationSeconds
         };
         _pendingSessions.Add(entry);
 
         ResetTimerControls();
+        _isRunning = false;
         TimerLabel.Text = "00:00";
 
         var sessionService = GetSessionService();
@@ -227,6 +291,19 @@ public partial class SessionPage : ContentPage, INotifyPropertyChanged
                 _pendingSessions.Clear();
         }
         await LoadAsync();
+    }
+
+    private void OnSessionEndedWithScore(SessionScoreResult result)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            LastScoreResult = result;
+        });
+    }
+
+    private void OnPostSessionDoneClicked(object? sender, EventArgs e)
+    {
+        LastScoreResult = null;
     }
 
     private void ResetTimerControls()
@@ -287,6 +364,6 @@ public partial class SessionPage : ContentPage, INotifyPropertyChanged
     }
 
     public new event PropertyChangedEventHandler? PropertyChanged;
-    protected void OnPropertyChanged([CallerMemberName] string? name = null) =>
+    protected new void OnPropertyChanged([CallerMemberName] string? name = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }

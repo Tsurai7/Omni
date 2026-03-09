@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 using Omni.Client.Abstractions;
 using Omni.Client.Services;
 
@@ -8,7 +9,13 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection ConfigureServices(this IServiceCollection services)
     {
-        services.AddSingleton(_ => new BackendOptions { BaseUrl = "http://localhost:8080" });
+        services.AddSingleton(sp =>
+        {
+            var config = sp.GetRequiredService<IConfiguration>();
+            var opts = new BackendOptions();
+            config.GetSection(BackendOptions.SectionName).Bind(opts);
+            return opts;
+        });
 
         services.AddSingleton(_ => new JsonSerializerOptions
         {
@@ -19,7 +26,8 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient("OmniBackend", (sp, client) =>
         {
             var opts = sp.GetRequiredService<BackendOptions>();
-            client.BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/");
+            if (!string.IsNullOrWhiteSpace(opts.BaseUrl))
+                client.BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/");
             client.Timeout = TimeSpan.FromSeconds(30);
         });
         services.AddSingleton<IAuthService>(sp =>
@@ -45,18 +53,38 @@ public static class ServiceCollectionExtensions
         services.AddTransient<AccountPage>();
 
         services.AddActiveWindowTracker();
+        services.AddNotificationManager();
+        services.AddSingleton<DistractionConfig>(_ => new DistractionConfig());
+        services.AddSingleton<ISessionDistractionService>(sp =>
+            new SessionDistractionService(
+                sp.GetRequiredService<IActiveWindowTracker>(),
+                sp.GetRequiredService<INotificationManager>(),
+                sp.GetRequiredService<DistractionConfig>()));
+        services.AddSingleton<IRunningSessionState, RunningSessionStateService>();
+        return services;
+    }
+
+    private static IServiceCollection AddNotificationManager(this IServiceCollection services)
+    {
+#if MACCATALYST
+        services.AddSingleton<INotificationManager, Platforms.MacCatalyst.NotificationManagerService>();
+#elif WINDOWS
+        services.AddSingleton<INotificationManager, Platforms.Windows.NotificationManagerService>();
+#else
+        services.AddSingleton<INotificationManager, NotificationManagerStub>();
+#endif
         return services;
     }
 
     private static IServiceCollection AddActiveWindowTracker(this IServiceCollection services)
     {
-        
 #if WINDOWS
         services.AddSingleton<IActiveWindowTracker, ActiveWindowTrackerWindows>();
 #elif MACCATALYST
         services.AddSingleton<IActiveWindowTracker, ActiveWindowTrackerMacOS>();
+#else
+        services.AddSingleton<IActiveWindowTracker, ActiveWindowTrackerStub>();
 #endif
-
         return services;
     }
 }

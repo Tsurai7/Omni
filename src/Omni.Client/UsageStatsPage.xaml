@@ -3,42 +3,78 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Omni.Client.UsageStatsPage"
              Title="Usage stats"
-             BackgroundColor="#0F0F0F">
+             BackgroundColor="{StaticResource ProductivityPageBackground}">
     <Grid RowDefinitions="Auto,Auto,*">
-        <Frame Grid.Row="0" CornerRadius="15" Margin="20" BackgroundColor="#1E1E1E" BorderColor="#2D2D2D" Padding="20" HasShadow="True">
+        <Border Grid.Row="0" Margin="20" BackgroundColor="{StaticResource ProductivityCardBackground}" Padding="20" Stroke="{StaticResource ProductivityCardStroke}" StrokeThickness="1">
+            <Border.Shadow>
+                <Shadow Brush="Black" Offset="2,2" Radius="4" Opacity="0.25"/>
+            </Border.Shadow>
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusLg}"/>
+            </Border.StrokeShape>
             <VerticalStackLayout Spacing="8">
-                <Label Text="Synced usage" FontSize="24" TextColor="#E0E0E0" FontAttributes="Bold"/>
-                <Label Text="Data syncs from Home every ~45s. Pull to refresh." FontSize="14" TextColor="#A0A0A0"/>
+                <Label Text="Synced usage" Style="{StaticResource ProductivityHeadline}"/>
+                <Label Text="Data syncs from Home every ~45s. Pull to refresh." Style="{StaticResource ProductivityCaption}"/>
             </VerticalStackLayout>
-        </Frame>
-        <Frame Grid.Row="1" CornerRadius="12" Margin="20,0,20,12" BackgroundColor="#1E1E1E" BorderColor="#2D2D2D" Padding="12" HasShadow="False">
+        </Border>
+        <Border Grid.Row="1" Margin="20,0,20,12" BackgroundColor="{StaticResource ProductivityCardBackground}" Padding="12" Stroke="{StaticResource ProductivityCardStroke}" StrokeThickness="1">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+            </Border.StrokeShape>
             <VerticalStackLayout Spacing="10">
-                <Label Text="View by" FontSize="12" TextColor="#A0A0A0"/>
-                <Picker x:Name="ViewPicker" Title="View by" TextColor="#E0E0E0" BackgroundColor="#2D2D2D" SelectedIndexChanged="OnViewChanged"/>
+                <Label Text="View by" Style="{StaticResource ProductivityCaption}"/>
+                <Picker x:Name="ViewPicker" Title="View by" TextColor="{StaticResource ProductivityTextPrimary}" BackgroundColor="{StaticResource ProductivityCardStroke}" SelectedIndexChanged="OnViewChanged"/>
                 <Grid ColumnDefinitions="*,*">
                     <VerticalStackLayout Grid.Column="0" Spacing="4">
-                        <Label Text="Category" FontSize="12" TextColor="#A0A0A0"/>
-                        <Picker x:Name="CategoryPicker" Title="All categories" TextColor="#E0E0E0" BackgroundColor="#2D2D2D" SelectedIndexChanged="OnCategoryChanged"/>
+                        <Label Text="Category" Style="{StaticResource ProductivityCaption}"/>
+                        <Picker x:Name="CategoryPicker" Title="All categories" TextColor="{StaticResource ProductivityTextPrimary}" BackgroundColor="{StaticResource ProductivityCardStroke}" SelectedIndexChanged="OnCategoryChanged"/>
                     </VerticalStackLayout>
                     <VerticalStackLayout Grid.Column="1" Spacing="4" Margin="12,0,0,0">
-                        <Label Text="App" FontSize="12" TextColor="#A0A0A0"/>
-                        <Picker x:Name="AppPicker" Title="All apps" TextColor="#E0E0E0" BackgroundColor="#2D2D2D" SelectedIndexChanged="OnAppFilterChanged"/>
+                        <Label Text="App" Style="{StaticResource ProductivityCaption}"/>
+                        <Picker x:Name="AppPicker" Title="All apps" TextColor="{StaticResource ProductivityTextPrimary}" BackgroundColor="{StaticResource ProductivityCardStroke}" SelectedIndexChanged="OnAppFilterChanged"/>
                     </VerticalStackLayout>
                 </Grid>
             </VerticalStackLayout>
-        </Frame>
+        </Border>
         <RefreshView x:Name="RefreshView" Grid.Row="2" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsRefreshing}">
             <ScrollView>
                 <VerticalStackLayout Spacing="0">
-                    <Frame x:Name="ChartsFrame" CornerRadius="12" Margin="20,0,20,16" BackgroundColor="#1E1E1E" BorderColor="#2D2D2D" Padding="16" HasShadow="False">
+                    <!-- Insight cards -->
+                    <Border x:Name="InsightsFrame" Margin="20,0,20,16" IsVisible="{Binding HasInsights}"
+                            BackgroundColor="{StaticResource ProductivityCardBackground}" Padding="16" Stroke="{StaticResource ProductivityCardStroke}" StrokeThickness="1">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                        </Border.StrokeShape>
+                        <VerticalStackLayout Spacing="12">
+                            <Label Text="Insights" Style="{StaticResource ProductivityTitle}"/>
+                            <Label Text="{Binding InsightBiggestDistraction}" Style="{StaticResource ProductivityBody}"/>
+                            <Label Text="{Binding InsightFocusThisWeek}" Style="{StaticResource ProductivityBody}"/>
+                            <Label Text="{Binding InsightTrend}" Style="{StaticResource ProductivityBody}"/>
+                        </VerticalStackLayout>
+                    </Border>
+                    <!-- Recommendation chip -->
+                    <Border Margin="20,0,20,16" IsVisible="{Binding HasRecommendation}"
+                            BackgroundColor="{StaticResource ProductivityCardBackground}" Padding="12" Stroke="{StaticResource ProductivityCardStroke}" StrokeThickness="1">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                        </Border.StrokeShape>
+                        <HorizontalStackLayout Spacing="12" VerticalOptions="Center">
+                            <Label Text="Try:" Style="{StaticResource ProductivityCaption}" VerticalOptions="Center"/>
+                            <Button Text="{Binding RecommendationChipText}" Style="{StaticResource ProductivitySecondaryButton}" Command="{Binding RecommendationChipCommand}" VerticalOptions="Center" Padding="16,8"/>
+                        </HorizontalStackLayout>
+                    </Border>
+                    <Border x:Name="ChartsFrame" Margin="20,0,20,16" BackgroundColor="{StaticResource ProductivityCardBackground}" Padding="16" Stroke="{StaticResource ProductivityCardStroke}" StrokeThickness="1">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                        </Border.StrokeShape>
                         <VerticalStackLayout Spacing="16">
-                            <Label Text="Usage overview" FontSize="16" TextColor="#E0E0E0" FontAttributes="Bold"/>
+                            <Label Text="Usage overview" Style="{StaticResource ProductivityTitle}"/>
                             <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
                                 <GraphicsView x:Name="PieChartView" HeightRequest="220" HorizontalOptions="Fill" VerticalOptions="Start"/>
                                 <GraphicsView x:Name="BarChartView" HeightRequest="220" Grid.Column="1" HorizontalOptions="Fill" VerticalOptions="Start"/>
                             </Grid>
                         </VerticalStackLayout>
-                    </Frame>
+                    </Border>
                     <CollectionView x:Name="UsageList"
                                 ItemsSource="{Binding GroupedEntries}"
                                 IsGrouped="True"
@@ -46,23 +82,26 @@
                                 Margin="20,0">
                     <CollectionView.GroupHeaderTemplate>
                         <DataTemplate>
-                            <Grid Padding="20,12,20,6" BackgroundColor="#1E1E1E">
-                                <BoxView Color="#4ECCA3" HeightRequest="2" WidthRequest="40" VerticalOptions="Center"/>
-                                <Label Text="{Binding Date}" Margin="50,0,0,0" FontSize="16" TextColor="#E0E0E0" FontAttributes="Bold"/>
+                            <Grid Padding="20,12,20,6" BackgroundColor="{StaticResource ProductivityCardBackground}">
+                                <BoxView Color="{StaticResource ProductivityFocus}" HeightRequest="2" WidthRequest="40" VerticalOptions="Center"/>
+                                <Label Text="{Binding Date}" Margin="50,0,0,0" Style="{StaticResource ProductivityTitle}"/>
                             </Grid>
                         </DataTemplate>
                     </CollectionView.GroupHeaderTemplate>
                     <CollectionView.ItemTemplate>
                         <DataTemplate>
-                            <Frame CornerRadius="12" Padding="16" Margin="20,0,20,8" BackgroundColor="#1E1E1E" BorderColor="#2D2D2D">
+                            <Border Padding="16" Margin="20,0,20,8" BackgroundColor="{StaticResource ProductivityCardBackground}" Stroke="{StaticResource ProductivityCardStroke}" StrokeThickness="1">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                                </Border.StrokeShape>
                                 <Grid ColumnDefinitions="*,Auto,Auto">
                                     <VerticalStackLayout Grid.Column="0" Spacing="2">
-                                        <Label Text="{Binding AppName}" FontSize="15" TextColor="#E0E0E0"/>
-                                        <Label Text="{Binding Category}" FontSize="12" TextColor="#A0A0A0"/>
+                                        <Label Text="{Binding AppName}" Style="{StaticResource ProductivityBody}"/>
+                                        <Label Text="{Binding Category}" Style="{StaticResource ProductivityCaption}"/>
                                     </VerticalStackLayout>
-                                    <Label Grid.Column="1" Text="{Binding FormattedTime}" FontSize="14" TextColor="#4ECCA3" VerticalOptions="Center"/>
+                                    <Label Grid.Column="1" Text="{Binding FormattedTime}" FontSize="14" TextColor="{StaticResource ProductivityFocus}" VerticalOptions="Center"/>
                                 </Grid>
-                            </Frame>
+                            </Border>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>

@@ -3,34 +3,44 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Omni.Client.SessionPage"
              Title="Session"
-             BackgroundColor="#0F0F0F">
+             BackgroundColor="{StaticResource ProductivityPageBackground}">
     <Grid RowDefinitions="Auto,*">
-        <Frame Grid.Row="0" CornerRadius="15" Margin="20" BackgroundColor="#1E1E1E" BorderColor="#2D2D2D" Padding="20" HasShadow="True">
+        <Border Grid.Row="0" Margin="20" Padding="20"
+                BackgroundColor="{StaticResource ProductivityCardBackground}"
+                Stroke="{StaticResource ProductivityCardStroke}"
+                StrokeThickness="1">
+            <Border.Shadow>
+                <Shadow Brush="Black" Offset="2,2" Radius="4" Opacity="0.25"/>
+            </Border.Shadow>
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusLg}"/>
+            </Border.StrokeShape>
             <VerticalStackLayout Spacing="12">
-                <Label Text="Track activity" FontSize="24" TextColor="#E0E0E0" FontAttributes="Bold"/>
-                <Label x:Name="TimerLabel" Text="00:00" FontSize="32" TextColor="#4ECCA3" FontAttributes="Bold" HorizontalOptions="Center"/>
+                <Label Text="Track activity" Style="{StaticResource ProductivityHeadline}"/>
+                <Label x:Name="TimerLabel" Text="00:00" Style="{StaticResource ProductivityDisplay}" HorizontalOptions="Center"/>
+                <Label Text="Set your goal above and tap Start." Style="{StaticResource ProductivityCaption}" HorizontalOptions="Center"/>
                 <VerticalStackLayout Spacing="6">
-                    <Label Text="Duration" FontSize="12" TextColor="#A0A0A0"/>
-                    <Picker x:Name="DurationPicker" Title="Duration" TextColor="#E0E0E0" BackgroundColor="#2D2D2D" SelectedIndexChanged="OnDurationChanged"/>
+                    <Label Text="Duration" Style="{StaticResource ProductivityCaption}"/>
+                    <Picker x:Name="DurationPicker" Title="Duration" TextColor="{StaticResource ProductivityTextPrimary}" BackgroundColor="{StaticResource ProductivityCardStroke}" SelectedIndexChanged="OnDurationChanged"/>
                 </VerticalStackLayout>
                 <VerticalStackLayout x:Name="CustomDurationSection" Spacing="6" IsVisible="False">
-                    <Label Text="Custom (minutes)" FontSize="12" TextColor="#A0A0A0"/>
-                    <Entry x:Name="CustomDurationEntry" Placeholder="e.g. 90" Keyboard="Numeric" TextColor="#E0E0E0" BackgroundColor="#2D2D2D" PlaceholderColor="#808080"/>
+                    <Label Text="Custom (minutes)" Style="{StaticResource ProductivityCaption}"/>
+                    <Entry x:Name="CustomDurationEntry" Placeholder="e.g. 90" Keyboard="Numeric" TextColor="{StaticResource ProductivityTextPrimary}" BackgroundColor="{StaticResource ProductivityCardStroke}" PlaceholderColor="{StaticResource ProductivityTextTertiary}"/>
                 </VerticalStackLayout>
                 <VerticalStackLayout Spacing="6">
-                    <Label Text="Activity name" FontSize="12" TextColor="#A0A0A0"/>
-                    <Entry x:Name="ActivityNameEntry" Placeholder="e.g. Work, Focus, Break" TextColor="#E0E0E0" BackgroundColor="#2D2D2D" PlaceholderColor="#808080"/>
+                    <Label Text="Activity name" Style="{StaticResource ProductivityCaption}"/>
+                    <Entry x:Name="ActivityNameEntry" Placeholder="e.g. Work, Focus, Break" TextColor="{StaticResource ProductivityTextPrimary}" BackgroundColor="{StaticResource ProductivityCardStroke}" PlaceholderColor="{StaticResource ProductivityTextTertiary}"/>
                 </VerticalStackLayout>
                 <VerticalStackLayout Spacing="6">
-                    <Label Text="Type" FontSize="12" TextColor="#A0A0A0"/>
-                    <Picker x:Name="ActivityTypePicker" Title="Type" TextColor="#E0E0E0" BackgroundColor="#2D2D2D" SelectedIndexChanged="OnActivityTypeChanged"/>
+                    <Label Text="Type" Style="{StaticResource ProductivityCaption}"/>
+                    <Picker x:Name="ActivityTypePicker" Title="Type" TextColor="{StaticResource ProductivityTextPrimary}" BackgroundColor="{StaticResource ProductivityCardStroke}" SelectedIndexChanged="OnActivityTypeChanged"/>
                 </VerticalStackLayout>
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
-                    <Button x:Name="StartButton" Text="Start" BackgroundColor="#4ECCA3" TextColor="#0F0F0F" Clicked="OnStartClicked"/>
-                    <Button x:Name="StopButton" Text="Stop" Grid.Column="1" BackgroundColor="#2D2D2D" TextColor="#E0E0E0" Clicked="OnStopClicked" IsEnabled="False"/>
+                    <Button x:Name="StartButton" Text="Start" Style="{StaticResource ProductivityCtaButton}" Clicked="OnStartClicked"/>
+                    <Button x:Name="StopButton" Text="Stop" Grid.Column="1" Style="{StaticResource ProductivitySecondaryButton}" Clicked="OnStopClicked" IsEnabled="False"/>
                 </Grid>
             </VerticalStackLayout>
-        </Frame>
+        </Border>
         <RefreshView x:Name="RefreshView" Grid.Row="1" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsRefreshing}">
             <ScrollView>
                 <VerticalStackLayout Spacing="0">
@@ -41,29 +51,53 @@
                                     Margin="20,0">
                         <CollectionView.GroupHeaderTemplate>
                             <DataTemplate>
-                                <Grid Padding="20,12,20,6" BackgroundColor="#1E1E1E">
-                                    <BoxView Color="#4ECCA3" HeightRequest="2" WidthRequest="40" VerticalOptions="Center"/>
-                                    <Label Text="{Binding Date}" Margin="50,0,0,0" FontSize="16" TextColor="#E0E0E0" FontAttributes="Bold"/>
+                                <Grid Padding="20,12,20,6" BackgroundColor="{StaticResource ProductivityCardBackground}">
+                                    <BoxView Color="{StaticResource ProductivityFocus}" HeightRequest="2" WidthRequest="40" VerticalOptions="Center"/>
+                                    <Label Text="{Binding Date}" Margin="50,0,0,0" Style="{StaticResource ProductivityTitle}"/>
                                 </Grid>
                             </DataTemplate>
                         </CollectionView.GroupHeaderTemplate>
                         <CollectionView.ItemTemplate>
                             <DataTemplate>
-                                <Frame CornerRadius="12" Padding="16" Margin="20,0,20,8" BackgroundColor="#1E1E1E" BorderColor="#2D2D2D">
+                                <Border Padding="16" Margin="20,0,20,8" BackgroundColor="{StaticResource ProductivityCardBackground}" Stroke="{StaticResource ProductivityCardStroke}" StrokeThickness="1">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                                    </Border.StrokeShape>
                                     <Grid ColumnDefinitions="*,Auto">
                                         <VerticalStackLayout Grid.Column="0" Spacing="2">
-                                            <Label Text="{Binding Name}" FontSize="15" TextColor="#E0E0E0"/>
-                                            <Label Text="{Binding ActivityType}" FontSize="12" TextColor="#A0A0A0"/>
-                                            <Label Text="{Binding StartedAtDisplay}" FontSize="12" TextColor="#808080"/>
+                                            <Label Text="{Binding Name}" Style="{StaticResource ProductivityBody}"/>
+                                            <Label Text="{Binding ActivityType}" Style="{StaticResource ProductivityCaption}"/>
+                                            <Label Text="{Binding StartedAtDisplay}" Style="{StaticResource ProductivityCaption}" TextColor="{StaticResource ProductivityTextTertiary}"/>
                                         </VerticalStackLayout>
-                                        <Label Grid.Column="1" Text="{Binding DurationDisplay}" FontSize="14" TextColor="#4ECCA3" VerticalOptions="Center"/>
+                                        <Label Grid.Column="1" Text="{Binding DurationDisplay}" FontSize="14" TextColor="{StaticResource ProductivityFocus}" VerticalOptions="Center"/>
                                     </Grid>
-                                </Frame>
+                                </Border>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>
                 </VerticalStackLayout>
             </ScrollView>
         </RefreshView>
+
+        <!-- Post-session score sheet overlay -->
+        <Grid Grid.RowSpan="2" IsVisible="{Binding IsPostSessionSheetVisible}"
+              BackgroundColor="#80000000" Padding="24"
+              VerticalOptions="Center" HorizontalOptions="Fill">
+            <Border BackgroundColor="{StaticResource ProductivityCardBackground}"
+                    Stroke="{StaticResource ProductivityCardStroke}"
+                    StrokeThickness="1" Padding="24"
+                    VerticalOptions="Center" HorizontalOptions="Center" MaximumWidthRequest="340">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusLg}"/>
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="16">
+                    <Label Text="Session complete" Style="{StaticResource ProductivityHeadline}" HorizontalOptions="Center"/>
+                    <Label Text="{Binding ScoreLabel}" FontSize="48" TextColor="{StaticResource ProductivityFocus}" FontAttributes="Bold" HorizontalOptions="Center"/>
+                    <Label Text="{Binding ScoreSummaryLabel}" Style="{StaticResource ProductivityBody}" HorizontalOptions="Center" HorizontalTextAlignment="Center"/>
+                    <Label Text="How was your focus?" Style="{StaticResource ProductivityCaption}" HorizontalOptions="Center"/>
+                    <Button Text="Done" Style="{StaticResource ProductivityCtaButton}" Clicked="OnPostSessionDoneClicked"/>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
     </Grid>
 </ContentPage>

@@ -109,7 +109,15 @@ public class ActiveWindowTrackerWindows : IActiveWindowTracker, IDisposable
     {
         lock (_lock)
         {
-            return _lastCategory;
+            return string.IsNullOrEmpty(_lastCategory) || _lastCategory == "None" ? "Other" : _lastCategory;
+        }
+    }
+
+    public string GetCurrentAppName()
+    {
+        lock (_lock)
+        {
+            return string.IsNullOrEmpty(_lastAppName) ? "Unknown" : _lastAppName;
         }
     }
 

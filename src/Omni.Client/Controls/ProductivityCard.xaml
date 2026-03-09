@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Omni.Client.Controls.ProductivityCard">
+    <ContentView.ControlTemplate>
+        <ControlTemplate>
+            <Border BackgroundColor="{StaticResource ProductivityCardBackground}"
+                    Stroke="{StaticResource ProductivityCardStroke}"
+                    StrokeThickness="1"
+                    Padding="{StaticResource ProductivityCardPadding}"
+                    Margin="{StaticResource ProductivityCardMargin}">
+                <Border.Shadow>
+                    <Shadow Brush="Black" Offset="2,2" Radius="4" Opacity="0.25"/>
+                </Border.Shadow>
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusLg}"/>
+                </Border.StrokeShape>
+                <ContentPresenter />
+            </Border>
+        </ControlTemplate>
+    </ContentView.ControlTemplate>
+</ContentView>

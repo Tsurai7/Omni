@@ -12,9 +12,25 @@ public partial class App : Application
     protected override Window CreateWindow(IActivationState? activationState)
     {
         var window = new Window(new AppShell());
-        // Pre-load stored token so first auth check (e.g. MainPage.OnAppearing) sees it without race
         _ = PreloadStoredTokenAsync();
+        StartBackgroundServices();
         return window;
+    }
+
+    private static void StartBackgroundServices()
+    {
+        try
+        {
+            var tracker = MauiProgram.AppServices?.GetService<IActiveWindowTracker>();
+            tracker?.StartTracking();
+
+            var usage = MauiProgram.AppServices?.GetService<IUsageService>();
+            usage?.StartPeriodicSync();
+        }
+        catch
+        {
+            // Non-fatal; tracking/sync can start when MainPage appears as fallback
+        }
     }
 
     private static async Task PreloadStoredTokenAsync()

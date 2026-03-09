@@ -21,6 +21,11 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
     private readonly UsagePieDrawable _pieDrawable = new();
     private readonly UsageBarDrawable _barDrawable = new();
 
+    private string _insightBiggestDistraction = "";
+    private string _insightFocusThisWeek = "";
+    private string _insightTrend = "";
+    private string _recommendationChipText = "";
+
     public UsageStatsPage()
     {
         InitializeComponent();
@@ -62,6 +67,33 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
         get => _groupedEntries;
         set { _groupedEntries = value; OnPropertyChanged(); }
     }
+
+    public string InsightBiggestDistraction
+    {
+        get => _insightBiggestDistraction;
+        set { if (_insightBiggestDistraction != value) { _insightBiggestDistraction = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasInsights)); } }
+    }
+
+    public string InsightFocusThisWeek
+    {
+        get => _insightFocusThisWeek;
+        set { if (_insightFocusThisWeek != value) { _insightFocusThisWeek = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasInsights)); } }
+    }
+
+    public string InsightTrend
+    {
+        get => _insightTrend;
+        set { if (_insightTrend != value) { _insightTrend = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasInsights)); } }
+    }
+
+    public string RecommendationChipText
+    {
+        get => _recommendationChipText;
+        set { if (_recommendationChipText != value) { _recommendationChipText = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasRecommendation)); } }
+    }
+
+    public bool HasInsights => !string.IsNullOrEmpty(InsightBiggestDistraction) || !string.IsNullOrEmpty(InsightFocusThisWeek) || !string.IsNullOrEmpty(InsightTrend);
+    public bool HasRecommendation => !string.IsNullOrEmpty(RecommendationChipText);
 
     protected override async void OnAppearing()
     {
@@ -194,6 +226,7 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
                 ? "No synced usage yet. Stay on Home for 15–30 seconds so usage can sync, then pull to refresh."
                 : "Pull to refresh.";
             UpdateCharts(entries);
+            UpdateInsightsAndRecommendation(entries);
         }
         catch (Exception ex)
         {
@@ -240,7 +273,60 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
         BarChartView.Invalidate();
     }
 
+    private static readonly string[] FocusCategories = { "Coding", "Productivity" };
+    private static readonly string[] DistractionCategories = { "Gaming", "Chilling" };
+
+    private static bool IsFocusCategory(string? category) =>
+        FocusCategories.Any(c => string.Equals(c, category, StringComparison.OrdinalIgnoreCase));
+    private static bool IsDistractionCategory(string? category) =>
+        DistractionCategories.Any(c => string.Equals(c, category, StringComparison.OrdinalIgnoreCase));
+
+    private void UpdateInsightsAndRecommendation(List<UsageListEntry> entries)
+    {
+        if (entries.Count == 0)
+        {
+            InsightBiggestDistraction = "";
+            InsightFocusThisWeek = "";
+            InsightTrend = "";
+            RecommendationChipText = "";
+            return;
+        }
+        var now = DateTime.Now;
+        var thisWeekStart = now.AddDays(-(int)now.DayOfWeek);
+        var lastWeekStart = thisWeekStart.AddDays(-7);
+        var thisWeekEntries = entries.Where(e => e.Date != null && string.CompareOrdinal(e.Date, thisWeekStart.ToString("yyyy-MM-dd")) >= 0 && string.CompareOrdinal(e.Date, now.ToString("yyyy-MM-dd")) <= 0).ToList();
+        var lastWeekEntries = entries.Where(e => e.Date != null && string.CompareOrdinal(e.Date, lastWeekStart.ToString("yyyy-MM-dd")) >= 0 && string.CompareOrdinal(e.Date, thisWeekStart.AddDays(-1).ToString("yyyy-MM-dd")) <= 0).ToList();
+
+        var distractionByCat = entries
+            .Where(e => IsDistractionCategory(e.Category))
+            .GroupBy(e => e.Category ?? "")
+            .Select(g => new { Category = g.Key, Seconds = g.Sum(x => x.TotalSeconds) })
+            .OrderByDescending(x => x.Seconds)
+            .FirstOrDefault();
+        InsightBiggestDistraction = distractionByCat != null && distractionByCat.Seconds > 0
+            ? $"Biggest distraction: {distractionByCat.Category} ({(int)(distractionByCat.Seconds / 60)} min)"
+            : "";
+
+        var focusThisWeek = thisWeekEntries.Where(e => IsFocusCategory(e.Category)).Sum(e => e.TotalSeconds);
+        InsightFocusThisWeek = $"Focus time this week: {(int)(focusThisWeek / 60)} min";
+
+        var focusLastWeek = lastWeekEntries.Where(e => IsFocusCategory(e.Category)).Sum(e => e.TotalSeconds);
+        if (focusLastWeek > 0)
+        {
+            var pct = (focusThisWeek - focusLastWeek) / focusLastWeek;
+            InsightTrend = pct > 0.05 ? "Trend: Up vs last week" : pct < -0.05 ? "Trend: Down vs last week" : "Trend: Same vs last week";
+        }
+        else
+            InsightTrend = focusThisWeek > 0 ? "Trend: Up vs last week" : "";
+
+        RecommendationChipText = !string.IsNullOrEmpty(InsightBiggestDistraction) && distractionByCat != null
+            ? $"Block {distractionByCat.Category} for 25 min"
+            : "Start a 25 min focus session";
+    }
+
+    public ICommand RecommendationChipCommand => new Command(async () => await Shell.Current.GoToAsync(nameof(SessionPage)));
+
     public new event PropertyChangedEventHandler? PropertyChanged;
-    protected void OnPropertyChanged([CallerMemberName] string? name = null) =>
+    protected new void OnPropertyChanged([CallerMemberName] string? name = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }

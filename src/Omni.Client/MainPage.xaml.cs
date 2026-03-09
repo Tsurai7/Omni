@@ -21,6 +21,13 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
     private string _totalTrackedTime = "0h 0m";
     private string _currentCategory = "None";
     private ObservableCollection<AppUsageGroup> _groupedApps = new();
+    private string _todayFocusMinutes = "0 min";
+    private int _goalMinutes = 60;
+    private double _goalProgress;
+    private int _streakDays;
+    private string _nextBestActionText = "Start a focus session";
+    private string _nowAppName = "";
+    private string _nowActivityState = "Neutral";
 
     public MainPage(IActiveWindowTracker tracker, IAuthService authService, IUsageService usageService)
     {
@@ -51,7 +58,9 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
         }
         _usageService.StartPeriodicSync();
         _ = _usageService.SyncAsync(); // initial sync
+        _ = LoadTodayFocusAsync();
         _uiTimer?.Start();
+        GoalMinutes = ProductivityPreferences.GetDailyGoalMinutes();
     }
 
     // Свойства для привязок
@@ -107,12 +116,71 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
         }
     }
 
+    public string TodayFocusMinutes
+    {
+        get => _todayFocusMinutes;
+        set { if (_todayFocusMinutes != value) { _todayFocusMinutes = value; OnPropertyChanged(); OnPropertyChanged(nameof(GoalProgressLabel)); } }
+    }
+
+    public int GoalMinutes
+    {
+        get => _goalMinutes;
+        set { if (_goalMinutes != value) { _goalMinutes = value; OnPropertyChanged(); OnPropertyChanged(nameof(GoalProgressLabel)); } }
+    }
+
+    public double GoalProgress
+    {
+        get => _goalProgress;
+        set { if (Math.Abs(_goalProgress - value) > 0.001) { _goalProgress = value; OnPropertyChanged(); OnPropertyChanged(nameof(GoalProgressLabel)); } }
+    }
+
+    public string GoalProgressLabel => $"{TodayFocusMinutes} / {GoalMinutes} min";
+
+    public int StreakDays
+    {
+        get => _streakDays;
+        set { if (_streakDays != value) { _streakDays = value; OnPropertyChanged(); } }
+    }
+
+    public string NextBestActionText
+    {
+        get => _nextBestActionText;
+        set { if (_nextBestActionText != value) { _nextBestActionText = value; OnPropertyChanged(); } }
+    }
+
+    public string NowAppName
+    {
+        get => _nowAppName;
+        set { if (_nowAppName != value) { _nowAppName = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsNowVisible)); } }
+    }
+
+    public string NowActivityState
+    {
+        get => _nowActivityState;
+        set { if (_nowActivityState != value) { _nowActivityState = value; OnPropertyChanged(); OnPropertyChanged(nameof(NowStateColor)); } }
+    }
+
+    public Color NowStateColor => NowActivityState switch
+    {
+        "Focus" => Color.FromArgb("#4ECCA3"),
+        "Distraction" => Color.FromArgb("#E07A5F"),
+        _ => Color.FromArgb("#6B9AC4")
+    };
+
+    public bool IsNowVisible => !string.IsNullOrEmpty(NowAppName);
+
     // Команда для RefreshView
     public ICommand RefreshCommand => new Command(async () =>
     {
         IsRefreshing = true;
         await Task.Run(() => UpdateAppList());
+        await LoadTodayFocusAsync();
         IsRefreshing = false;
+    });
+
+    public ICommand NextBestActionCommand => new Command(async () =>
+    {
+        await Shell.Current.GoToAsync(nameof(SessionPage));
     });
 
     private void UpdateAppList()
@@ -208,6 +276,7 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
 
                 // Обновляем статистику
                 UpdateStatistics();
+                UpdateNowAndNextAction();
                 _updateInProgress = false;
             });
         }
@@ -244,6 +313,59 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
         CurrentCategory = mostActiveCategory;
     }
 
+    private void UpdateNowAndNextAction()
+    {
+        var top = GroupedApps
+            .SelectMany(g => g)
+            .OrderByDescending(x => x.RunningTime.Ticks)
+            .FirstOrDefault();
+        if (top != null)
+        {
+            NowAppName = top.AppName;
+            var state = top.Category switch
+            {
+                "Coding" or "Productivity" => "Focus",
+                "Gaming" or "Chilling" => "Distraction",
+                _ => "Neutral"
+            };
+            NowActivityState = state;
+        }
+        else
+        {
+            NowAppName = "";
+        }
+        NextBestActionText = GoalProgress >= 1.0 ? "You hit your goal" : "Start a focus session";
+    }
+
+    private async Task LoadTodayFocusAsync()
+    {
+        try
+        {
+            var from = DateTime.Today.ToString("yyyy-MM-dd");
+            var to = DateTime.Today.ToString("yyyy-MM-dd");
+            var response = await _usageService.GetUsageAsync(from, to, "day", null, null);
+            if (response?.Entries == null || response.Entries.Count == 0)
+            {
+                TodayFocusMinutes = "0 min";
+                GoalProgress = 0;
+                return;
+            }
+            const string focusCategory1 = "Coding";
+            const string focusCategory2 = "Productivity";
+            var focusSeconds = response.Entries
+                .Where(e => string.Equals(e.Category, focusCategory1, StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(e.Category, focusCategory2, StringComparison.OrdinalIgnoreCase))
+                .Sum(e => e.TotalSeconds);
+            var focusMinutes = (int)(focusSeconds / 60);
+            TodayFocusMinutes = $"{focusMinutes} min";
+            GoalProgress = _goalMinutes <= 0 ? 0 : Math.Min(1.0, (double)focusMinutes / _goalMinutes);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"LoadTodayFocus: {ex}");
+        }
+    }
+
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
@@ -258,8 +380,8 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
         await Shell.Current.GoToAsync(nameof(LoginPage));
     }
 
-    public event PropertyChangedEventHandler PropertyChanged;
-    protected virtual void OnPropertyChanged([System.Runtime.CompilerServices.CallerMemberName] string propertyName = null)
+    public new event PropertyChangedEventHandler? PropertyChanged;
+    protected new virtual void OnPropertyChanged([System.Runtime.CompilerServices.CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
