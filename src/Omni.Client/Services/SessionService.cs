@@ -11,16 +11,13 @@ public sealed class SessionService : ISessionService
 {
     private readonly HttpClient _http;
     private readonly IAuthService _authService;
+    private readonly JsonSerializerOptions _jsonOptions;
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
-
-    public SessionService(HttpClient http, IAuthService authService)
+    public SessionService(HttpClient http, IAuthService authService, JsonSerializerOptions jsonOptions)
     {
         _http = http;
         _authService = authService;
+        _jsonOptions = jsonOptions;
     }
 
     public async Task<bool> SyncSessionsAsync(IReadOnlyList<SessionSyncEntry> entries, CancellationToken cancellationToken = default)
@@ -37,7 +34,7 @@ public sealed class SessionService : ISessionService
 
         var request = new HttpRequestMessage(HttpMethod.Post, "api/sessions/sync");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        request.Content = JsonContent.Create(new SessionSyncRequest { Entries = entries.ToList() }, options: JsonOptions);
+        request.Content = JsonContent.Create(new SessionSyncRequest { Entries = entries.ToList() }, options: _jsonOptions);
 
         using var response = await _http.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
@@ -68,7 +65,7 @@ public sealed class SessionService : ISessionService
             return null;
         try
         {
-            var body = await response.Content.ReadFromJsonAsync<SessionListResponse>(JsonOptions, cancellationToken);
+            var body = await response.Content.ReadFromJsonAsync<SessionListResponse>(_jsonOptions, cancellationToken);
             return body;
         }
         catch (JsonException)

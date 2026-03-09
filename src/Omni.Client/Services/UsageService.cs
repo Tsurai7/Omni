@@ -14,20 +14,17 @@ public sealed class UsageService : IUsageService
     private readonly HttpClient _http;
     private readonly IAuthService _authService;
     private readonly IActiveWindowTracker _tracker;
+    private readonly JsonSerializerOptions _jsonOptions;
     private Dictionary<string, long> _lastSyncedSeconds = new();
     private CancellationTokenSource? _syncCts;
     private readonly object _lock = new();
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
-
-    public UsageService(HttpClient http, IAuthService authService, IActiveWindowTracker tracker)
+    public UsageService(HttpClient http, IAuthService authService, IActiveWindowTracker tracker, JsonSerializerOptions jsonOptions)
     {
         _http = http;
         _authService = authService;
         _tracker = tracker;
+        _jsonOptions = jsonOptions;
     }
 
     public async Task<bool> SyncAsync(CancellationToken cancellationToken = default)
@@ -64,7 +61,7 @@ public sealed class UsageService : IUsageService
 
         var request = new HttpRequestMessage(HttpMethod.Post, "api/usage/sync");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        request.Content = JsonContent.Create(new UsageSyncRequest { Entries = entries }, options: JsonOptions);
+        request.Content = JsonContent.Create(new UsageSyncRequest { Entries = entries }, options: _jsonOptions);
 
         using var response = await _http.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
@@ -103,7 +100,7 @@ public sealed class UsageService : IUsageService
             return null;
         try
         {
-            var body = await response.Content.ReadFromJsonAsync<UsageListResponse>(JsonOptions, cancellationToken);
+            var body = await response.Content.ReadFromJsonAsync<UsageListResponse>(_jsonOptions, cancellationToken);
             return body;
         }
         catch (JsonException)

@@ -10,17 +10,14 @@ public sealed class AuthService : IAuthService
     private const string TokenKey = "omni_jwt_token";
     private const string TokenKeyPreferences = "omni_jwt_token_prefs"; // fallback when SecureStorage fails (e.g. Mac Catalyst without Keychain)
     private readonly HttpClient _http;
+    private readonly JsonSerializerOptions _jsonOptions;
     private string? _inMemoryToken;
     private UserResponse? _cachedUser;
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
-
-    public AuthService(HttpClient http)
+    public AuthService(HttpClient http, JsonSerializerOptions jsonOptions)
     {
         _http = http;
+        _jsonOptions = jsonOptions;
     }
 
     public async Task<bool> IsAuthenticatedAsync(CancellationToken cancellationToken = default)
@@ -57,7 +54,7 @@ public sealed class AuthService : IAuthService
         using var response = await _http.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
             return null;
-        var user = await response.Content.ReadFromJsonAsync<UserResponse>(JsonOptions, cancellationToken);
+        var user = await response.Content.ReadFromJsonAsync<UserResponse>(_jsonOptions, cancellationToken);
         if (user != null)
             _cachedUser = user;
         return user;
@@ -66,10 +63,10 @@ public sealed class AuthService : IAuthService
     public async Task<RegisterResponse?> RegisterAsync(string email, string password, CancellationToken cancellationToken = default)
     {
         var request = new RegisterRequest { Email = email.Trim(), Password = password };
-        using var response = await _http.PostAsJsonAsync("api/auth/register", request, JsonOptions, cancellationToken);
+        using var response = await _http.PostAsJsonAsync("api/auth/register", request, _jsonOptions, cancellationToken);
         if (!response.IsSuccessStatusCode)
             return null;
-        var body = await response.Content.ReadFromJsonAsync<RegisterResponse>(JsonOptions, cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<RegisterResponse>(_jsonOptions, cancellationToken);
         if (body?.Token != null)
         {
             _inMemoryToken = body.Token;
@@ -81,10 +78,10 @@ public sealed class AuthService : IAuthService
     public async Task<TokenResponse?> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
     {
         var request = new LoginRequest { Email = email.Trim(), Password = password };
-        using var response = await _http.PostAsJsonAsync("api/auth/login", request, JsonOptions, cancellationToken);
+        using var response = await _http.PostAsJsonAsync("api/auth/login", request, _jsonOptions, cancellationToken);
         if (!response.IsSuccessStatusCode)
             return null;
-        var body = await response.Content.ReadFromJsonAsync<TokenResponse>(JsonOptions, cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<TokenResponse>(_jsonOptions, cancellationToken);
         if (body?.Token != null)
         {
             _inMemoryToken = body.Token;

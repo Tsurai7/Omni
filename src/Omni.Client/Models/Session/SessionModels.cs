@@ -1,50 +1,31 @@
 using System.Collections.ObjectModel;
-using System.Text.Json.Serialization;
 
 namespace Omni.Client.Models.Session;
 
 public sealed class SessionSyncEntry
 {
-    [JsonPropertyName("name")]
     public string Name { get; set; } = "";
-
-    [JsonPropertyName("activity_type")]
     public string ActivityType { get; set; } = "other";
-
-    [JsonPropertyName("started_at")]
     public string StartedAt { get; set; } = "";
-
-    [JsonPropertyName("duration_seconds")]
     public long DurationSeconds { get; set; }
 }
 
 public sealed class SessionSyncRequest
 {
-    [JsonPropertyName("entries")]
     public List<SessionSyncEntry> Entries { get; set; } = new();
 }
 
 public sealed class SessionListEntry
 {
-    [JsonPropertyName("id")]
     public string Id { get; set; } = "";
-
-    [JsonPropertyName("name")]
     public string Name { get; set; } = "";
-
-    [JsonPropertyName("activity_type")]
     public string ActivityType { get; set; } = "";
-
-    [JsonPropertyName("started_at")]
     public string StartedAt { get; set; } = "";
-
-    [JsonPropertyName("duration_seconds")]
     public long DurationSeconds { get; set; }
 }
 
 public sealed class SessionListResponse
 {
-    [JsonPropertyName("entries")]
     public List<SessionListEntry> Entries { get; set; } = new();
 }
 
