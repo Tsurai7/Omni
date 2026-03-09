@@ -19,6 +19,12 @@
             ContentTemplate="{DataTemplate local:UsageStatsPage}"
             Route="UsageStatsPage" />
     </FlyoutItem>
+    <FlyoutItem Title="Session" Icon="dotnet_bot.png">
+        <ShellContent
+            Title="Session"
+            ContentTemplate="{DataTemplate local:SessionPage}"
+            Route="SessionPage" />
+    </FlyoutItem>
     <FlyoutItem Title="Account" Icon="dotnet_bot.png">
         <ShellContent
             Title="Account"

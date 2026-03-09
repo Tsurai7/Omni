@@ -14,41 +14,49 @@ public class ActiveWindowTrackerMacOS : IActiveWindowTracker
     private bool? _hasAutomationPermission;
 
     private const string GetActiveAppScript = 
-        @"tell application ""System Events""
-            get name of first application process whose frontmost is true
-        end tell";
+        """
+        tell application "System Events"
+                    get name of first application process whose frontmost is true
+                end tell
+        """;
 
     private const string GetChromeTabScript =
-        @"tell application ""Google Chrome""
-            if it is running then
-                get title of active tab of first window
-            else
-                return """"
-            end if
-        end tell";
+        """
+        tell application "Google Chrome"
+                    if it is running then
+                        get title of active tab of first window
+                    else
+                        return ""
+                    end if
+                end tell
+        """;
 
     private const string GetSafariTabScript =
-        @"tell application ""Safari""
-            if it is running then
-                get name of current tab of first window
-            else
-                return """"
-            end if
-        end tell";
+        """
+        tell application "Safari"
+                    if it is running then
+                        get name of current tab of first window
+                    else
+                        return ""
+                    end if
+                end tell
+        """;
 
     private const string GetFirefoxTabScript =
-        @"tell application ""Firefox""
-            if it is running then
-                tell first window
-                    return name of active tab
+        """
+        tell application "Firefox"
+                    if it is running then
+                        tell first window
+                            return name of active tab
+                        end tell
+                    else
+                        return ""
+                    end if
                 end tell
-            else
-                return """"
-            end if
-        end tell";
+        """;
 
     private const string CheckPermissionScript = 
-        @"tell application ""System Events"" to get name of processes";
+        """tell application "System Events" to get name of processes""";
 
     public event Action PermissionDenied;
 

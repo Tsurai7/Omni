@@ -23,8 +23,14 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredService<IAuthService>(),
                 sp.GetRequiredService<IActiveWindowTracker>()));
 
+        services.AddSingleton<ISessionService>(sp =>
+            new SessionService(
+                sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackend"),
+                sp.GetRequiredService<IAuthService>()));
+
         services.AddTransient<MainPage>();
         services.AddTransient<UsageStatsPage>();
+        services.AddTransient<SessionPage>();
         services.AddTransient<AccountPage>();
 
         services.AddActiveWindowTracker();
