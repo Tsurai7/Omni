@@ -249,7 +249,7 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
                         }
 
                         // Удаляем отсутствующие приложения
-                        for (int i = existingGroup.Count - 1; i >= 0; i--)
+                        for (var i = existingGroup.Count - 1; i >= 0; i--)
                         {
                             if (!currentUsage.ContainsKey(existingGroup[i].AppName))
                             {
@@ -378,6 +378,16 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
         _usageService.StopPeriodicSync();
         _authService.Logout();
         await Shell.Current.GoToAsync(nameof(LoginPage));
+    }
+
+    private async void OnStartSessionClicked(object? sender, EventArgs e)
+    {
+        await Shell.Current.GoToAsync(nameof(SessionPage));
+    }
+
+    private async void OnAddTaskClicked(object? sender, EventArgs e)
+    {
+        await Shell.Current.GoToAsync(nameof(TasksPage));
     }
 
     public new event PropertyChangedEventHandler? PropertyChanged;

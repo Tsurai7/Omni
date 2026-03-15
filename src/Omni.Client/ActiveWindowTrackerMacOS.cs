@@ -10,7 +10,7 @@ public class ActiveWindowTrackerMacOS : IActiveWindowTracker
     private readonly object _lock = new();
     private string _currentApp = "Unknown";
     private string _currentTab = string.Empty;
-    private System.Timers.Timer _timer;
+    private System.Timers.Timer? _timer;
     private bool? _hasAutomationPermission;
 
     private const string GetActiveAppScript = 
@@ -58,7 +58,7 @@ public class ActiveWindowTrackerMacOS : IActiveWindowTracker
     private const string CheckPermissionScript = 
         """tell application "System Events" to get name of processes""";
 
-    public event Action PermissionDenied;
+    public event Action? PermissionDenied;
 
     public void StartTracking()
     {
@@ -191,7 +191,7 @@ public class ActiveWindowTrackerMacOS : IActiveWindowTracker
         try
         {
             var result = ExecuteAppleScript(CheckPermissionScript);
-            _hasAutomationPermission = !result.Contains("error") && !result.Contains("denied");
+            _hasAutomationPermission = !string.IsNullOrEmpty(result) && !result.Contains("error") && !result.Contains("denied");
             return _hasAutomationPermission.Value;
         }
         catch
@@ -244,6 +244,8 @@ public class ActiveWindowTrackerMacOS : IActiveWindowTracker
         }
     }
 
+    private static bool _loggedAppleScriptNotRunning;
+
     private static string ExecuteAppleScript(string script)
     {
         try
@@ -263,10 +265,24 @@ public class ActiveWindowTrackerMacOS : IActiveWindowTracker
 
             process.Start();
             string output = process.StandardOutput.ReadToEnd().Trim();
-            string error = process.StandardError.ReadToEnd();
+            string error = process.StandardError.ReadToEnd().Trim();
             process.WaitForExit();
 
-            return string.IsNullOrEmpty(error) ? output : throw new Exception($"AppleScript error: {error}");
+            if (string.IsNullOrEmpty(error))
+                return output;
+
+            // -600 = "Application isn't running" (e.g. System Events or a browser not visible to this process, or app not running). Treat as empty, don't spam logs.
+            if (error.Contains("-600") || error.Contains("isn't running", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!_loggedAppleScriptNotRunning)
+                {
+                    _loggedAppleScriptNotRunning = true;
+                    Debug.Print("[ActiveWindow] AppleScript -600 / application not running (grant Automation access in System Settings → Privacy & Security → Automation if needed).");
+                }
+                return string.Empty;
+            }
+
+            throw new Exception($"AppleScript error: {error}");
         }
         catch (Exception ex)
         {

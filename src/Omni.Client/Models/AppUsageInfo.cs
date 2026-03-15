@@ -15,9 +15,9 @@ public class AppUsageInfo : INotifyPropertyChanged
         ["Productivity"] = Color.FromArgb("#98C379"),
     };
 
-    public string AppName { get; set; }
+    public required string AppName { get; set; }
 
-    private string _category;
+    private string _category = string.Empty;
     public string Category
     {
         get => _category;

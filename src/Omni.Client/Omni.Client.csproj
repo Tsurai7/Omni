@@ -20,7 +20,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
 
-        <!-- Display name -->
+        <!-- Display name (shown in System Settings > Notifications as "Omni") -->
         <ApplicationTitle>Omni.Client</ApplicationTitle>
 
         <!-- App Identifier -->
@@ -35,6 +35,12 @@
 
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
+        <!-- Mac Catalyst: entitlements required so notification permission works. Debug code signing so notifications work from IDE (dotnet run / F5).
+             Set SkipMacCodesign=true when building without a cert (e.g. ./run-mac-app.sh); build will skip signing so .app runs (in-app alerts only). -->
+        <CodesignDisable Condition="'$(TargetFramework)' == 'net10.0-maccatalyst' and '$(SkipMacCodesign)' == 'true'">true</CodesignDisable>
+        <CodesignKey Condition="'$(TargetFramework)' == 'net10.0-maccatalyst' and '$(Configuration)' == 'Debug' and '$(SkipMacCodesign)' != 'true'">Apple Development</CodesignKey>
+        <CodesignProvision Condition="'$(TargetFramework)' == 'net10.0-maccatalyst' and '$(Configuration)' == 'Debug' and '$(SkipMacCodesign)' != 'true'">Automatic</CodesignProvision>
+        <CodesignEntitlements Condition="'$(TargetFramework)' == 'net10.0-maccatalyst'">Platforms/MacCatalyst/Entitlements.plist</CodesignEntitlements>
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
         <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
@@ -82,6 +88,8 @@
         <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.3" />
         <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.3" />
         <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.3" Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'" />
+        <PackageReference Include="sqlite-net-pcl" Version="1.9.172" />
+        <PackageReference Include="SQLitePCLRaw.bundle_green" Version="2.1.10" />
     </ItemGroup>
 
     <!-- Exclude platform-specific notification implementations from other targets -->

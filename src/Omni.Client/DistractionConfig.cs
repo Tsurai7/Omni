@@ -17,10 +17,10 @@ public sealed class DistractionConfig
     public int FrequentSwitchWindowMinutes { get; } = 5;
 
     /// <summary>Number of app/category switches in the window that triggers "frequent switching".</summary>
-    public int FrequentSwitchThreshold { get; } = 5;
+    public int FrequentSwitchThreshold { get; } = 3;
 
     /// <summary>Minimum minutes between distraction notifications to avoid spam.</summary>
-    public int NotificationDebounceMinutes { get; } = 4;
+    public int NotificationDebounceMinutes { get; } = 2;
 
     /// <summary>Penalty points subtracted from concentration score per distraction event (e.g. 5).</summary>
     public int ScorePenaltyPerDistractionEvent { get; } = 5;

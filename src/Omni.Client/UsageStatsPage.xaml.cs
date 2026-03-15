@@ -98,6 +98,12 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        var auth = MauiProgram.AppServices?.GetService<IAuthService>();
+        if (auth != null && !await auth.IsAuthenticatedAsync())
+        {
+            await Shell.Current.GoToAsync(nameof(LoginPage));
+            return;
+        }
         // Ensure periodic sync is running even if user opened Usage stats without visiting Home first
         var usageService = GetUsageService();
         if (usageService != null)

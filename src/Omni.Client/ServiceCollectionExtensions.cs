@@ -39,17 +39,27 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackend"),
                 sp.GetRequiredService<IAuthService>(),
                 sp.GetRequiredService<IActiveWindowTracker>(),
-                sp.GetRequiredService<JsonSerializerOptions>()));
+                sp.GetRequiredService<JsonSerializerOptions>(),
+                sp.GetRequiredService<LocalDatabaseService>()));
 
         services.AddSingleton<ISessionService>(sp =>
             new SessionService(
                 sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackend"),
                 sp.GetRequiredService<IAuthService>(),
-                sp.GetRequiredService<JsonSerializerOptions>()));
+                sp.GetRequiredService<JsonSerializerOptions>(),
+                sp.GetRequiredService<LocalDatabaseService>()));
+
+        services.AddSingleton<ITaskService>(sp =>
+            new TaskService(
+                sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackend"),
+                sp.GetRequiredService<IAuthService>(),
+                sp.GetRequiredService<JsonSerializerOptions>(),
+                sp.GetRequiredService<LocalDatabaseService>()));
 
         services.AddTransient<MainPage>();
         services.AddTransient<UsageStatsPage>();
         services.AddTransient<SessionPage>();
+        services.AddTransient<TasksPage>();
         services.AddTransient<AccountPage>();
 
         services.AddActiveWindowTracker();
@@ -61,6 +71,15 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredService<INotificationManager>(),
                 sp.GetRequiredService<DistractionConfig>()));
         services.AddSingleton<IRunningSessionState, RunningSessionStateService>();
+
+        services.AddSingleton<LocalDatabaseService>();
+        services.AddSingleton<ISyncService>(sp =>
+            new SyncService(
+                sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackend"),
+                sp.GetRequiredService<IAuthService>(),
+                sp.GetRequiredService<LocalDatabaseService>(),
+                sp.GetRequiredService<JsonSerializerOptions>()));
+
         return services;
     }
 

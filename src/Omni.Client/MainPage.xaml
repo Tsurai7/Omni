@@ -8,7 +8,7 @@
     <RefreshView Command="{Binding RefreshCommand}"
                  IsRefreshing="{Binding IsRefreshing}">
         <ScrollView>
-            <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="20,10">
+            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Padding="20,10">
                 <!-- Header -->
                 <VerticalStackLayout Grid.Row="0" Spacing="5">
                     <Grid ColumnDefinitions="*,Auto">
@@ -96,8 +96,26 @@
                     </HorizontalStackLayout>
                 </Border>
 
+                <!-- Quick actions: surface main functions -->
+                <Border Grid.Row="4" Margin="0,0,0,16"
+                        BackgroundColor="{StaticResource ProductivityCardBackground}"
+                        Stroke="{StaticResource ProductivityCardStroke}"
+                        StrokeThickness="1"
+                        Padding="16">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Quick actions" Style="{StaticResource ProductivityCaption}"/>
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                            <Button Text="Start session" Style="{StaticResource ProductivitySecondaryButton}" Clicked="OnStartSessionClicked"/>
+                            <Button Text="Add task" Grid.Column="1" Style="{StaticResource ProductivitySecondaryButton}" Clicked="OnAddTaskClicked"/>
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
                 <!-- Stats + Apps List -->
-                <VerticalStackLayout Grid.Row="4" Spacing="0">
+                <VerticalStackLayout Grid.Row="5" Spacing="0">
                     <Border Margin="0,0,0,16"
                             BackgroundColor="{StaticResource ProductivityCardBackground}"
                             Stroke="{StaticResource ProductivityCardStroke}"

@@ -1,4 +1,5 @@
 services:
+
   postgres:
     image: postgres:16-alpine
     container_name: omni-postgres
@@ -17,22 +18,178 @@ services:
       timeout: 5s
       retries: 5
 
-  backend:
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    container_name: omni-clickhouse
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-omni_analytics}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-omni}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-omni}
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:8123/ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.1.2
+    container_name: redpanda
+    command:
+      - redpanda
+      - start
+      - --mode dev-container
+      - --advertise-kafka-addr redpanda:9092
+    ports:
+      - "8081:8081"   # Schema Registry
+      - "8082:8082"   # HTTP Proxy
+      - "9092:9092"   # Kafka API
+      - "9644:9644"   # Redpanda Admin API
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "health", "--exit-when-healthy"]
+      interval: 5s
+      timeout: 10s
+      retries: 15
+      start_period: 15s
+
+  redpanda-console:
+    image: docker.redpanda.com/redpandadata/console:v2.5.2
+    container_name: redpanda-console
+    ports:
+      - "8088:8080"
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_SCHEMAREGISTRY_ENABLED: "true"
+      KAFKA_SCHEMAREGISTRY_URLS: http://redpanda:8081
+      REDPANDA_ADMINAPI_ENABLED: "true"
+      REDPANDA_ADMINAPI_URLS: http://redpanda:9644
+    depends_on:
+      - redpanda
+
+  gateway:
     build:
       context: ./src/Omni.Backend
       dockerfile: Dockerfile
-    container_name: omni-backend
+    container_name: omni-gateway
     restart: unless-stopped
+    command: ["./gateway"]
+    depends_on:
+      profile:
+        condition: service_started
+      task:
+        condition: service_started
+      telemetry:
+        condition: service_started
+    environment:
+      PORT: 8080
+      JWT_SECRET: ${JWT_SECRET}
+      PROFILE_URL: http://profile:8081
+      TASK_URL: http://task:8082
+      TELEMETRY_URL: http://telemetry:8083
+    ports:
+      - "${BACKEND_PORT:-9080}:8080"
+
+  profile:
+    build:
+      context: ./src/Omni.Backend
+      dockerfile: Dockerfile
+    container_name: omni-profile
+    restart: unless-stopped
+    command: ["./profile"]
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      PORT: 8080
+      PORT: 8081
       DATABASE_URL: postgres://${POSTGRES_USER:-omni}:${POSTGRES_PASSWORD:-omni}@postgres:5432/${POSTGRES_DB:-omni}?sslmode=disable
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRY_HOURS: ${JWT_EXPIRY_HOURS:-24}
+
+  task:
+    build:
+      context: ./src/Omni.Backend
+      dockerfile: Dockerfile
+    container_name: omni-task
+    restart: unless-stopped
+    command: ["./task"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 8082
+      DATABASE_URL: postgres://${POSTGRES_USER:-omni}:${POSTGRES_PASSWORD:-omni}@postgres:5432/${POSTGRES_DB:-omni}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRY_HOURS: ${JWT_EXPIRY_HOURS:-24}
+
+  telemetry:
+    build:
+      context: ./src/Omni.Backend
+      dockerfile: Dockerfile
+    container_name: omni-telemetry
+    restart: unless-stopped
+    command: ["./telemetry"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    environment:
+      PORT: 8083
+      DATABASE_URL: postgres://${POSTGRES_USER:-omni}:${POSTGRES_PASSWORD:-omni}@postgres:5432/${POSTGRES_DB:-omni}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRY_HOURS: ${JWT_EXPIRY_HOURS:-24}
+      KAFKA_BROKERS: redpanda:9092
+
+  telemetry-consumer:
+    build:
+      context: ./src/Omni.Backend
+      dockerfile: Dockerfile
+    container_name: omni-telemetry-consumer
+    restart: unless-stopped
+    command: ["./telemetry-consumer"]
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+      TELEMETRY_TOPIC: omni.telemetry.events
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: "9000"
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-omni}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-omni}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-omni_analytics}
+
+  ai:
+    build:
+      context: ./src/omni-ai
+      dockerfile: Dockerfile
+    container_name: omni-ai
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-omni}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-omni}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-omni_analytics}
+      DATABASE_URL: postgres://${POSTGRES_USER:-omni}:${POSTGRES_PASSWORD:-omni}@postgres:5432/${POSTGRES_DB:-omni}?sslmode=disable
     ports:
-      - "${BACKEND_PORT:-8080}:8080"
+      - "8000:8000"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
 
 volumes:
   omni_pgdata:
+  redpanda_data:
+  clickhouse_data:

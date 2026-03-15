@@ -70,7 +70,8 @@ public sealed class AuthService : IAuthService
         if (body?.Token != null)
         {
             _inMemoryToken = body.Token;
-            await PersistTokenAsync(body.Token);
+            // Persist in background so SecureStorage (e.g. Keychain on Mac Catalyst) does not block the UI
+            _ = PersistTokenAsync(body.Token);
         }
         return body;
     }
@@ -85,7 +86,8 @@ public sealed class AuthService : IAuthService
         if (body?.Token != null)
         {
             _inMemoryToken = body.Token;
-            await PersistTokenAsync(body.Token);
+            // Persist in background so SecureStorage (e.g. Keychain on Mac Catalyst) does not block the UI
+            _ = PersistTokenAsync(body.Token);
         }
         return body;
     }

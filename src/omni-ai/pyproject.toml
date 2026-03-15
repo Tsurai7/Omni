@@ -1,0 +1,20 @@
+[project]
+name = "omni-ai"
+version = "0.1.0"
+description = "AI microservice for burnout detection and recommendations"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "clickhouse-connect>=0.8.0",
+    "sqlalchemy>=2.0.0",
+    "pandas>=2.2.0",
+    "psycopg2-binary>=2.9.0",
+    "scikit-learn>=1.5.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "httpx"]
+
+[tool.uv]
+dev-dependencies = []

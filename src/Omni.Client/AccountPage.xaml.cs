@@ -119,6 +119,6 @@ public partial class AccountPage : ContentPage, INotifyPropertyChanged
     }
 
     public new event PropertyChangedEventHandler? PropertyChanged;
-    protected void OnPropertyChanged([CallerMemberName] string? name = null) =>
+    protected new void OnPropertyChanged([CallerMemberName] string? name = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }

@@ -1,0 +1,192 @@
+basePath: /api
+definitions:
+  internal_telemetry.sessionSyncEntry:
+    properties:
+      activity_type:
+        type: string
+      duration_seconds:
+        type: integer
+      name:
+        type: string
+      started_at:
+        type: string
+    type: object
+  internal_telemetry.sessionSyncRequest:
+    properties:
+      entries:
+        items:
+          $ref: '#/definitions/internal_telemetry.sessionSyncEntry'
+        type: array
+    type: object
+  internal_telemetry.syncEntry:
+    properties:
+      app_name:
+        type: string
+      category:
+        type: string
+      duration_seconds:
+        type: integer
+    type: object
+  internal_telemetry.syncRequest:
+    properties:
+      entries:
+        items:
+          $ref: '#/definitions/internal_telemetry.syncEntry'
+        type: array
+    type: object
+info:
+  contact: {}
+  description: Usage and sessions sync and list.
+  title: Omni Telemetry API
+  version: "1.0"
+paths:
+  /sessions:
+    get:
+      parameters:
+      - description: From date (YYYY-MM-DD)
+        in: query
+        name: from
+        type: string
+      - description: To date (YYYY-MM-DD)
+        in: query
+        name: to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List sessions
+      tags:
+      - sessions
+  /sessions/sync:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Session entries
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_telemetry.sessionSyncRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Sync session entries
+      tags:
+      - sessions
+  /usage:
+    get:
+      parameters:
+      - description: From date (YYYY-MM-DD)
+        in: query
+        name: from
+        type: string
+      - description: To date (YYYY-MM-DD)
+        in: query
+        name: to
+        type: string
+      - description: day|week|month
+        in: query
+        name: group_by
+        type: string
+      - description: Filter by category
+        in: query
+        name: category
+        type: string
+      - description: Filter by app name
+        in: query
+        name: app_name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List usage entries
+      tags:
+      - usage
+  /usage/sync:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Usage entries
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_telemetry.syncRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Sync usage entries
+      tags:
+      - usage
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

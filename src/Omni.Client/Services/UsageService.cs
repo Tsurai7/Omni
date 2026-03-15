@@ -15,16 +15,18 @@ public sealed class UsageService : IUsageService
     private readonly IAuthService _authService;
     private readonly IActiveWindowTracker _tracker;
     private readonly JsonSerializerOptions _jsonOptions;
+    private readonly LocalDatabaseService _localDb;
     private Dictionary<string, long> _lastSyncedSeconds = new();
     private CancellationTokenSource? _syncCts;
     private readonly object _lock = new();
 
-    public UsageService(HttpClient http, IAuthService authService, IActiveWindowTracker tracker, JsonSerializerOptions jsonOptions)
+    public UsageService(HttpClient http, IAuthService authService, IActiveWindowTracker tracker, JsonSerializerOptions jsonOptions, LocalDatabaseService localDb)
     {
         _http = http;
         _authService = authService;
         _tracker = tracker;
         _jsonOptions = jsonOptions;
+        _localDb = localDb;
     }
 
     public async Task<bool> SyncAsync(CancellationToken cancellationToken = default)
@@ -64,14 +66,24 @@ public sealed class UsageService : IUsageService
         request.Content = JsonContent.Create(new UsageSyncRequest(entries), options: _jsonOptions);
 
         using var response = await _http.SendAsync(request, cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            Debug.WriteLine("UsageService.SyncAsync: 401 Unauthorized, clearing token.");
+            _authService.Logout();
+        }
         if (!response.IsSuccessStatusCode)
         {
             Debug.WriteLine($"UsageService.SyncAsync: sync failed {response.StatusCode}");
-            lock (_lock)
+            try
             {
-                foreach (var e in entries)
-                    _lastSyncedSeconds[e.AppName] = _lastSyncedSeconds.GetValueOrDefault(e.AppName, 0) - e.DurationSeconds;
+                var payload = JsonSerializer.Serialize(new UsageSyncRequest(entries), _jsonOptions);
+                await _localDb.SavePendingSyncAsync("usage", payload, cancellationToken);
             }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"UsageService.SyncAsync: failed to save pending sync: {ex.Message}");
+            }
+            // Do not roll back _lastSyncedSeconds so the same batch is not sent again by SyncAsync; SyncService will drain pending_sync.
             return false;
         }
         return true;

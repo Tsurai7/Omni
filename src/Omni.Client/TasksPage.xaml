@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Omni.Client.TasksPage"
+             Title="Tasks"
+             BackgroundColor="{StaticResource ProductivityPageBackground}">
+    <Grid RowDefinitions="Auto,*">
+        <Border Grid.Row="0" Margin="20" Padding="20"
+                BackgroundColor="{StaticResource ProductivityCardBackground}"
+                Stroke="{StaticResource ProductivityCardStroke}"
+                StrokeThickness="1">
+            <Border.Shadow>
+                <Shadow Brush="Black" Offset="2,2" Radius="4" Opacity="0.25"/>
+            </Border.Shadow>
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusLg}"/>
+            </Border.StrokeShape>
+            <Grid ColumnDefinitions="*,Auto">
+                <VerticalStackLayout Grid.Column="0" Spacing="4">
+                    <Label Text="Tasks" Style="{StaticResource ProductivityHeadline}"/>
+                    <Label Text="Your to-dos sync across devices when online." Style="{StaticResource ProductivityCaption}"/>
+                </VerticalStackLayout>
+                <Button Grid.Column="1" Text="Add task"
+                        Style="{StaticResource ProductivityCtaButton}"
+                        VerticalOptions="Center"
+                        Clicked="OnAddTaskClicked"/>
+            </Grid>
+        </Border>
+        <RefreshView x:Name="RefreshView" Grid.Row="1" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsRefreshing}">
+            <ScrollView>
+                <VerticalStackLayout Spacing="0" Padding="20,0">
+                    <CollectionView x:Name="TaskList"
+                                    ItemsSource="{Binding Tasks}"
+                                    SelectionMode="None"
+                                    Margin="0,0,0,20">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="16" Margin="0,0,0,10"
+                                        BackgroundColor="{StaticResource ProductivityCardBackground}"
+                                        Stroke="{StaticResource ProductivityCardStroke}"
+                                        StrokeThickness="1">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                                    </Border.StrokeShape>
+                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                        <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
+                                            <Label Text="{Binding Title}" Style="{StaticResource ProductivityBody}" LineBreakMode="TailTruncation"/>
+                                            <Label Text="{Binding Status}" Style="{StaticResource ProductivityCaption}"/>
+                                        </VerticalStackLayout>
+                                        <Button Grid.Column="1" Text="Done" Style="{StaticResource ProductivitySecondaryButton}"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.MarkDoneCommand}"
+                                                CommandParameter="{Binding .}"
+                                                IsVisible="{Binding IsPending}"
+                                                VerticalOptions="Center" Padding="12,0"/>
+                                        <Button Grid.Column="2" Text="Delete" Style="{StaticResource ProductivitySecondaryButton}"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeleteTaskCommand}"
+                                                CommandParameter="{Binding .}"
+                                                VerticalOptions="Center" Padding="12,0"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                        <CollectionView.EmptyView>
+                            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="12" Padding="0,60">
+                                <Label Text="No tasks yet." Style="{StaticResource ProductivityTitle}" HorizontalOptions="Center"/>
+                                <Label Text="Tap Add task to create one." Style="{StaticResource ProductivityCaption}" HorizontalOptions="Center"/>
+                            </VerticalStackLayout>
+                        </CollectionView.EmptyView>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </ScrollView>
+        </RefreshView>
+    </Grid>
+</ContentPage>

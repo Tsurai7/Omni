@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Omni.Client.Abstractions;
 
 namespace Omni.Client.Services;
@@ -47,6 +48,7 @@ public sealed class SessionDistractionService : ISessionDistractionService
             _sessionStartTimeUtc = sessionStartTimeUtc;
             _activityName = activityName ?? "";
             _isRunning = true;
+            Debug.WriteLine($"[SessionDistraction] Started: activity=\"{_activityName}\", windowMinutes={_config.FrequentSwitchWindowMinutes}, threshold={_config.FrequentSwitchThreshold}, debounceMinutes={_config.NotificationDebounceMinutes}");
             _lastApp = "";
             _lastCategory = "";
             _distractingSegmentStartUtc = null;
@@ -136,6 +138,7 @@ public sealed class SessionDistractionService : ISessionDistractionService
             {
                 _switchTimestamps.Add(nowUtc);
                 TrimSwitchesToWindow(nowUtc);
+                Debug.WriteLine($"[SessionDistraction] App/category switch: {_lastApp} -> {app}, category {_lastCategory} -> {category}, switches in window={_switchTimestamps.Count}");
                 _lastApp = app;
                 _lastCategory = category;
             }
@@ -153,6 +156,7 @@ public sealed class SessionDistractionService : ISessionDistractionService
                     _distractionEventCount++;
                     _lastNotificationUtc = nowUtc;
                     toNotify = new DistractionEvent("distracting_category", _activityName, category);
+                    Debug.WriteLine($"[SessionDistraction] Triggering notification: distracting_category (category={category}, activity={_activityName})");
                 }
                 if (toNotify != null)
                 {
@@ -178,6 +182,7 @@ public sealed class SessionDistractionService : ISessionDistractionService
                 _distractionEventCount++;
                 _lastNotificationUtc = nowUtc;
                 freqEvt = new DistractionEvent("frequent_switching", _activityName, $"{switchCountInWindow} switches");
+                Debug.WriteLine($"[SessionDistraction] Triggering notification: frequent_switching (switches={switchCountInWindow}, threshold={_config.FrequentSwitchThreshold}, activity={_activityName})");
             }
             if (freqEvt != null)
                 NotifyDistraction(freqEvt);
@@ -194,7 +199,11 @@ public sealed class SessionDistractionService : ISessionDistractionService
     private bool CanSendNotification(DateTime nowUtc)
     {
         if (!_lastNotificationUtc.HasValue) return true;
-        return (nowUtc - _lastNotificationUtc.Value).TotalMinutes >= _config.NotificationDebounceMinutes;
+        var elapsed = (nowUtc - _lastNotificationUtc.Value).TotalMinutes;
+        var allowed = elapsed >= _config.NotificationDebounceMinutes;
+        if (!allowed)
+            Debug.WriteLine($"[SessionDistraction] Notification debounced: {elapsed:F1} min since last (need {_config.NotificationDebounceMinutes} min)");
+        return allowed;
     }
 
     private void NotifyDistraction(DistractionEvent evt)
@@ -204,6 +213,7 @@ public sealed class SessionDistractionService : ISessionDistractionService
         var body = string.IsNullOrEmpty(_activityName)
             ? "Get back to your focus session."
             : $"Get back to {_activityName}.";
+        Debug.WriteLine($"[SessionDistraction] Sending notification: title=\"{title}\", body=\"{body}\", reason={evt.Reason}");
         _notificationManager.SendNotification(title, body);
     }
 

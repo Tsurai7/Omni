@@ -40,15 +40,23 @@ public partial class RegisterPage : ContentPage
         }
 
         RegisterButton.IsEnabled = false;
+        RegisterIndicator.IsRunning = true;
+        RegisterIndicator.IsVisible = true;
         try
         {
-            var result = await _authService.RegisterAsync(email, password);
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            var result = await _authService.RegisterAsync(email, password, cts.Token);
             if (result != null)
             {
                 await Shell.Current.GoToAsync("..");
                 return;
             }
             ErrorLabel.Text = "Registration failed. Email may already be in use.";
+            ErrorLabel.IsVisible = true;
+        }
+        catch (OperationCanceledException)
+        {
+            ErrorLabel.Text = "Request timed out. Check the server and try again.";
             ErrorLabel.IsVisible = true;
         }
         catch (Exception ex)
@@ -60,6 +68,8 @@ public partial class RegisterPage : ContentPage
         finally
         {
             RegisterButton.IsEnabled = true;
+            RegisterIndicator.IsRunning = false;
+            RegisterIndicator.IsVisible = false;
         }
     }
 

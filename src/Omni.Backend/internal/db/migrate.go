@@ -40,6 +40,18 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE INDEX IF NOT EXISTS idx_sessions_user_started ON sessions(user_id, started_at);
 `
 
+const createTableTasks = `
+CREATE TABLE IF NOT EXISTS tasks (
+	id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+	title TEXT NOT NULL,
+	status TEXT NOT NULL DEFAULT 'pending',
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON tasks(user_id);
+`
+
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, err := pool.Exec(ctx, createTableUsers); err != nil {
 		return err
@@ -47,6 +59,9 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, err := pool.Exec(ctx, createTableUsageRecords); err != nil {
 		return err
 	}
-	_, err := pool.Exec(ctx, createTableSessions)
+	if _, err := pool.Exec(ctx, createTableSessions); err != nil {
+		return err
+	}
+	_, err := pool.Exec(ctx, createTableTasks)
 	return err
 }

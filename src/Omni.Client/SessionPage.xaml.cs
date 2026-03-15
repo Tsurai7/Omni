@@ -102,9 +102,15 @@ public partial class SessionPage : ContentPage, INotifyPropertyChanged
     public string ScoreLabel => LastScoreResult != null ? $"{LastScoreResult.Score}/100" : "";
     public string ScoreSummaryLabel => LastScoreResult?.Summary ?? "";
 
-    protected override void OnAppearing()
+    protected override async void OnAppearing()
     {
         base.OnAppearing();
+        var auth = MauiProgram.AppServices?.GetService<IAuthService>();
+        if (auth != null && !await auth.IsAuthenticatedAsync())
+        {
+            await Shell.Current.GoToAsync(nameof(LoginPage));
+            return;
+        }
         var state = GetRunningState();
         var distraction = GetDistractionService();
         if (distraction != null)

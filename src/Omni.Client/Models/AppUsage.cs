@@ -7,7 +7,7 @@ public class AppUsage : INotifyPropertyChanged
 {
     private TimeSpan _timeSpent;
 
-    public string Name { get; set; }
+    public required string Name { get; set; }
 
     public TimeSpan TimeSpent
     {
@@ -23,7 +23,7 @@ public class AppUsage : INotifyPropertyChanged
         }
     }
 
-    public string Category { get; set; }
+    public required string Category { get; set; }
     public string FormattedTime
     {
         get

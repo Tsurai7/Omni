@@ -20,7 +20,7 @@ public class ActiveWindowTrackerWindows : IActiveWindowTracker, IDisposable
     private readonly Dictionary<string, TimeSpan> _appUsage = new();
     private readonly Dictionary<string, TimeSpan> _categoryUsage = new();
     private readonly object _lock = new();
-    private CancellationTokenSource _trackingCts;
+    private CancellationTokenSource? _trackingCts;
     private bool _disposed;
 
     public void StartTracking()

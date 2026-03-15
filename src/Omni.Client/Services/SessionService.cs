@@ -12,12 +12,14 @@ public sealed class SessionService : ISessionService
     private readonly HttpClient _http;
     private readonly IAuthService _authService;
     private readonly JsonSerializerOptions _jsonOptions;
+    private readonly LocalDatabaseService _localDb;
 
-    public SessionService(HttpClient http, IAuthService authService, JsonSerializerOptions jsonOptions)
+    public SessionService(HttpClient http, IAuthService authService, JsonSerializerOptions jsonOptions, LocalDatabaseService localDb)
     {
         _http = http;
         _authService = authService;
         _jsonOptions = jsonOptions;
+        _localDb = localDb;
     }
 
     public async Task<bool> SyncSessionsAsync(IReadOnlyList<SessionSyncEntry> entries, CancellationToken cancellationToken = default)
@@ -32,14 +34,29 @@ public sealed class SessionService : ISessionService
             return false;
         }
 
+        var syncRequest = new SessionSyncRequest { Entries = entries.ToList() };
         var request = new HttpRequestMessage(HttpMethod.Post, "api/sessions/sync");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        request.Content = JsonContent.Create(new SessionSyncRequest { Entries = entries.ToList() }, options: _jsonOptions);
+        request.Content = JsonContent.Create(syncRequest, options: _jsonOptions);
 
         using var response = await _http.SendAsync(request, cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            Debug.WriteLine("SessionService.SyncSessionsAsync: 401 Unauthorized, clearing token.");
+            _authService.Logout();
+        }
         if (!response.IsSuccessStatusCode)
         {
             Debug.WriteLine($"SessionService.SyncSessionsAsync: sync failed {response.StatusCode}");
+            try
+            {
+                var payload = JsonSerializer.Serialize(syncRequest, _jsonOptions);
+                await _localDb.SavePendingSyncAsync("session", payload, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"SessionService.SyncSessionsAsync: failed to save pending sync: {ex.Message}");
+            }
             return false;
         }
         return true;
@@ -61,6 +78,11 @@ public sealed class SessionService : ISessionService
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         using var response = await _http.SendAsync(request, cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            Debug.WriteLine("SessionService.GetSessionsAsync: 401 Unauthorized, clearing token.");
+            _authService.Logout();
+        }
         if (!response.IsSuccessStatusCode)
             return null;
         try
