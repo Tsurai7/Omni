@@ -1,0 +1,82 @@
+# Infrastructure only: databases and message broker.
+# Start with: docker compose -f docker-compose.infrastructure.yml up -d
+# Used by docker-compose.services.yml when run together.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: omni-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-omni}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-omni}
+      POSTGRES_DB: ${POSTGRES_DB:-omni}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - omni_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-omni} -d ${POSTGRES_DB:-omni}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    container_name: omni-clickhouse
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-omni_analytics}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-omni}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-omni}
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:8123/ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.1.2
+    container_name: redpanda
+    command:
+      - redpanda
+      - start
+      - --mode dev-container
+      - --advertise-kafka-addr redpanda:9092
+    ports:
+      - "8081:8081"   # Schema Registry
+      - "8082:8082"   # HTTP Proxy
+      - "9092:9092"   # Kafka API
+      - "9644:9644"   # Redpanda Admin API
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "health", "--exit-when-healthy"]
+      interval: 5s
+      timeout: 10s
+      retries: 15
+      start_period: 15s
+
+  redpanda-console:
+    image: docker.redpanda.com/redpandadata/console:v2.5.2
+    container_name: redpanda-console
+    ports:
+      - "8088:8080"
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_SCHEMAREGISTRY_ENABLED: "true"
+      KAFKA_SCHEMAREGISTRY_URLS: http://redpanda:8081
+      REDPANDA_ADMINAPI_ENABLED: "true"
+      REDPANDA_ADMINAPI_URLS: http://redpanda:9644
+    depends_on:
+      - redpanda
+
+volumes:
+  omni_pgdata:
+  redpanda_data:
+  clickhouse_data:

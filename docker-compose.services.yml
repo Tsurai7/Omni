@@ -1,0 +1,121 @@
+# Application services (Go backend + AI). Requires infrastructure to be running.
+# Start infrastructure first: docker compose -f docker-compose.infrastructure.yml up -d
+# Then: docker compose -f docker-compose.infrastructure.yml -f docker-compose.services.yml up -d
+# Or use: make up
+
+services:
+  gateway:
+    build:
+      context: ./src/Omni.Backend
+      dockerfile: docker/Dockerfile.gateway
+    container_name: omni-gateway
+    restart: unless-stopped
+    command: ["./gateway"]
+    depends_on:
+      profile:
+        condition: service_started
+      task:
+        condition: service_started
+      telemetry:
+        condition: service_started
+    environment:
+      PORT: 8080
+      JWT_SECRET: ${JWT_SECRET}
+      PROFILE_URL: http://profile:8081
+      TASK_URL: http://task:8082
+      TELEMETRY_URL: http://telemetry:8083
+    ports:
+      - "${BACKEND_PORT:-9080}:8080"
+
+  profile:
+    build:
+      context: ./src/Omni.Backend
+      dockerfile: docker/Dockerfile.profile
+    container_name: omni-profile
+    restart: unless-stopped
+    command: ["./profile"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 8081
+      DATABASE_URL: postgres://${POSTGRES_USER:-omni}:${POSTGRES_PASSWORD:-omni}@postgres:5432/${POSTGRES_DB:-omni}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRY_HOURS: ${JWT_EXPIRY_HOURS:-24}
+
+  task:
+    build:
+      context: ./src/Omni.Backend
+      dockerfile: docker/Dockerfile.task
+    container_name: omni-task
+    restart: unless-stopped
+    command: ["./task"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 8082
+      DATABASE_URL: postgres://${POSTGRES_USER:-omni}:${POSTGRES_PASSWORD:-omni}@postgres:5432/${POSTGRES_DB:-omni}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRY_HOURS: ${JWT_EXPIRY_HOURS:-24}
+
+  telemetry:
+    build:
+      context: ./src/Omni.Backend
+      dockerfile: docker/Dockerfile.telemetry
+    container_name: omni-telemetry
+    restart: unless-stopped
+    command: ["./telemetry"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    environment:
+      PORT: 8083
+      DATABASE_URL: postgres://${POSTGRES_USER:-omni}:${POSTGRES_PASSWORD:-omni}@postgres:5432/${POSTGRES_DB:-omni}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRY_HOURS: ${JWT_EXPIRY_HOURS:-24}
+      KAFKA_BROKERS: redpanda:9092
+
+  telemetry-consumer:
+    build:
+      context: ./src/Omni.Backend
+      dockerfile: docker/Dockerfile.telemetry-consumer
+    container_name: omni-telemetry-consumer
+    restart: unless-stopped
+    command: ["./telemetry-consumer"]
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+      TELEMETRY_TOPIC: omni.telemetry.events
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: "9000"
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-omni}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-omni}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-omni_analytics}
+
+  ai:
+    build:
+      context: ./src/omni-ai
+      dockerfile: Dockerfile
+    container_name: omni-ai
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: "8123"
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-omni}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-omni}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-omni_analytics}
+      DATABASE_URL: postgres://${POSTGRES_USER:-omni}:${POSTGRES_PASSWORD:-omni}@postgres:5432/${POSTGRES_DB:-omni}?sslmode=disable
+    ports:
+      - "8000:8000"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
