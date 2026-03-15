@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Omni.Client.Abstractions;
 using Omni.Client.Controls;
+using Omni.Client.Models.Productivity;
 using Omni.Client.Models.Usage;
 
 namespace Omni.Client;
@@ -11,6 +12,7 @@ namespace Omni.Client;
 public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
 {
     private IUsageService? _usageService;
+    private IProductivityService? _productivityService;
     private bool _isRefreshing;
     private string _emptyView = "Pull to load synced usage.";
     private ObservableCollection<UsageDateGroup> _groupedEntries = new();
@@ -25,6 +27,7 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
     private string _insightFocusThisWeek = "";
     private string _insightTrend = "";
     private string _recommendationChipText = "";
+    private string? _recommendationNotificationId;
 
     public UsageStatsPage()
     {
@@ -46,6 +49,13 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
         if (_usageService == null)
             _usageService = MauiProgram.AppServices?.GetService<IUsageService>();
         return _usageService!;
+    }
+
+    private IProductivityService? GetProductivityService()
+    {
+        if (_productivityService == null)
+            _productivityService = MauiProgram.AppServices?.GetService<IProductivityService>();
+        return _productivityService;
     }
 
     public ICommand RefreshCommand { get; }
@@ -232,7 +242,7 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
                 ? "No synced usage yet. Stay on Home for 15–30 seconds so usage can sync, then pull to refresh."
                 : "Pull to refresh.";
             UpdateCharts(entries);
-            UpdateInsightsAndRecommendation(entries);
+            await UpdateInsightsAndRecommendationAsync(entries);
         }
         catch (Exception ex)
         {
@@ -287,7 +297,36 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
     private static bool IsDistractionCategory(string? category) =>
         DistractionCategories.Any(c => string.Equals(c, category, StringComparison.OrdinalIgnoreCase));
 
-    private void UpdateInsightsAndRecommendation(List<UsageListEntry> entries)
+    private async Task UpdateInsightsAndRecommendationAsync(List<UsageListEntry> entries)
+    {
+        var productivityService = GetProductivityService();
+        if (productivityService != null)
+        {
+            try
+            {
+                var notifications = await productivityService.GetNotificationsAsync(unreadOnly: false);
+                var insights = notifications.Where(n => string.Equals(n.Type, "insight", StringComparison.OrdinalIgnoreCase)).Take(3).ToList();
+                var recommendation = notifications.FirstOrDefault(n => string.Equals(n.Type, "recommendation", StringComparison.OrdinalIgnoreCase));
+                if (insights.Count > 0 || recommendation != null)
+                {
+                    InsightBiggestDistraction = insights.ElementAtOrDefault(0)?.Title ?? "";
+                    InsightFocusThisWeek = insights.ElementAtOrDefault(1)?.Title ?? "";
+                    InsightTrend = insights.ElementAtOrDefault(2)?.Title ?? "";
+                    RecommendationChipText = recommendation?.Title ?? "";
+                    _recommendationNotificationId = recommendation?.Id;
+                    return;
+                }
+                _recommendationNotificationId = null;
+            }
+            catch
+            {
+                // Fall through to client-computed
+            }
+        }
+        UpdateInsightsAndRecommendationFromUsage(entries);
+    }
+
+    private void UpdateInsightsAndRecommendationFromUsage(List<UsageListEntry> entries)
     {
         if (entries.Count == 0)
         {
@@ -328,9 +367,19 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
         RecommendationChipText = !string.IsNullOrEmpty(InsightBiggestDistraction) && distractionByCat != null
             ? $"Block {distractionByCat.Category} for 25 min"
             : "Start a 25 min focus session";
+        _recommendationNotificationId = null;
     }
 
-    public ICommand RecommendationChipCommand => new Command(async () => await Shell.Current.GoToAsync(nameof(SessionPage)));
+    public ICommand RecommendationChipCommand => new Command(async () =>
+    {
+        if (!string.IsNullOrEmpty(_recommendationNotificationId))
+        {
+            var svc = GetProductivityService();
+            if (svc != null)
+                _ = svc.MarkAsReadAsync(_recommendationNotificationId);
+        }
+        await Shell.Current.GoToAsync(nameof(SessionPage));
+    });
 
     public new event PropertyChangedEventHandler? PropertyChanged;
     protected new void OnPropertyChanged([CallerMemberName] string? name = null) =>

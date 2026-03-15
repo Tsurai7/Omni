@@ -59,9 +59,8 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <!-- Now (current activity state) -->
+                <!-- Now (current activity state) - always visible so usage/active app section is present -->
                 <Border Grid.Row="2" Margin="0,0,0,16"
-                        IsVisible="{Binding IsNowVisible}"
                         BackgroundColor="{StaticResource ProductivityCardBackground}"
                         Stroke="{StaticResource ProductivityCardStroke}"
                         StrokeThickness="1"
@@ -74,7 +73,7 @@
                                  Color="{Binding NowStateColor}"/>
                         <VerticalStackLayout Grid.Column="1" Margin="12,0,0,0" Spacing="2">
                             <Label Text="Now" Style="{StaticResource ProductivityCaption}"/>
-                            <Label Text="{Binding NowAppName}" Style="{StaticResource ProductivityBodyBold}"/>
+                            <Label Text="{Binding NowDisplayName}" Style="{StaticResource ProductivityBodyBold}"/>
                             <Label Text="{Binding NowActivityState}" Style="{StaticResource ProductivityCaption}"/>
                         </VerticalStackLayout>
                     </Grid>

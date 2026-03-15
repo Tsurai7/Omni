@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.ComponentModel;
 using System.Windows.Input;
+using Microsoft.Extensions.DependencyInjection;
 using Omni.Client.Abstractions;
 using Omni.Client.Models;
 
@@ -12,9 +13,14 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
     private readonly IActiveWindowTracker _tracker;
     private readonly IAuthService _authService;
     private readonly IUsageService _usageService;
+    private readonly IProductivityService _productivityService;
     private readonly System.Timers.Timer _uiTimer;
     private const int UiUpdateIntervalMs = 2500; // Reduced from 1s to lower CPU usage
     private bool _updateInProgress;
+
+    // Server-driven next best action (null = use local fallback)
+    private string? _nextBestActionFromServer;
+    private string? _currentNotificationId;
 
     // Для привязок в XAML
     private bool _isRefreshing;
@@ -29,15 +35,26 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
     private string _nowAppName = "";
     private string _nowActivityState = "Neutral";
 
-    public MainPage(IActiveWindowTracker tracker, IAuthService authService, IUsageService usageService)
+    /// <summary>Used when Shell creates the page without DI (e.g. from XAML DataTemplate). Resolves services from app container.</summary>
+    public MainPage() : this(
+        RequireService<IActiveWindowTracker>(),
+        RequireService<IAuthService>(),
+        RequireService<IUsageService>(),
+        RequireService<IProductivityService>())
+    { }
+
+    private static T RequireService<T>() where T : class =>
+        MauiProgram.AppServices?.GetService<T>() ?? throw new InvalidOperationException($"{typeof(T).Name} not registered.");
+
+    public MainPage(IActiveWindowTracker tracker, IAuthService authService, IUsageService usageService, IProductivityService productivityService)
     {
         InitializeComponent();
         _tracker = tracker;
         _authService = authService;
         _usageService = usageService;
-        BindingContext = this; // Устанавливаем BindingContext на саму страницу
-        
-        // Инициализация таймера обновления UI (реже = меньше CPU)
+        _productivityService = productivityService;
+        BindingContext = this;
+
         _uiTimer = new System.Timers.Timer(UiUpdateIntervalMs);
         _uiTimer.Elapsed += (s, e) => UpdateAppList();
         _uiTimer.AutoReset = true;
@@ -59,6 +76,7 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
         _usageService.StartPeriodicSync();
         _ = _usageService.SyncAsync(); // initial sync
         _ = LoadTodayFocusAsync();
+        _ = LoadNextBestActionAsync();
         _uiTimer?.Start();
         GoalMinutes = ProductivityPreferences.GetDailyGoalMinutes();
     }
@@ -151,8 +169,11 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
     public string NowAppName
     {
         get => _nowAppName;
-        set { if (_nowAppName != value) { _nowAppName = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsNowVisible)); } }
+        set { if (_nowAppName != value) { _nowAppName = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsNowVisible)); OnPropertyChanged(nameof(NowDisplayName)); } }
     }
+
+    /// <summary>Display text for Now card: app name when present, otherwise a short hint so the section is always visible.</summary>
+    public string NowDisplayName => string.IsNullOrEmpty(NowAppName) ? "No active app" : NowAppName;
 
     public string NowActivityState
     {
@@ -175,11 +196,14 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
         IsRefreshing = true;
         await Task.Run(() => UpdateAppList());
         await LoadTodayFocusAsync();
+        await LoadNextBestActionAsync();
         IsRefreshing = false;
     });
 
     public ICommand NextBestActionCommand => new Command(async () =>
     {
+        if (!string.IsNullOrEmpty(_currentNotificationId))
+            _ = _productivityService.MarkAsReadAsync(_currentNotificationId);
         await Shell.Current.GoToAsync(nameof(SessionPage));
     });
 
@@ -332,9 +356,46 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
         }
         else
         {
-            NowAppName = "";
+            // No usage yet (e.g. first load, or stub): show current app from tracker so "Now" card is visible
+            var currentApp = _tracker.GetCurrentAppName();
+            NowAppName = string.IsNullOrEmpty(currentApp) ? "" : currentApp;
+            var category = _tracker.GetCurrentCategory();
+            NowActivityState = category switch
+            {
+                "Coding" or "Productivity" => "Focus",
+                "Gaming" or "Chilling" => "Distraction",
+                _ => "Neutral"
+            };
         }
-        NextBestActionText = GoalProgress >= 1.0 ? "You hit your goal" : "Start a focus session";
+        var fallback = GoalProgress >= 1.0 ? "You hit your goal" : "Start a focus session";
+        NextBestActionText = _nextBestActionFromServer ?? fallback;
+    }
+
+    private async Task LoadNextBestActionAsync()
+    {
+        try
+        {
+            var items = await _productivityService.GetNotificationsAsync(unreadOnly: true);
+            var first = items.FirstOrDefault(n =>
+                string.Equals(n.Type, "recommendation", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(n.Type, "insight", StringComparison.OrdinalIgnoreCase));
+            if (first != null && !string.IsNullOrWhiteSpace(first.Title))
+            {
+                _nextBestActionFromServer = first.Title;
+                _currentNotificationId = first.Id;
+            }
+            else
+            {
+                _nextBestActionFromServer = null;
+                _currentNotificationId = null;
+            }
+            var fallback = GoalProgress >= 1.0 ? "You hit your goal" : "Start a focus session";
+            NextBestActionText = _nextBestActionFromServer ?? fallback;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"LoadNextBestAction: {ex}");
+        }
     }
 
     private async Task LoadTodayFocusAsync()

@@ -66,6 +66,9 @@ public class ActiveWindowTrackerMacOS : IActiveWindowTracker
             return;
         VerifyAutomationPermissions();
 
+        // Prime current app immediately so first UI update shows active app (otherwise ~2s delay)
+        CheckActiveApp();
+
         // 2s interval reduces CPU and process spawns (was 1s)
         _timer = new System.Timers.Timer(2000);
         _timer.Elapsed += (s, e) => CheckActiveApp();

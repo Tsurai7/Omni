@@ -67,6 +67,7 @@ func main() {
 
 	usageHandler := telemetry.NewUsageHandler(pool, publisher)
 	sessionsHandler := telemetry.NewSessionsHandler(pool, publisher)
+	notificationsHandler := telemetry.NewNotificationsHandler(pool)
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	api := router.Group("/api")
 	api.Group("/usage").Use(middleware.AuthRequired(cfg.JWTSecret)).
@@ -75,6 +76,9 @@ func main() {
 	api.Group("/sessions").Use(middleware.AuthRequired(cfg.JWTSecret)).
 		POST("/sync", sessionsHandler.Sync).
 		GET("", sessionsHandler.List)
+	api.Group("/productivity").Use(middleware.AuthRequired(cfg.JWTSecret)).
+		GET("/notifications", notificationsHandler.List).
+		PATCH("/notifications/:id/read", notificationsHandler.MarkRead)
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: router}
 	go func() {

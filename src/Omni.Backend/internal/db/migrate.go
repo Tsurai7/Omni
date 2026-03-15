@@ -52,6 +52,21 @@ CREATE TABLE IF NOT EXISTS tasks (
 CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON tasks(user_id);
 `
 
+const createTableUserNotifications = `
+CREATE TABLE IF NOT EXISTS user_notifications (
+	id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	type TEXT NOT NULL,
+	title TEXT,
+	body TEXT,
+	action_type TEXT,
+	action_payload JSONB,
+	read_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_user_notifications_user_created ON user_notifications(user_id, created_at DESC);
+`
+
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, err := pool.Exec(ctx, createTableUsers); err != nil {
 		return err
@@ -62,6 +77,9 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, err := pool.Exec(ctx, createTableSessions); err != nil {
 		return err
 	}
-	_, err := pool.Exec(ctx, createTableTasks)
+	if _, err := pool.Exec(ctx, createTableTasks); err != nil {
+		return err
+	}
+	_, err := pool.Exec(ctx, createTableUserNotifications)
 	return err
 }

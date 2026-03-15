@@ -10,7 +10,8 @@ public class ActiveWindowTrackerStub : IActiveWindowTracker
 {
     public void StartTracking() { }
 
-    public Dictionary<string, TimeSpan> GetAppUsage() => new Dictionary<string, TimeSpan>();
+    /// <summary>Returns a single "Unknown" entry so the UI shows the active-app section; real tracking is not available on this platform.</summary>
+    public Dictionary<string, TimeSpan> GetAppUsage() => new Dictionary<string, TimeSpan> { ["Unknown"] = TimeSpan.Zero };
 
     public string GetCurrentAppName() => "Unknown";
 

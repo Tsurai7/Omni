@@ -56,6 +56,12 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredService<JsonSerializerOptions>(),
                 sp.GetRequiredService<LocalDatabaseService>()));
 
+        services.AddSingleton<IProductivityService>(sp =>
+            new ProductivityService(
+                sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackend"),
+                sp.GetRequiredService<IAuthService>(),
+                sp.GetRequiredService<JsonSerializerOptions>()));
+
         services.AddTransient<MainPage>();
         services.AddTransient<UsageStatsPage>();
         services.AddTransient<SessionPage>();

@@ -78,6 +78,9 @@ func main() {
 	tasks.GET("", gin.WrapH(taskProxy))
 	tasks.POST("", gin.WrapH(taskProxy))
 	tasks.Any("/*path", gin.WrapH(taskProxy))
+	productivity := api.Group("/productivity").Use(middleware.AuthRequired(cfg.JWTSecret))
+	productivity.GET("/notifications", gin.WrapH(telemetryProxy))
+	productivity.PATCH("/notifications/:id/read", gin.WrapH(telemetryProxy))
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: router}
 	go func() {
