@@ -13,7 +13,19 @@ CLICKHOUSE_PORT = int(os.getenv("CLICKHOUSE_PORT", "8123"))
 CLICKHOUSE_USER = os.getenv("CLICKHOUSE_USER", "default")
 CLICKHOUSE_PASSWORD = os.getenv("CLICKHOUSE_PASSWORD", "")
 CLICKHOUSE_DB = os.getenv("CLICKHOUSE_DB", "omni_analytics")
-DATABASE_URL = os.getenv("DATABASE_URL", os.getenv("POSTGRES_URL", ""))
+def _normalize_pg_url(url: str) -> str:
+    """Use postgresql+psycopg2 so SQLAlchemy can load the dialect (postgres:// → postgresql+psycopg2://)."""
+    if not url:
+        return url
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg2://" + url[len("postgres://") :]
+    if url.startswith("postgresql://") and "+" not in url.split("://")[0]:
+        return url.replace("postgresql://", "postgresql+psycopg2://", 1)
+    return url
+
+
+_raw_database_url = os.getenv("DATABASE_URL", os.getenv("POSTGRES_URL", ""))
+DATABASE_URL = _normalize_pg_url(_raw_database_url)
 
 # Module-level clients (set at startup, closed at shutdown)
 _clickhouse_client: clickhouse_connect.driver.Client | None = None

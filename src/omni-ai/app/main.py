@@ -8,14 +8,17 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.db import close_clients, get_clickhouse_client, get_pg_engine, init_clients
+from app.scheduler import run_recommendation_job_once, start_scheduler, stop_scheduler
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_clients()
+    start_scheduler()
     print("omni-ai service started successfully", flush=True)
     sys.stdout.flush()
     yield
+    stop_scheduler()
     close_clients()
 
 
@@ -45,3 +48,13 @@ def telemetry_stats():
         return {"count": row[0], "latest_at": str(row[1]) if row[1] else None}
     except Exception as e:
         return {"error": str(e), "count": None, "latest_at": None}
+
+
+@app.post("/internal/run-recommendations")
+def trigger_recommendations():
+    """
+    Run the recommendation job once immediately (for testing).
+    Does not require auth. Returns active_users, notifications_written, and a sample.
+    """
+    result = run_recommendation_job_once()
+    return result

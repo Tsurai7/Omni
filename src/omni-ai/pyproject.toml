@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "AI microservice for burnout detection and recommendations"
 requires-python = ">=3.12"
 dependencies = [
+    "apscheduler>=3.10.0",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "clickhouse-connect>=0.8.0",
