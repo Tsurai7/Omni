@@ -119,3 +119,16 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+
+  landing:
+    build:
+      context: ./src/Omni.Landing
+      dockerfile: Dockerfile
+      args:
+        PUBLIC_DOWNLOAD_MAC_URL: ${PUBLIC_DOWNLOAD_MAC_URL:-https://example.com/omni-macos}
+        PUBLIC_DOWNLOAD_WIN_URL: ${PUBLIC_DOWNLOAD_WIN_URL:-https://example.com/omni-windows}
+        PUBLIC_APP_VERSION: ${PUBLIC_APP_VERSION:-}
+    container_name: omni-landing
+    restart: unless-stopped
+    ports:
+      - "${LANDING_PORT:-3000}:80"
