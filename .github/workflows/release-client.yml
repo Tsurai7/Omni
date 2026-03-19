@@ -28,6 +28,7 @@ jobs:
           dotnet publish Omni.Client.csproj \
             -f net10.0-maccatalyst \
             -c Release \
+f            -p:TargetFrameworks=net10.0-maccatalyst \
             -p:SkipMacCodesign=true \
             -p:CodesignDisable=true
 
@@ -68,7 +69,8 @@ jobs:
             -c Release `
             -r win-x64 `
             --self-contained true `
-            -p:PublishSingleFile=true
+            -p:PublishSingleFile=true `
+            -p:TargetFrameworks=net10.0-windows10.0.19041.0
 
       - name: Stage executable
         shell: pwsh
