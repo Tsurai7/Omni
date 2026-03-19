@@ -1,0 +1,77 @@
+name: Landing
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "src/Omni.Landing/**"
+      - ".github/workflows/landing.yml"
+  pull_request:
+    paths:
+      - "src/Omni.Landing/**"
+      - ".github/workflows/landing.yml"
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      public_app_version:
+        description: "Optional PUBLIC_APP_VERSION shown on the page (e.g. v1.2.0)"
+        required: false
+        default: ""
+        type: string
+
+defaults:
+  run:
+    working-directory: src/Omni.Landing
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/Omni.Landing/package-lock.json
+
+      - name: Set download URLs
+        env:
+          LANDING_MAC_URL: ${{ vars.LANDING_MAC_URL }}
+          LANDING_WIN_URL: ${{ vars.LANDING_WIN_URL }}
+        run: |
+          if [ -n "$LANDING_MAC_URL" ]; then
+            echo "PUBLIC_DOWNLOAD_MAC_URL=$LANDING_MAC_URL" >> "$GITHUB_ENV"
+          else
+            echo "PUBLIC_DOWNLOAD_MAC_URL=https://github.com/${{ github.repository }}/releases/latest/download/Omni-macos.dmg" >> "$GITHUB_ENV"
+          fi
+          if [ -n "$LANDING_WIN_URL" ]; then
+            echo "PUBLIC_DOWNLOAD_WIN_URL=$LANDING_WIN_URL" >> "$GITHUB_ENV"
+          else
+            echo "PUBLIC_DOWNLOAD_WIN_URL=https://github.com/${{ github.repository }}/releases/latest/download/Omni-windows.exe" >> "$GITHUB_ENV"
+          fi
+
+      - name: Set version from release
+        if: github.event_name == 'release'
+        run: echo "PUBLIC_APP_VERSION=${{ github.event.release.tag_name }}" >> "$GITHUB_ENV"
+
+      - name: Set version from workflow input
+        if: github.event_name == 'workflow_dispatch' && inputs.public_app_version != ''
+        run: echo "PUBLIC_APP_VERSION=${{ inputs.public_app_version }}" >> "$GITHUB_ENV"
+
+      - name: Install and build
+        env:
+          ASTRO_TELEMETRY_DISABLED: "1"
+        run: |
+          npm ci
+          npm run build
+
+      - name: Upload static site artifact
+        if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: landing-dist
+          path: src/Omni.Landing/dist/

@@ -1,0 +1,65 @@
+---
+import "../styles/global.css";
+import { downloads } from "../config/downloads";
+
+const { macUrl, windowsUrl, versionLabel } = downloads;
+const title = "Omni — Download";
+const description =
+  "Download Omni for macOS or Windows. Smart productivity assistant.";
+---
+
+<!doctype html>
+<html lang="en" data-detected-os="other">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <title>{title}</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <script is:inline>
+      (function () {
+        var ua = navigator.userAgent || "";
+        var os = /Mac|iPhone|iPad|iPod/i.test(ua)
+          ? "mac"
+          : /Windows/i.test(ua)
+            ? "windows"
+            : "other";
+        document.documentElement.dataset.detectedOs = os;
+      })();
+    </script>
+  </head>
+  <body>
+    <main>
+      <p class="badge">Desktop app</p>
+      <h1>Omni</h1>
+      <p class="tagline">
+        Your productivity assistant — sessions, focus, and usage insights in
+        one place.
+      </p>
+      <div class="downloads">
+        <a class="download-btn download-btn--mac" href={macUrl}>
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              fill="currentColor"
+              d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"
+            ></path>
+          </svg>
+          Download for macOS
+        </a>
+        <a class="download-btn download-btn--win" href={windowsUrl}>
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="currentColor" d="M3 5.548l7.548-1.038V11.5H3V5.548zm0 7.452h7.548v7.038L3 18.96V13zm8.452-8.596L21 3v8.5h-9.548V4.404zm0 9.096H21V21l-9.548-1.316V13.5z"></path>
+          </svg>
+          Download for Windows
+        </a>
+      </div>
+      {versionLabel && <p class="version">Version {versionLabel}</p>}
+      <footer>
+        <span>Omni</span>
+      </footer>
+    </main>
+  </body>
+</html>
