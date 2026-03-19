@@ -28,7 +28,7 @@ jobs:
           dotnet publish Omni.Client.csproj \
             -f net10.0-maccatalyst \
             -c Release \
-f            -p:TargetFrameworks=net10.0-maccatalyst \
+            -p:TargetFrameworks=net10.0-maccatalyst \
             -p:SkipMacCodesign=true \
             -p:CodesignDisable=true
 
