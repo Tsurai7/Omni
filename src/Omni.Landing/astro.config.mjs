@@ -3,5 +3,6 @@ import { defineConfig } from "astro/config";
 // https://astro.build/config
 export default defineConfig({
   output: "static",
-  site: "https://omni.example.com",
+  site: "https://tsurai7.github.io",
+  base: "/Omni",
 });
