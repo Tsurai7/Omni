@@ -1,0 +1,122 @@
+name: Release Client
+
+on:
+  push:
+    branches:
+      - "release*"
+      - "release/**"
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Install MAUI workload
+        run: dotnet workload install maui-maccatalyst
+
+      - name: Publish macOS (Mac Catalyst)
+        working-directory: src/Omni.Client
+        run: |
+          dotnet publish Omni.Client.csproj \
+            -f net10.0-maccatalyst \
+            -c Release \
+            -p:SkipMacCodesign=true \
+            -p:CodesignDisable=true
+
+      - name: Create DMG
+        working-directory: src/Omni.Client
+        run: |
+          APP=$(find bin/Release/net10.0-maccatalyst -name "*.app" -maxdepth 4 | head -1)
+          echo "Packaging: $APP"
+          hdiutil create \
+            -volname "Omni" \
+            -srcfolder "$APP" \
+            -ov \
+            -format UDZO \
+            Omni-macos.dmg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: src/Omni.Client/Omni-macos.dmg
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Install MAUI workload
+        run: dotnet workload install maui-windows
+
+      - name: Publish Windows
+        working-directory: src/Omni.Client
+        run: |
+          dotnet publish Omni.Client.csproj `
+            -f net10.0-windows10.0.19041.0 `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true
+
+      - name: Stage executable
+        shell: pwsh
+        working-directory: src/Omni.Client
+        run: |
+          $exe = Get-ChildItem -Recurse -Filter "Omni.Client.exe" bin/Release | Select-Object -First 1
+          Copy-Item $exe.FullName Omni-windows.exe
+          Write-Host "Staged: $($exe.FullName)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: src/Omni.Client/Omni-windows.exe
+
+  release:
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-dmg
+          path: artifacts
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-exe
+          path: artifacts
+
+      - name: Derive version from branch
+        id: ver
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          if [[ "$BRANCH" == release/* ]]; then
+            VERSION="${BRANCH#release/}"
+          else
+            VERSION="$BRANCH"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Release version: $VERSION"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.ver.outputs.version }}" \
+            --title "Omni ${{ steps.ver.outputs.version }}" \
+            --generate-notes \
+            artifacts/Omni-macos.dmg \
+            artifacts/Omni-windows.exe
