@@ -14,6 +14,38 @@ from app.db import get_pg_engine
 logger = logging.getLogger(__name__)
 
 
+def get_last_notification(user_id: UUID) -> tuple[str | None, int | None]:
+    """
+    Return (action_type, seconds_ago) of the most recent notification for this user.
+    Used for cooldown checks — we don't filter by read_at so reading a notification
+    doesn't immediately re-trigger the same recommendation.
+    Returns (None, None) if no notifications exist or DB is unavailable.
+    """
+    engine = get_pg_engine()
+    if not engine:
+        return None, None
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("""
+                SELECT action_type,
+                       EXTRACT(EPOCH FROM (NOW() - created_at))::int AS seconds_ago
+                FROM user_notifications
+                WHERE user_id = :user_id
+                ORDER BY created_at DESC
+                LIMIT 1
+                """),
+                {"user_id": str(user_id)},
+            )
+            row = result.fetchone()
+            if row and row[0]:
+                return str(row[0]), int(row[1]) if row[1] is not None else None
+            return None, None
+    except Exception as e:
+        logger.warning("get_last_notification failed for %s: %s", user_id, e)
+        return None, None
+
+
 def insert_notification(
     user_id: UUID,
     type_: str,
