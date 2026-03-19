@@ -1,0 +1,409 @@
+# Production-oriented stack for a single host: infra + app services + landing.
+#
+# Usage (from repo root):
+#   cp .env.production.example .env.production
+#   # Edit .env.production — set strong secrets and optional image build args.
+#   docker compose -f docker-compose.production.yml build
+#   docker compose -f docker-compose.production.yml up -d
+#
+# Optional Redpanda Console (localhost only): add --profile admin
+#   docker compose -f docker-compose.production.yml --profile admin up -d
+#
+# Notes:
+# - Postgres, ClickHouse, and Redpanda Kafka APIs are not exposed on public interfaces
+#   (localhost-only or internal-only). Put TLS termination on Nginx/Caddy/Traefik in
+#   front of gateway and landing.
+# - Redpanda in Docker is practical for small single-node installs; for larger prod,
+#   consider a dedicated Redpanda/Kafka deployment or managed streaming.
+# - Back up named volumes (omni_pgdata, clickhouse_data, redpanda_data) regularly.
+
+name: omni
+
+x-logging: &json-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+networks:
+  omni:
+    driver: bridge
+
+volumes:
+  omni_pgdata:
+  redpanda_data:
+  clickhouse_data:
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: omni-postgres
+    restart: unless-stopped
+    networks: [omni]
+    logging: *json-logging
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-omni}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in env}
+      POSTGRES_DB: ${POSTGRES_DB:-omni}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - omni_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-omni} -d ${POSTGRES_DB:-omni}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          memory: 256M
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    container_name: omni-clickhouse
+    restart: unless-stopped
+    networks: [omni]
+    logging: *json-logging
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-omni_analytics}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-omni}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set CLICKHOUSE_PASSWORD in env}
+    ports:
+      - "127.0.0.1:${CLICKHOUSE_HTTP_PORT:-8123}:8123"
+      - "127.0.0.1:${CLICKHOUSE_NATIVE_PORT:-9000}:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          memory: 512M
+
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.1.2
+    container_name: omni-redpanda
+    hostname: redpanda
+    restart: unless-stopped
+    networks: [omni]
+    logging: *json-logging
+    # Broker APIs stay on the Docker network only (no host port publishing).
+    # Same broker flags as docker-compose.infrastructure.yml (validated for this stack).
+    command:
+      - redpanda
+      - start
+      - --mode
+      - dev-container
+      - --advertise-kafka-addr
+      - redpanda:9092
+      - --smp
+      - ${REDPANDA_SMP:-1}
+      - --memory
+      - ${REDPANDA_MEMORY:-2G}
+      - --default-log-level=${REDPANDA_LOG_LEVEL:-warn}
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "health", "--exit-when-healthy"]
+      interval: 10s
+      timeout: 15s
+      retries: 20
+      start_period: 45s
+    stop_grace_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 3G
+        reservations:
+          memory: 512M
+
+  redpanda-console:
+    profiles: [admin]
+    image: docker.redpanda.com/redpandadata/console:v2.5.2
+    container_name: omni-redpanda-console
+    restart: unless-stopped
+    networks: [omni]
+    logging: *json-logging
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "127.0.0.1:${REDPANDA_CONSOLE_PORT:-8088}:8080"
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_SCHEMAREGISTRY_ENABLED: "true"
+      KAFKA_SCHEMAREGISTRY_URLS: http://redpanda:8081
+      REDPANDA_ADMINAPI_ENABLED: "true"
+      REDPANDA_ADMINAPI_URLS: http://redpanda:9644
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
+  profile:
+    build:
+      context: ./src/Omni.Backend
+      dockerfile: docker/Dockerfile.profile
+    image: omni-profile:${OMNI_IMAGE_TAG:-production}
+    container_name: omni-profile
+    restart: unless-stopped
+    init: true
+    networks: [omni]
+    logging: *json-logging
+    security_opt:
+      - no-new-privileges:true
+    command: ["./profile"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      GIN_MODE: release
+      PORT: "8081"
+      DATABASE_URL: postgres://${POSTGRES_USER:-omni}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-omni}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in env}
+      JWT_EXPIRY_HOURS: ${JWT_EXPIRY_HOURS:-24}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/swagger/index.html"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+
+  task:
+    build:
+      context: ./src/Omni.Backend
+      dockerfile: docker/Dockerfile.task
+    image: omni-task:${OMNI_IMAGE_TAG:-production}
+    container_name: omni-task
+    restart: unless-stopped
+    init: true
+    networks: [omni]
+    logging: *json-logging
+    security_opt:
+      - no-new-privileges:true
+    command: ["./task"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      GIN_MODE: release
+      PORT: "8082"
+      DATABASE_URL: postgres://${POSTGRES_USER:-omni}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-omni}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in env}
+      JWT_EXPIRY_HOURS: ${JWT_EXPIRY_HOURS:-24}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8082/swagger/index.html"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+
+  telemetry:
+    build:
+      context: ./src/Omni.Backend
+      dockerfile: docker/Dockerfile.telemetry
+    image: omni-telemetry:${OMNI_IMAGE_TAG:-production}
+    container_name: omni-telemetry
+    restart: unless-stopped
+    init: true
+    networks: [omni]
+    logging: *json-logging
+    security_opt:
+      - no-new-privileges:true
+    command: ["./telemetry"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    environment:
+      GIN_MODE: release
+      PORT: "8083"
+      DATABASE_URL: postgres://${POSTGRES_USER:-omni}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-omni}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in env}
+      JWT_EXPIRY_HOURS: ${JWT_EXPIRY_HOURS:-24}
+      KAFKA_BROKERS: redpanda:9092
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8083/swagger/index.html"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+
+  gateway:
+    build:
+      context: ./src/Omni.Backend
+      dockerfile: docker/Dockerfile.gateway
+    image: omni-gateway:${OMNI_IMAGE_TAG:-production}
+    container_name: omni-gateway
+    restart: unless-stopped
+    init: true
+    networks: [omni]
+    logging: *json-logging
+    security_opt:
+      - no-new-privileges:true
+    command: ["./gateway"]
+    depends_on:
+      profile:
+        condition: service_healthy
+      task:
+        condition: service_healthy
+      telemetry:
+        condition: service_healthy
+    environment:
+      GIN_MODE: release
+      PORT: "8080"
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in env}
+      PROFILE_URL: http://profile:8081
+      TASK_URL: http://task:8082
+      TELEMETRY_URL: http://telemetry:8083
+    ports:
+      - "${PUBLIC_BIND:-0.0.0.0}:${BACKEND_PORT:-9080}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/swagger/index.html"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+
+  telemetry-consumer:
+    build:
+      context: ./src/Omni.Backend
+      dockerfile: docker/Dockerfile.telemetry-consumer
+    image: omni-telemetry-consumer:${OMNI_IMAGE_TAG:-production}
+    container_name: omni-telemetry-consumer
+    restart: unless-stopped
+    init: true
+    networks: [omni]
+    logging: *json-logging
+    security_opt:
+      - no-new-privileges:true
+    command: ["./telemetry-consumer"]
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+      TELEMETRY_TOPIC: ${TELEMETRY_TOPIC:-omni.telemetry.events}
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: "9000"
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-omni}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-omni_analytics}
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+
+  ai:
+    build:
+      context: ./src/omni-ai
+      dockerfile: Dockerfile
+    image: omni-ai:${OMNI_IMAGE_TAG:-production}
+    container_name: omni-ai
+    restart: unless-stopped
+    init: true
+    networks: [omni]
+    logging: *json-logging
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: "8123"
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-omni}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-omni_analytics}
+      DATABASE_URL: postgres://${POSTGRES_USER:-omni}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-omni}?sslmode=disable
+    ports:
+      - "127.0.0.1:${AI_PORT:-8000}:8000"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).read()",
+        ]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
+  landing:
+    build:
+      context: ./src/Omni.Landing
+      dockerfile: Dockerfile
+      args:
+        PUBLIC_DOWNLOAD_MAC_URL: ${PUBLIC_DOWNLOAD_MAC_URL:-https://example.com/omni-macos}
+        PUBLIC_DOWNLOAD_WIN_URL: ${PUBLIC_DOWNLOAD_WIN_URL:-https://example.com/omni-windows}
+        PUBLIC_APP_VERSION: ${PUBLIC_APP_VERSION:-}
+    image: omni-landing:${OMNI_IMAGE_TAG:-production}
+    container_name: omni-landing
+    restart: unless-stopped
+    networks: [omni]
+    logging: *json-logging
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "${PUBLIC_BIND:-0.0.0.0}:${LANDING_PORT:-3000}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M

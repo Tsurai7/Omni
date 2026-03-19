@@ -2,7 +2,9 @@ name: Landing
 
 on:
   push:
-    branches: [main, master]
+    branches:
+      - "release*"
+      - "release/**"
     paths:
       - "src/Omni.Landing/**"
       - ".github/workflows/landing.yml"

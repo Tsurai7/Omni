@@ -6,7 +6,7 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o /profile ./cmd/profile
 
 FROM alpine:3.19
-RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add ca-certificates wget
 WORKDIR /app
 COPY --from=builder /profile .
 EXPOSE 8081
