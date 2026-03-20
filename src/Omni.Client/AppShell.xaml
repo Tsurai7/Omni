@@ -30,6 +30,12 @@
                 Route="UsageStatsPage"/>
         </Tab>
 
+        <Tab Title="Coach" Icon="tab_coach.png">
+            <ShellContent
+                ContentTemplate="{DataTemplate local:ChatPage}"
+                Route="ChatPage"/>
+        </Tab>
+
         <Tab Title="Session" Icon="tab_session.png">
             <ShellContent
                 ContentTemplate="{DataTemplate local:SessionPage}"

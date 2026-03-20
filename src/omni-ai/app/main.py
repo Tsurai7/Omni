@@ -1,14 +1,33 @@
 """
-Omni AI microservice — health and future burnout/recommendations.
-Phase 4.1: FastAPI with ClickHouse (read) and PostgreSQL (write) connections.
+Omni AI microservice — health, recommendations, and AI coach chat.
 """
 import sys
 from contextlib import asynccontextmanager
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from app.algorithm import compute_focus_score, generate_weekly_digest
+from app.chat import (
+    build_chat_context,
+    check_rate_limit,
+    collect_full_response,
+    extract_action_from_response,
+    generate_starters,
+    record_message_sent,
+    stream_chat_response,
+    strip_action_line,
+)
+from app.chat_db import (
+    conversation_belongs_to_user,
+    create_conversation,
+    delete_conversation,
+    get_conversations,
+    get_messages,
+    insert_message,
+)
 from app.db import close_clients, get_clickhouse_client, get_pg_engine, init_clients
 from app.scheduler import run_recommendation_job_once, run_weekly_digest_job, start_scheduler, stop_scheduler
 from app.simulate import SimulationRequest, run_simulation
@@ -126,6 +145,159 @@ def focus_score(user_id: str):
         "sessions_today": result.sessions_today,
         "streak_days": result.streak_days,
     }
+
+
+# ── Chat endpoints ────────────────────────────────────────────────────────────
+
+class SendMessageRequest(BaseModel):
+    conversation_id: str | None = None
+    content: str
+
+
+def _parse_uid(user_id: str) -> UUID:
+    try:
+        return UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid user_id — must be a UUID")
+
+
+@app.get("/api/ai/chat/{user_id}/starters")
+def chat_starters(user_id: str):
+    """
+    Return 3-4 context-aware conversation starter chips for the given user.
+    """
+    uid = _parse_uid(user_id)
+    starters = generate_starters(uid)
+    return {"starters": starters}
+
+
+@app.get("/api/ai/chat/{user_id}/conversations")
+def list_conversations(user_id: str):
+    """
+    Return the user's most recent conversations.
+    """
+    uid = _parse_uid(user_id)
+    convs = get_conversations(uid, limit=10)
+    return {"conversations": convs}
+
+
+@app.get("/api/ai/chat/{user_id}/conversations/{conversation_id}/messages")
+def get_conversation_messages(user_id: str, conversation_id: str, limit: int = 20):
+    """
+    Return message history for a conversation (oldest-first for display).
+    """
+    uid = _parse_uid(user_id)
+    if not conversation_belongs_to_user(conversation_id, uid):
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    msgs = get_messages(conversation_id, limit=limit)
+    # Return newest-last (already ordered by created_at ASC from DB)
+    return {"messages": msgs}
+
+
+@app.post("/api/ai/chat/{user_id}/messages")
+def send_message(user_id: str, req: SendMessageRequest):
+    """
+    Send a user message and stream the AI coach response via Server-Sent Events.
+
+    If conversation_id is null a new conversation is created automatically.
+    SSE format:
+      data: {"delta": "token", "conversation_id": "uuid"}
+      ...
+      data: {"done": true, "conversation_id": "uuid"}
+    """
+    uid = _parse_uid(user_id)
+
+    if not req.content or not req.content.strip():
+        raise HTTPException(status_code=400, detail="Message content cannot be empty")
+
+    # Rate limiting
+    allowed, reason = check_rate_limit(user_id)
+    if not allowed:
+        raise HTTPException(status_code=429, detail=reason)
+
+    # Resolve or create conversation
+    conv_id = req.conversation_id
+    if conv_id:
+        if not conversation_belongs_to_user(conv_id, uid):
+            raise HTTPException(status_code=404, detail="Conversation not found")
+    else:
+        # Auto-title from first ~40 chars of user message
+        title = req.content.strip()[:40] + ("…" if len(req.content.strip()) > 40 else "")
+        conv_id = create_conversation(uid, title)
+        if not conv_id:
+            raise HTTPException(status_code=500, detail="Failed to create conversation")
+
+    # Persist user message
+    insert_message(conv_id, uid, "user", req.content.strip())
+    record_message_sent(user_id)
+
+    # Load history (last 20 messages for LLM context)
+    history = get_messages(conv_id, limit=20)
+    # Exclude the message we just inserted (it'll be appended by stream_chat_response)
+    history = [m for m in history if not (m["role"] == "user" and m["content"] == req.content.strip())][-19:]
+
+    # Build system prompt with live user context
+    system_prompt = build_chat_context(uid)
+
+    # Buffer the full response to persist it after streaming
+    full_response_buffer: list[str] = []
+
+    def event_stream():
+        import json as _json
+
+        full_text_parts: list[str] = []
+        for sse_line in stream_chat_response(system_prompt, history, req.content.strip()):
+            # Collect full text for post-stream storage
+            if sse_line.startswith("data: "):
+                try:
+                    data = _json.loads(sse_line[6:])
+                    if "delta" in data and not data.get("error"):
+                        full_text_parts.append(data["delta"])
+                except Exception:
+                    pass
+
+            if sse_line.strip() == 'data: {"done": true}':
+                # Persist the full assistant response
+                full_text = "".join(full_text_parts)
+                visible_text = strip_action_line(full_text)
+                action = extract_action_from_response(full_text)
+                metadata = {"actions": [action]} if action else None
+                insert_message(conv_id, uid, "assistant", visible_text, metadata)
+                # Send final event with conversation_id
+                yield f'data: {{"done": true, "conversation_id": "{conv_id}"}}\n\n'
+            else:
+                # Inject conversation_id into delta events
+                if sse_line.startswith("data: "):
+                    try:
+                        import json as _j
+                        data = _j.loads(sse_line[6:])
+                        data["conversation_id"] = conv_id
+                        yield f"data: {_j.dumps(data)}\n\n"
+                        continue
+                    except Exception:
+                        pass
+                yield sse_line
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.delete("/api/ai/chat/{user_id}/conversations/{conversation_id}")
+def remove_conversation(user_id: str, conversation_id: str):
+    """
+    Soft-delete a conversation.
+    """
+    uid = _parse_uid(user_id)
+    if not conversation_belongs_to_user(conversation_id, uid):
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    delete_conversation(uid, conversation_id)
+    return {"deleted": True}
 
 
 @app.post("/internal/run-weekly-digest")

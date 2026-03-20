@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Omni.Client.ChatPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource ProductivityPageBackground}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- ── Header ────────────────────────────────────────────────── -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="20,52,20,12">
+            <VerticalStackLayout Grid.Column="0" Spacing="2">
+                <Label Text="Omni Coach"
+                       Style="{StaticResource ProductivityHeadline}"/>
+                <Label Text="Your AI productivity coach"
+                       Style="{StaticResource ProductivityCaption}"/>
+            </VerticalStackLayout>
+            <Button Grid.Column="1"
+                    Text="History"
+                    Style="{StaticResource ProductivitySecondaryButton}"
+                    Clicked="OnHistoryClicked"
+                    VerticalOptions="Center"
+                    Padding="14,0"
+                    HeightRequest="34"/>
+        </Grid>
+
+        <!--
+            CollectionView must sit directly in the Grid row — never inside a ScrollView.
+            A CollectionView nested in a ScrollView collapses to zero height in MAUI.
+        -->
+        <CollectionView x:Name="MessageList"
+                        Grid.Row="1"
+                        ItemsSource="{Binding Messages}"
+                        SelectionMode="None"
+                        ItemsUpdatingScrollMode="KeepLastItemInView">
+
+            <!-- Welcome screen / starters — shown when conversation is empty -->
+            <CollectionView.Header>
+                <VerticalStackLayout IsVisible="{Binding ShowWelcome}"
+                                     Spacing="20"
+                                     Padding="24,32,24,24">
+
+                    <Border WidthRequest="64" HeightRequest="64"
+                            HorizontalOptions="Center"
+                            BackgroundColor="#1E2A24"
+                            StrokeThickness="0">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="32"/>
+                        </Border.StrokeShape>
+                        <Label Text="✦"
+                               FontSize="28"
+                               TextColor="{StaticResource ProductivityFocus}"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"/>
+                    </Border>
+
+                    <VerticalStackLayout Spacing="8" HorizontalOptions="Center">
+                        <Label Text="Hey, I'm Omni Coach"
+                               Style="{StaticResource ProductivityTitle}"
+                               HorizontalOptions="Center"/>
+                        <Label Text="I know your tasks, sessions, and focus patterns.&#10;Ask me anything about your productivity."
+                               Style="{StaticResource ProductivityCaption}"
+                               HorizontalOptions="Center"
+                               HorizontalTextAlignment="Center"/>
+                    </VerticalStackLayout>
+
+                    <!-- Starters: BindableLayout avoids a nested CollectionView -->
+                    <VerticalStackLayout IsVisible="{Binding HasStarters}" Spacing="10">
+                        <Label Text="Start with..."
+                               Style="{StaticResource ProductivityOverline}"
+                               Margin="0,0,0,2"/>
+                        <VerticalStackLayout Spacing="8"
+                                             BindableLayout.ItemsSource="{Binding Starters}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="14,12"
+                                            BackgroundColor="#1A1A1F"
+                                            Stroke="#2A2A35"
+                                            StrokeThickness="1">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                                        </Border.StrokeShape>
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.StarterTappedCommand}"
+                                                CommandParameter="{Binding Text}"/>
+                                        </Border.GestureRecognizers>
+                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                            <Label Grid.Column="0"
+                                                   Text="{Binding IconEmoji}"
+                                                   FontSize="16"
+                                                   VerticalOptions="Center"/>
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding Text}"
+                                                   Style="{StaticResource ProductivityBody}"
+                                                   VerticalOptions="Center"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+
+                </VerticalStackLayout>
+            </CollectionView.Header>
+
+            <!-- Typing indicator dots shown while the AI is streaming -->
+            <CollectionView.Footer>
+                <HorizontalStackLayout x:Name="TypingIndicator"
+                                       IsVisible="{Binding IsStreaming}"
+                                       Spacing="5"
+                                       Margin="20,4,0,14">
+                    <BoxView x:Name="Dot1" WidthRequest="6" HeightRequest="6"
+                             CornerRadius="3"
+                             Color="{StaticResource ProductivityFocus}"
+                             Opacity="0.4"/>
+                    <BoxView x:Name="Dot2" WidthRequest="6" HeightRequest="6"
+                             CornerRadius="3"
+                             Color="{StaticResource ProductivityFocus}"
+                             Opacity="0.4"/>
+                    <BoxView x:Name="Dot3" WidthRequest="6" HeightRequest="6"
+                             CornerRadius="3"
+                             Color="{StaticResource ProductivityFocus}"
+                             Opacity="0.4"/>
+                </HorizontalStackLayout>
+            </CollectionView.Footer>
+
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Grid Padding="16,0,16,12">
+
+                        <!-- User bubble — right aligned -->
+                        <Border IsVisible="{Binding IsUser}"
+                                HorizontalOptions="End"
+                                MaximumWidthRequest="280"
+                                Padding="14,10"
+                                BackgroundColor="{StaticResource ProductivityFocus}"
+                                StrokeThickness="0">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="18,18,4,18"/>
+                            </Border.StrokeShape>
+                            <Label Text="{Binding Content}"
+                                   TextColor="#111113"
+                                   FontSize="14"
+                                   LineBreakMode="WordWrap"/>
+                        </Border>
+
+                        <!-- Assistant bubble — left aligned, with optional action buttons -->
+                        <VerticalStackLayout IsVisible="{Binding IsAssistant}"
+                                             HorizontalOptions="Start"
+                                             MaximumWidthRequest="300"
+                                             Spacing="8">
+                            <Border Padding="14,10"
+                                    BackgroundColor="{StaticResource ProductivityCardBackground}"
+                                    Stroke="{StaticResource ProductivityCardStroke}"
+                                    StrokeThickness="1">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="4,18,18,18"/>
+                                </Border.StrokeShape>
+                                <Label Text="{Binding Content}"
+                                       Style="{StaticResource ProductivityBody}"
+                                       LineBreakMode="WordWrap"/>
+                            </Border>
+
+                            <!-- Action pill buttons: BindableLayout avoids a nested CollectionView -->
+                            <HorizontalStackLayout Spacing="8"
+                                                   IsVisible="{Binding HasActions}"
+                                                   BindableLayout.ItemsSource="{Binding Actions}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Padding="12,7"
+                                                BackgroundColor="Transparent"
+                                                Stroke="{StaticResource ProductivityFocus}"
+                                                StrokeThickness="1">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusPill}"/>
+                                            </Border.StrokeShape>
+                                            <Border.GestureRecognizers>
+                                                <TapGestureRecognizer
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ActionTappedCommand}"
+                                                    CommandParameter="{Binding .}"/>
+                                            </Border.GestureRecognizers>
+                                            <Label Text="{Binding Label}"
+                                                   TextColor="{StaticResource ProductivityFocus}"
+                                                   FontSize="12"
+                                                   FontAttributes="Bold"/>
+                                        </Border>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </HorizontalStackLayout>
+                        </VerticalStackLayout>
+
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- ── Input area ─────────────────────────────────────────────── -->
+        <Border Grid.Row="2"
+                BackgroundColor="#16161A"
+                StrokeThickness="0"
+                Padding="16,12,16,32">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="0"/>
+            </Border.StrokeShape>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <Border Grid.Column="0"
+                        BackgroundColor="#1E1E26"
+                        Stroke="#2A2A35"
+                        StrokeThickness="1"
+                        Padding="14,8">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusLg}"/>
+                    </Border.StrokeShape>
+                    <Editor x:Name="MessageEditor"
+                            Text="{Binding InputText}"
+                            Placeholder="Ask your coach anything..."
+                            PlaceholderColor="{StaticResource ProductivityTextMuted}"
+                            TextColor="{StaticResource ProductivityTextPrimary}"
+                            BackgroundColor="Transparent"
+                            FontSize="14"
+                            AutoSize="TextChanges"
+                            MaximumHeightRequest="100"
+                            />
+                </Border>
+
+                <Border Grid.Column="1"
+                        WidthRequest="44" HeightRequest="44"
+                        BackgroundColor="{StaticResource ProductivityFocus}"
+                        StrokeThickness="0"
+                        VerticalOptions="End">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="22"/>
+                    </Border.StrokeShape>
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding SendCommand}"/>
+                    </Border.GestureRecognizers>
+                    <Label Text="↑"
+                           TextColor="#111113"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           HorizontalOptions="Center"
+                           VerticalOptions="Center"/>
+                </Border>
+            </Grid>
+        </Border>
+
+    </Grid>
+</ContentPage>

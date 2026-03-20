@@ -68,12 +68,28 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredService<IAuthService>(),
                 sp.GetRequiredService<JsonSerializerOptions>()));
 
+        // Chat service uses a dedicated HttpClient with no timeout so SSE streams
+        // are not cut off by the 30s default.
+        services.AddHttpClient("OmniBackendStream", (sp, client) =>
+        {
+            var opts = sp.GetRequiredService<BackendOptions>();
+            if (!string.IsNullOrWhiteSpace(opts.BaseUrl))
+                client.BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/");
+            client.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
+        });
+        services.AddSingleton<IChatService>(sp =>
+            new ChatService(
+                sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackendStream"),
+                sp.GetRequiredService<IAuthService>(),
+                sp.GetRequiredService<JsonSerializerOptions>()));
+
         services.AddTransient<MainPage>();
         services.AddTransient<UsageStatsPage>();
         services.AddTransient<SessionPage>();
         services.AddTransient<TasksPage>();
         services.AddTransient<AccountPage>();
         services.AddTransient<DigestPage>();
+        services.AddTransient<ChatPage>();
 
         services.AddActiveWindowTracker();
         services.AddNotificationManager();

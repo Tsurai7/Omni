@@ -83,6 +83,31 @@ CREATE TABLE IF NOT EXISTS daily_focus_scores (
 CREATE INDEX IF NOT EXISTS idx_daily_focus_scores_user_date ON daily_focus_scores(user_id, score_date DESC);
 `
 
+const createTableChatConversations = `
+CREATE TABLE IF NOT EXISTS chat_conversations (
+	id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+	title TEXT NOT NULL DEFAULT '',
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	last_message_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	deleted_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_chat_conv_user ON chat_conversations(user_id, last_message_at DESC) WHERE deleted_at IS NULL;
+`
+
+const createTableChatMessages = `
+CREATE TABLE IF NOT EXISTS chat_messages (
+	id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	conversation_id UUID NOT NULL REFERENCES chat_conversations(id) ON DELETE CASCADE,
+	user_id UUID NOT NULL,
+	role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+	content TEXT NOT NULL,
+	metadata JSONB,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_chat_msg_conv ON chat_messages(conversation_id, created_at);
+`
+
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, err := pool.Exec(ctx, createTableUsers); err != nil {
 		return err
@@ -99,6 +124,12 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, err := pool.Exec(ctx, createTableUserNotifications); err != nil {
 		return err
 	}
-	_, err := pool.Exec(ctx, createTableDailyFocusScores)
+	if _, err := pool.Exec(ctx, createTableDailyFocusScores); err != nil {
+		return err
+	}
+	if _, err := pool.Exec(ctx, createTableChatConversations); err != nil {
+		return err
+	}
+	_, err := pool.Exec(ctx, createTableChatMessages)
 	return err
 }
