@@ -24,6 +24,19 @@ from app.db import get_pg_engine
 
 logger = logging.getLogger(__name__)
 
+try:
+    from google.api_core import exceptions as google_api_exceptions
+except ImportError:
+    google_api_exceptions = None  # type: ignore[misc, assignment]
+
+_DEFAULT_GEMINI_PRIMARY = "gemini-2.5-flash-lite"
+_DEFAULT_GEMINI_FALLBACKS = (
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+)
+
+
 def _gemini_api_key() -> str:
     return (
         (os.getenv("GEMINI_API_KEY") or "").strip()
@@ -31,9 +44,88 @@ def _gemini_api_key() -> str:
     )
 
 
-def _gemini_model() -> str:
-    # Unversioned "gemini-1.5-flash" returns 404 on current v1beta; use a current id (override via GEMINI_MODEL).
-    return (os.getenv("GEMINI_MODEL") or "").strip() or "gemini-2.0-flash-lite"
+def _gemini_model_chain() -> list[str]:
+    """
+    Ordered model ids: primary (GEMINI_MODEL or default) then fallbacks.
+    GEMINI_MODEL_FALLBACKS: unset → built-in list; empty string → no fallbacks; else comma-separated.
+    """
+    primary = (os.getenv("GEMINI_MODEL") or "").strip() or _DEFAULT_GEMINI_PRIMARY
+    fb_env = os.getenv("GEMINI_MODEL_FALLBACKS")
+    if fb_env is None:
+        fallbacks = list(_DEFAULT_GEMINI_FALLBACKS)
+    elif not fb_env.strip():
+        fallbacks = []
+    else:
+        fallbacks = [x.strip() for x in fb_env.split(",") if x.strip()]
+
+    seen: set[str] = set()
+    chain: list[str] = []
+    for m in [primary, *fallbacks]:
+        if m not in seen:
+            seen.add(m)
+            chain.append(m)
+    return chain
+
+
+def _should_fallback_to_next_model(exc: BaseException) -> bool:
+    """True if trying another model in the chain might succeed."""
+    if google_api_exceptions is not None and isinstance(
+        exc,
+        (
+            google_api_exceptions.Unauthenticated,
+            google_api_exceptions.PermissionDenied,
+            google_api_exceptions.Unauthorized,
+            google_api_exceptions.Forbidden,
+        ),
+    ):
+        return False
+
+    if google_api_exceptions is not None and isinstance(
+        exc,
+        (
+            google_api_exceptions.NotFound,
+            google_api_exceptions.ResourceExhausted,
+            google_api_exceptions.TooManyRequests,
+        ),
+    ):
+        return True
+
+    raw = str(exc)
+    low = raw.lower()
+    if "401" in raw or "403" in raw:
+        if any(
+            x in low
+            for x in (
+                "unauthorized",
+                "permission denied",
+                "forbidden",
+                "invalid api key",
+                "api key not valid",
+            )
+        ):
+            return False
+
+    if (
+        "429" in raw
+        or "quota" in low
+        or "resource exhausted" in low
+        or "rate limit" in low
+        or "exceeded your current quota" in low
+    ):
+        return True
+    if "404" in raw or "not found" in low or "is not supported for generatecontent" in low:
+        return True
+    return False
+
+
+def _gemini_all_models_failed_message(chain: list[str]) -> str:
+    listed = ", ".join(chain)
+    return (
+        f"All configured Gemini models failed or hit quota ({listed}). "
+        "Wait and retry, reduce coach usage, adjust GEMINI_MODEL / GEMINI_MODEL_FALLBACKS, "
+        "or enable billing in Google AI Studio. "
+        "See https://aistudio.google.com/rate-limit"
+    )
 
 
 def _gemini_stream_error_message(exc: BaseException, *, model_id: str = "") -> str:
@@ -44,7 +136,8 @@ def _gemini_stream_error_message(exc: BaseException, *, model_id: str = "") -> s
     if "404" in raw or "not found" in low or "is not supported for generatecontent" in low:
         return (
             "Gemini model not available for this API key. In AI Studio, open the model list, "
-            "pick a model that supports generateContent, set GEMINI_MODEL to that id, and redeploy."
+            "pick a model that supports generateContent, set GEMINI_MODEL / GEMINI_MODEL_FALLBACKS, "
+            "and redeploy."
         )
     if (
         "429" in raw
@@ -57,7 +150,7 @@ def _gemini_stream_error_message(exc: BaseException, *, model_id: str = "") -> s
             f"Gemini quota or rate limit reached{model_hint}. "
             "Wait a few minutes for the window to reset, use the coach less often, "
             "or enable pay-as-you-go billing for this API key in Google AI / Cloud. "
-            "If another model still has free quota, try a different GEMINI_MODEL."
+            "If another model still has free quota, try GEMINI_MODEL or GEMINI_MODEL_FALLBACKS."
         )
     return "Sorry, I'm having trouble connecting right now. Try again in a moment."
 
@@ -365,6 +458,38 @@ def _history_to_gemini_turns(history: list[dict]) -> list[dict]:
     return turns
 
 
+def _stream_single_model(
+    model_name: str,
+    system_prompt: str,
+    gem_history: list[dict],
+    user_message: str,
+) -> Generator[str, None, None]:
+    """Yields SSE `data: {...}\\n\\n` lines for text deltas only. Raises on failure."""
+    model = genai.GenerativeModel(
+        model_name,
+        system_instruction=system_prompt,
+    )
+    generation_config = genai.GenerationConfig(
+        max_output_tokens=1024,
+        temperature=0.7,
+    )
+    chat = model.start_chat(history=gem_history)
+    response = chat.send_message(
+        user_message,
+        stream=True,
+        generation_config=generation_config,
+    )
+    for chunk in response:
+        try:
+            text = chunk.text or ""
+        except ValueError:
+            # No text in this chunk (e.g. safety filter, finish reason only)
+            continue
+        if text:
+            payload = json.dumps({"delta": text})
+            yield f"data: {payload}\n\n"
+
+
 def stream_chat_response(
     system_prompt: str,
     history: list[dict],
@@ -374,6 +499,7 @@ def stream_chat_response(
     Stream a Gemini completion. Yields SSE-formatted lines.
     Each line: "data: {json}\\n\\n"
     Final line: "data: {done: true}\\n\\n"
+    Tries GEMINI_MODEL (or default) then GEMINI_MODEL_FALLBACKS on quota / unavailable model.
     """
     if not _gemini_api_key():
         yield 'data: {"delta": "Gemini API key not configured (set GEMINI_API_KEY or GOOGLE_API_KEY).", "error": true}\n\n'
@@ -382,36 +508,63 @@ def stream_chat_response(
 
     genai.configure(api_key=_gemini_api_key())
     gem_history = _history_to_gemini_turns(history)
+    chain = _gemini_model_chain()
 
-    model_name = _gemini_model()
-    try:
-        model = genai.GenerativeModel(
-            model_name,
-            system_instruction=system_prompt,
+    last_error: BaseException | None = None
+    for model_name in chain:
+        stream = _stream_single_model(
+            model_name, system_prompt, gem_history, user_message
         )
-        generation_config = genai.GenerationConfig(
-            max_output_tokens=1024,
-            temperature=0.7,
-        )
-        chat = model.start_chat(history=gem_history)
-        response = chat.send_message(
-            user_message,
-            stream=True,
-            generation_config=generation_config,
-        )
-        for chunk in response:
-            try:
-                text = chunk.text or ""
-            except ValueError:
-                # No text in this chunk (e.g. safety filter, finish reason only)
+        sent = False
+        try:
+            for line in stream:
+                sent = True
+                yield line
+            break
+        except Exception as e:
+            last_error = e
+            if sent:
+                logger.error("Gemini mid-stream error (%s): %s", model_name, e)
+                err_payload = json.dumps(
+                    {
+                        "delta": _gemini_stream_error_message(
+                            e, model_id=model_name
+                        ),
+                        "error": True,
+                    }
+                )
+                yield f"data: {err_payload}\n\n"
+                break
+            if _should_fallback_to_next_model(e):
+                logger.warning(
+                    "Gemini model %s failed (%s), trying next in chain",
+                    model_name,
+                    e,
+                )
                 continue
-            if text:
-                payload = json.dumps({"delta": text})
-                yield f"data: {payload}\n\n"
-    except Exception as e:
-        logger.error("Gemini stream error: %s", e)
-        err_payload = json.dumps({"delta": _gemini_stream_error_message(e, model_id=model_name), "error": True})
-        yield f"data: {err_payload}\n\n"
+            logger.error("Gemini stream error (%s): %s", model_name, e)
+            err_payload = json.dumps(
+                {
+                    "delta": _gemini_stream_error_message(
+                        e, model_id=model_name
+                    ),
+                    "error": True,
+                }
+            )
+            yield f"data: {err_payload}\n\n"
+            break
+    else:
+        if last_error is not None:
+            logger.error(
+                "Gemini: all models in chain failed; last error: %s", last_error
+            )
+            err_payload = json.dumps(
+                {
+                    "delta": _gemini_all_models_failed_message(chain),
+                    "error": True,
+                }
+            )
+            yield f"data: {err_payload}\n\n"
 
     yield 'data: {"done": true}\n\n'
 
