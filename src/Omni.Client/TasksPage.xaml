@@ -4,14 +4,15 @@
              x:Class="Omni.Client.TasksPage"
              Shell.NavBarIsVisible="False"
              BackgroundColor="{StaticResource ProductivityPageBackground}">
+
     <Grid RowDefinitions="Auto,*">
 
         <!-- Header -->
         <VerticalStackLayout Grid.Row="0" Padding="20,52,20,0" Spacing="0">
-            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,24">
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,16">
                 <VerticalStackLayout Grid.Column="0" Spacing="4">
                     <Label Text="Tasks" Style="{StaticResource ProductivityHeadline}"/>
-                    <Label Text="Synced across devices" Style="{StaticResource ProductivityCaption}"/>
+                    <Label Text="Kanban board" Style="{StaticResource ProductivityCaption}"/>
                 </VerticalStackLayout>
                 <Button Grid.Column="1"
                         Text="+ Add"
@@ -21,82 +22,351 @@
             </Grid>
         </VerticalStackLayout>
 
-        <!-- Task List -->
-        <RefreshView x:Name="RefreshView" Grid.Row="1"
-                     Command="{Binding RefreshCommand}"
-                     IsRefreshing="{Binding IsRefreshing}"
-                     RefreshColor="{StaticResource ProductivityFocus}">
-            <CollectionView x:Name="TaskList"
-                            ItemsSource="{Binding Tasks}"
-                            SelectionMode="None"
-                            Margin="20,0,20,32">
-                <CollectionView.ItemTemplate>
-                    <DataTemplate>
-                        <Border Padding="16" Margin="0,0,0,10"
-                                BackgroundColor="{StaticResource ProductivityCardBackground}"
-                                Stroke="{StaticResource ProductivityCardStroke}"
-                                StrokeThickness="1">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
-                            </Border.StrokeShape>
-                            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
-                                <!-- Status indicator dot -->
-                                <Ellipse Grid.Column="0"
-                                         WidthRequest="8" HeightRequest="8"
-                                         VerticalOptions="Center">
-                                    <Ellipse.Fill>
-                                        <SolidColorBrush Color="{Binding StatusColor}"/>
-                                    </Ellipse.Fill>
-                                </Ellipse>
-                                <!-- Title + Status -->
-                                <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-                                    <Label Text="{Binding Title}"
-                                           Style="{StaticResource ProductivityBody}"
-                                           LineBreakMode="TailTruncation"/>
-                                    <Label Text="{Binding Status}"
-                                           Style="{StaticResource ProductivityCaption}"
-                                           TextTransform="Capitalize"/>
+        <!-- Kanban Board — horizontal scroll with 3 columns -->
+        <ScrollView Grid.Row="1" Orientation="Horizontal"
+                    HorizontalScrollBarVisibility="Never"
+                    VerticalScrollBarVisibility="Never">
+            <HorizontalStackLayout Padding="12,0,12,32" Spacing="12">
+
+                <!-- ───── TO DO column ───── -->
+                <Grid WidthRequest="272" RowDefinitions="Auto,*">
+                    <Grid.GestureRecognizers>
+                        <DropGestureRecognizer AllowDrop="True" Drop="OnDropPending"/>
+                    </Grid.GestureRecognizers>
+
+                    <!-- Column header -->
+                    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto"
+                          Padding="4,0,4,10" ColumnSpacing="6">
+                        <BoxView Grid.Column="0"
+                                 WidthRequest="10" HeightRequest="10"
+                                 CornerRadius="5"
+                                 Color="#66667A"
+                                 VerticalOptions="Center"/>
+                        <Label Grid.Column="1"
+                               Text="TO DO"
+                               FontAttributes="Bold"
+                               FontSize="11"
+                               CharacterSpacing="1.2"
+                               TextColor="#66667A"
+                               VerticalOptions="Center"/>
+                        <Label Grid.Column="2"
+                               x:Name="TodoCountLabel"
+                               Text="{Binding TodoCount}"
+                               FontSize="11"
+                               TextColor="#44444F"
+                               BackgroundColor="{StaticResource ProductivityCardBackground}"
+                               Padding="6,2"
+                               VerticalOptions="Center"/>
+                    </Grid>
+
+                    <!-- Todo task list -->
+                    <ScrollView Grid.Row="1" VerticalScrollBarVisibility="Never">
+                        <VerticalStackLayout Spacing="10" MinimumHeightRequest="120"
+                                             BindableLayout.ItemsSource="{Binding TodoTasks}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="0" Margin="0"
+                                            BackgroundColor="{StaticResource ProductivityCardBackground}"
+                                            Stroke="{StaticResource ProductivityCardStroke}"
+                                            StrokeThickness="1">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                                        </Border.StrokeShape>
+                                        <Border.GestureRecognizers>
+                                            <DragGestureRecognizer CanDrag="True" DragStarting="OnDragStarting"/>
+                                        </Border.GestureRecognizers>
+                                        <Grid ColumnDefinitions="4,*" ColumnSpacing="0">
+                                            <!-- Priority stripe -->
+                                            <BoxView Grid.Column="0"
+                                                     Color="{Binding PriorityColor}"
+                                                     VerticalOptions="Fill"/>
+                                            <!-- Card content -->
+                                            <Grid Grid.Column="1" Padding="10,10,8,10"
+                                                  RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto,Auto"
+                                                  ColumnSpacing="6" RowSpacing="4">
+                                                <!-- Title -->
+                                                <Label Grid.Row="0" Grid.Column="0"
+                                                       Text="{Binding Title}"
+                                                       Style="{StaticResource ProductivityBody}"
+                                                       LineBreakMode="WordWrap"
+                                                       MaxLines="2"/>
+                                                <!-- Edit button -->
+                                                <Button Grid.Row="0" Grid.Column="1"
+                                                        Text="✏"
+                                                        FontSize="13"
+                                                        Style="{StaticResource ProductivitySecondaryButton}"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.EditTaskCommand}"
+                                                        CommandParameter="{Binding .}"
+                                                        WidthRequest="34" HeightRequest="34"
+                                                        Padding="0"/>
+                                                <!-- Delete button -->
+                                                <Button Grid.Row="0" Grid.Column="2"
+                                                        Text="✕"
+                                                        FontSize="13"
+                                                        Style="{StaticResource ProductivitySecondaryButton}"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeleteTaskCommand}"
+                                                        CommandParameter="{Binding .}"
+                                                        WidthRequest="34" HeightRequest="34"
+                                                        Padding="0"/>
+                                                <!-- Priority badge -->
+                                                <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3"
+                                                        HorizontalOptions="Start"
+                                                        Padding="6,2" BackgroundColor="Transparent"
+                                                        Stroke="{Binding PriorityColor}"
+                                                        StrokeThickness="1">
+                                                    <Border.StrokeShape>
+                                                        <RoundRectangle CornerRadius="4"/>
+                                                    </Border.StrokeShape>
+                                                    <Border.GestureRecognizers>
+                                                        <TapGestureRecognizer
+                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.CyclePriorityCommand}"
+                                                            CommandParameter="{Binding .}"/>
+                                                    </Border.GestureRecognizers>
+                                                    <Label Text="{Binding PriorityLabel}"
+                                                           TextColor="{Binding PriorityColor}"
+                                                           FontSize="10"
+                                                           FontAttributes="Bold"
+                                                           CharacterSpacing="0.8"/>
+                                                </Border>
+                                            </Grid>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                            <!-- Empty state -->
+                            <BindableLayout.EmptyView>
+                                <VerticalStackLayout HorizontalOptions="Center" Padding="0,20" Spacing="6">
+                                    <Label Text="No tasks" Style="{StaticResource ProductivityCaption}"
+                                           HorizontalOptions="Center"/>
+                                    <Label Text="Drop here or tap + Add" Style="{StaticResource ProductivityCaption}"
+                                           HorizontalOptions="Center" Opacity="0.5"/>
                                 </VerticalStackLayout>
-                                <!-- Done button -->
-                                <Button Grid.Column="2"
-                                        Text="Done"
-                                        Style="{StaticResource ProductivitySecondaryButton}"
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.MarkDoneCommand}"
-                                        CommandParameter="{Binding .}"
-                                        IsVisible="{Binding IsPending}"
-                                        VerticalOptions="Center"
-                                        Padding="12,0"
-                                        HeightRequest="34"/>
-                                <!-- Delete button -->
-                                <Button Grid.Column="3"
-                                        Text="✕"
-                                        Style="{StaticResource ProductivitySecondaryButton}"
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeleteTaskCommand}"
-                                        CommandParameter="{Binding .}"
-                                        VerticalOptions="Center"
-                                        Padding="10,0"
-                                        HeightRequest="34"
-                                        WidthRequest="40"/>
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-                <CollectionView.EmptyView>
-                    <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
-                                         Spacing="12" Padding="0,80">
-                        <Label Text="📋"
-                               FontSize="48"
-                               HorizontalOptions="Center"/>
-                        <Label Text="No tasks yet"
-                               Style="{StaticResource ProductivityTitle}"
-                               HorizontalOptions="Center"/>
-                        <Label Text="Tap + Add to create your first task."
-                               Style="{StaticResource ProductivityCaption}"
-                               HorizontalOptions="Center"/>
-                    </VerticalStackLayout>
-                </CollectionView.EmptyView>
-            </CollectionView>
-        </RefreshView>
+                            </BindableLayout.EmptyView>
+                        </VerticalStackLayout>
+                    </ScrollView>
+                </Grid>
+
+                <!-- ───── IN PROGRESS column ───── -->
+                <Grid WidthRequest="272" RowDefinitions="Auto,*">
+                    <Grid.GestureRecognizers>
+                        <DropGestureRecognizer AllowDrop="True" Drop="OnDropInProgress"/>
+                    </Grid.GestureRecognizers>
+
+                    <!-- Column header -->
+                    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto"
+                          Padding="4,0,4,10" ColumnSpacing="6">
+                        <BoxView Grid.Column="0"
+                                 WidthRequest="10" HeightRequest="10"
+                                 CornerRadius="5"
+                                 Color="#F5A623"
+                                 VerticalOptions="Center"/>
+                        <Label Grid.Column="1"
+                               Text="IN PROGRESS"
+                               FontAttributes="Bold"
+                               FontSize="11"
+                               CharacterSpacing="1.2"
+                               TextColor="#F5A623"
+                               VerticalOptions="Center"/>
+                        <Label Grid.Column="2"
+                               Text="{Binding InProgressCount}"
+                               FontSize="11"
+                               TextColor="#44444F"
+                               BackgroundColor="{StaticResource ProductivityCardBackground}"
+                               Padding="6,2"
+                               VerticalOptions="Center"/>
+                    </Grid>
+
+                    <!-- In-progress task list -->
+                    <ScrollView Grid.Row="1" VerticalScrollBarVisibility="Never">
+                        <VerticalStackLayout Spacing="10" MinimumHeightRequest="120"
+                                             BindableLayout.ItemsSource="{Binding InProgressTasks}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="0" Margin="0"
+                                            BackgroundColor="{StaticResource ProductivityCardBackground}"
+                                            Stroke="{StaticResource ProductivityCardStroke}"
+                                            StrokeThickness="1">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                                        </Border.StrokeShape>
+                                        <Border.GestureRecognizers>
+                                            <DragGestureRecognizer CanDrag="True" DragStarting="OnDragStarting"/>
+                                        </Border.GestureRecognizers>
+                                        <Grid ColumnDefinitions="4,*" ColumnSpacing="0">
+                                            <BoxView Grid.Column="0"
+                                                     Color="{Binding PriorityColor}"
+                                                     VerticalOptions="Fill"/>
+                                            <Grid Grid.Column="1" Padding="10,10,8,10"
+                                                  RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto,Auto"
+                                                  ColumnSpacing="6" RowSpacing="4">
+                                                <Label Grid.Row="0" Grid.Column="0"
+                                                       Text="{Binding Title}"
+                                                       Style="{StaticResource ProductivityBody}"
+                                                       LineBreakMode="WordWrap"
+                                                       MaxLines="2"/>
+                                                <Button Grid.Row="0" Grid.Column="1"
+                                                        Text="✏"
+                                                        FontSize="13"
+                                                        Style="{StaticResource ProductivitySecondaryButton}"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.EditTaskCommand}"
+                                                        CommandParameter="{Binding .}"
+                                                        WidthRequest="34" HeightRequest="34"
+                                                        Padding="0"/>
+                                                <Button Grid.Row="0" Grid.Column="2"
+                                                        Text="✕"
+                                                        FontSize="13"
+                                                        Style="{StaticResource ProductivitySecondaryButton}"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeleteTaskCommand}"
+                                                        CommandParameter="{Binding .}"
+                                                        WidthRequest="34" HeightRequest="34"
+                                                        Padding="0"/>
+                                                <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3"
+                                                        HorizontalOptions="Start"
+                                                        Padding="6,2" BackgroundColor="Transparent"
+                                                        Stroke="{Binding PriorityColor}"
+                                                        StrokeThickness="1">
+                                                    <Border.StrokeShape>
+                                                        <RoundRectangle CornerRadius="4"/>
+                                                    </Border.StrokeShape>
+                                                    <Border.GestureRecognizers>
+                                                        <TapGestureRecognizer
+                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.CyclePriorityCommand}"
+                                                            CommandParameter="{Binding .}"/>
+                                                    </Border.GestureRecognizers>
+                                                    <Label Text="{Binding PriorityLabel}"
+                                                           TextColor="{Binding PriorityColor}"
+                                                           FontSize="10"
+                                                           FontAttributes="Bold"
+                                                           CharacterSpacing="0.8"/>
+                                                </Border>
+                                            </Grid>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                            <BindableLayout.EmptyView>
+                                <VerticalStackLayout HorizontalOptions="Center" Padding="0,20" Spacing="6">
+                                    <Label Text="Nothing in progress" Style="{StaticResource ProductivityCaption}"
+                                           HorizontalOptions="Center"/>
+                                    <Label Text="Drag tasks here" Style="{StaticResource ProductivityCaption}"
+                                           HorizontalOptions="Center" Opacity="0.5"/>
+                                </VerticalStackLayout>
+                            </BindableLayout.EmptyView>
+                        </VerticalStackLayout>
+                    </ScrollView>
+                </Grid>
+
+                <!-- ───── DONE column ───── -->
+                <Grid WidthRequest="272" RowDefinitions="Auto,*">
+                    <Grid.GestureRecognizers>
+                        <DropGestureRecognizer AllowDrop="True" Drop="OnDropDone"/>
+                    </Grid.GestureRecognizers>
+
+                    <!-- Column header -->
+                    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto"
+                          Padding="4,0,4,10" ColumnSpacing="6">
+                        <BoxView Grid.Column="0"
+                                 WidthRequest="10" HeightRequest="10"
+                                 CornerRadius="5"
+                                 Color="#4ECCA3"
+                                 VerticalOptions="Center"/>
+                        <Label Grid.Column="1"
+                               Text="DONE"
+                               FontAttributes="Bold"
+                               FontSize="11"
+                               CharacterSpacing="1.2"
+                               TextColor="#4ECCA3"
+                               VerticalOptions="Center"/>
+                        <Label Grid.Column="2"
+                               Text="{Binding DoneCount}"
+                               FontSize="11"
+                               TextColor="#44444F"
+                               BackgroundColor="{StaticResource ProductivityCardBackground}"
+                               Padding="6,2"
+                               VerticalOptions="Center"/>
+                    </Grid>
+
+                    <!-- Done task list -->
+                    <ScrollView Grid.Row="1" VerticalScrollBarVisibility="Never">
+                        <VerticalStackLayout Spacing="10" MinimumHeightRequest="120"
+                                             BindableLayout.ItemsSource="{Binding DoneTasks}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="0" Margin="0"
+                                            BackgroundColor="{StaticResource ProductivityCardBackground}"
+                                            Stroke="{StaticResource ProductivityCardStroke}"
+                                            StrokeThickness="1"
+                                            Opacity="0.7">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                                        </Border.StrokeShape>
+                                        <Border.GestureRecognizers>
+                                            <DragGestureRecognizer CanDrag="True" DragStarting="OnDragStarting"/>
+                                        </Border.GestureRecognizers>
+                                        <Grid ColumnDefinitions="4,*" ColumnSpacing="0">
+                                            <BoxView Grid.Column="0"
+                                                     Color="#4ECCA3"
+                                                     VerticalOptions="Fill"/>
+                                            <Grid Grid.Column="1" Padding="10,10,8,10"
+                                                  RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto,Auto"
+                                                  ColumnSpacing="6" RowSpacing="4">
+                                                <Label Grid.Row="0" Grid.Column="0"
+                                                       Text="{Binding Title}"
+                                                       Style="{StaticResource ProductivityBody}"
+                                                       LineBreakMode="WordWrap"
+                                                       MaxLines="2"
+                                                       TextDecorations="Strikethrough"
+                                                       Opacity="0.6"/>
+                                                <Button Grid.Row="0" Grid.Column="1"
+                                                        Text="✏"
+                                                        FontSize="13"
+                                                        Style="{StaticResource ProductivitySecondaryButton}"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.EditTaskCommand}"
+                                                        CommandParameter="{Binding .}"
+                                                        WidthRequest="34" HeightRequest="34"
+                                                        Padding="0"/>
+                                                <Button Grid.Row="0" Grid.Column="2"
+                                                        Text="✕"
+                                                        FontSize="13"
+                                                        Style="{StaticResource ProductivitySecondaryButton}"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeleteTaskCommand}"
+                                                        CommandParameter="{Binding .}"
+                                                        WidthRequest="34" HeightRequest="34"
+                                                        Padding="0"/>
+                                                <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3"
+                                                        HorizontalOptions="Start"
+                                                        Padding="6,2" BackgroundColor="Transparent"
+                                                        Stroke="{Binding PriorityColor}"
+                                                        StrokeThickness="1"
+                                                        Opacity="0.5">
+                                                    <Border.StrokeShape>
+                                                        <RoundRectangle CornerRadius="4"/>
+                                                    </Border.StrokeShape>
+                                                    <Label Text="{Binding PriorityLabel}"
+                                                           TextColor="{Binding PriorityColor}"
+                                                           FontSize="10"
+                                                           FontAttributes="Bold"
+                                                           CharacterSpacing="0.8"/>
+                                                </Border>
+                                            </Grid>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                            <BindableLayout.EmptyView>
+                                <VerticalStackLayout HorizontalOptions="Center" Padding="0,20" Spacing="6">
+                                    <Label Text="No completed tasks" Style="{StaticResource ProductivityCaption}"
+                                           HorizontalOptions="Center"/>
+                                    <Label Text="Drag tasks here when done" Style="{StaticResource ProductivityCaption}"
+                                           HorizontalOptions="Center" Opacity="0.5"/>
+                                </VerticalStackLayout>
+                            </BindableLayout.EmptyView>
+                        </VerticalStackLayout>
+                    </ScrollView>
+                </Grid>
+
+            </HorizontalStackLayout>
+        </ScrollView>
 
     </Grid>
 </ContentPage>

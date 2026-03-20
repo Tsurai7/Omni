@@ -5,7 +5,7 @@
              Shell.NavBarIsVisible="False"
              BackgroundColor="{StaticResource ProductivityPageBackground}">
 
-    <Grid RowDefinitions="Auto,*,Auto">
+    <Grid RowDefinitions="Auto,*,Auto" x:Name="RootGrid">
 
         <!-- ── Header ────────────────────────────────────────────────── -->
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="20,52,20,12">
@@ -42,7 +42,7 @@
 
                     <Border WidthRequest="64" HeightRequest="64"
                             HorizontalOptions="Center"
-                            BackgroundColor="#1E2A24"
+                            BackgroundColor="#334ECCA3"
                             StrokeThickness="0">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="32"/>
@@ -245,6 +245,85 @@
                 </Border>
             </Grid>
         </Border>
+
+
+        <!-- ── History overlay ──────────────────────────────────────────────── -->
+        <Grid Grid.Row="0" Grid.RowSpan="3"
+              IsVisible="{Binding ShowHistory}"
+              BackgroundColor="{StaticResource ProductivityPageBackground}"
+              RowDefinitions="Auto,*,Auto">
+
+            <!-- Header -->
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Padding="20,52,20,12">
+                <Button Grid.Column="0"
+                        Text="✕"
+                        Style="{StaticResource ProductivitySecondaryButton}"
+                        Clicked="OnHistoryCloseClicked"
+                        WidthRequest="34" HeightRequest="34"
+                        Padding="0"
+                        VerticalOptions="Center"/>
+                <Label Grid.Column="1"
+                       Text="Conversations"
+                       Style="{StaticResource ProductivityHeadline}"
+                       Margin="12,0,0,0"
+                       VerticalOptions="Center"/>
+                <Button Grid.Column="2"
+                        Text="+ New"
+                        Style="{StaticResource ProductivitySecondaryButton}"
+                        Clicked="OnNewConversationClicked"
+                        Padding="14,0"
+                        HeightRequest="34"
+                        VerticalOptions="Center"/>
+            </Grid>
+
+            <!-- Conversation list -->
+            <CollectionView Grid.Row="1"
+                            ItemsSource="{Binding Conversations}"
+                            SelectionMode="None">
+                <CollectionView.EmptyView>
+                    <Label Text="No conversations yet"
+                           Style="{StaticResource ProductivityCaption}"
+                           HorizontalOptions="Center"
+                           VerticalOptions="Center"
+                           Margin="0,40"/>
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Border Margin="16,0,16,8"
+                                Padding="16,14"
+                                BackgroundColor="{StaticResource ProductivityCardBackground}"
+                                Stroke="{StaticResource ProductivityCardStroke}"
+                                StrokeThickness="1">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                            </Border.StrokeShape>
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.SelectConversationCommand}"
+                                    CommandParameter="{Binding .}"/>
+                            </Border.GestureRecognizers>
+                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="3">
+                                <Label Grid.Row="0" Grid.Column="0"
+                                       Text="{Binding Title}"
+                                       Style="{StaticResource ProductivityBody}"
+                                       FontAttributes="Bold"
+                                       LineBreakMode="TailTruncation"/>
+                                <Label Grid.Row="1" Grid.Column="0"
+                                       Text="{Binding LastMessageAtDisplay}"
+                                       Style="{StaticResource ProductivityCaption}"
+                                       LineBreakMode="NoWrap"/>
+                                <Label Grid.Row="0" Grid.Column="1" Grid.RowSpan="2"
+                                       Text="›"
+                                       Style="{StaticResource ProductivityCaption}"
+                                       VerticalOptions="Center"
+                                       Margin="8,0,0,0"/>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+        </Grid>
 
     </Grid>
 </ContentPage>

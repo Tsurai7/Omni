@@ -127,6 +127,20 @@ public sealed class LocalDatabaseService
         }
     }
 
+    /// <summary>Update task title and priority locally and mark for sync.</summary>
+    public async Task UpdateTaskAsync(string localId, string title, string priority, CancellationToken cancellationToken = default)
+    {
+        var task = await Connection.Table<LocalTask>().Where(t => t.Id == localId).FirstOrDefaultAsync().ConfigureAwait(false);
+        if (task != null)
+        {
+            task.Title = title;
+            task.Priority = priority;
+            task.UpdatedAt = DateTime.UtcNow;
+            task.IsSynced = false;
+            await Connection.UpdateAsync(task).ConfigureAwait(false);
+        }
+    }
+
     /// <summary>Delete a task by local id (e.g. when deleting an unsynced task).</summary>
     public async Task DeleteTaskAsync(string localId, CancellationToken cancellationToken = default)
     {

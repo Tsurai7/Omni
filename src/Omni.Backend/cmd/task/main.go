@@ -73,6 +73,7 @@ func main() {
 	{
 		tasks.GET("", h.List)
 		tasks.POST("", h.Create)
+		tasks.PUT("/:id", h.Update)
 		tasks.PATCH("/:id/status", h.UpdateStatus)
 		tasks.DELETE("/:id", h.Delete)
 	}

@@ -39,34 +39,33 @@ public sealed class TaskService : ITaskService
         }
         catch (HttpRequestException)
         {
-            // Backend unreachable (e.g. not running, connection refused); return empty so UI can show local tasks
             return Array.Empty<TaskListItem>();
         }
 
         using (response)
         {
-        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-        {
-            Debug.WriteLine("TaskService.GetTasksAsync: 401 Unauthorized, clearing token.");
-            _authService.Logout();
-            return Array.Empty<TaskListItem>();
-        }
-        if (!response.IsSuccessStatusCode)
-            return Array.Empty<TaskListItem>();
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                Debug.WriteLine("TaskService.GetTasksAsync: 401 Unauthorized, clearing token.");
+                _authService.Logout();
+                return Array.Empty<TaskListItem>();
+            }
+            if (!response.IsSuccessStatusCode)
+                return Array.Empty<TaskListItem>();
 
-        try
-        {
-            var body = await response.Content.ReadFromJsonAsync<TaskListResponse>(_jsonOptions, cancellationToken).ConfigureAwait(false);
-            return (IReadOnlyList<TaskListItem>?)body?.Tasks ?? Array.Empty<TaskListItem>();
-        }
-        catch (JsonException)
-        {
-            return Array.Empty<TaskListItem>();
-        }
+            try
+            {
+                var body = await response.Content.ReadFromJsonAsync<TaskListResponse>(_jsonOptions, cancellationToken).ConfigureAwait(false);
+                return (IReadOnlyList<TaskListItem>?)body?.Tasks ?? Array.Empty<TaskListItem>();
+            }
+            catch (JsonException)
+            {
+                return Array.Empty<TaskListItem>();
+            }
         }
     }
 
-    public async Task<TaskCreateResult?> CreateTaskAsync(string title, CancellationToken cancellationToken = default)
+    public async Task<TaskCreateResult?> CreateTaskAsync(string title, string priority = "medium", CancellationToken cancellationToken = default)
     {
         var token = await _authService.GetTokenAsync(cancellationToken).ConfigureAwait(false);
         title = (title ?? "").Trim();
@@ -77,7 +76,7 @@ public sealed class TaskService : ITaskService
         {
             try
             {
-                var body = JsonSerializer.Serialize(new { title, status = "pending" }, _jsonOptions);
+                var body = JsonSerializer.Serialize(new { title, status = "pending", priority }, _jsonOptions);
                 var request = new HttpRequestMessage(HttpMethod.Post, "api/tasks");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
                 request.Content = new StringContent(body, Encoding.UTF8, "application/json");
@@ -104,7 +103,7 @@ public sealed class TaskService : ITaskService
             }
         }
 
-        // Offline or failure: save locally and return a result for UI
+        // Offline or failure: save locally
         var localId = Guid.NewGuid().ToString("N");
         var now = DateTime.UtcNow;
         var localTask = new LocalTask
@@ -112,6 +111,7 @@ public sealed class TaskService : ITaskService
             Id = localId,
             Title = title,
             Status = "pending",
+            Priority = priority,
             IsSynced = false,
             CreatedAt = now,
             UpdatedAt = now
@@ -122,6 +122,7 @@ public sealed class TaskService : ITaskService
             UserId: "",
             Title: title,
             Status: "pending",
+            Priority: priority,
             CreatedAt: now.ToString("O"),
             UpdatedAt: now.ToString("O"));
     }
@@ -153,8 +154,38 @@ public sealed class TaskService : ITaskService
             }
         }
 
-        // Offline: update local so sync will push later (taskId may be local Id or ServerId)
         await _localDb.UpdateTaskStatusAsync(taskId, taskId, status, cancellationToken).ConfigureAwait(false);
+        return true;
+    }
+
+    public async Task<bool> UpdateTaskAsync(string taskId, string title, string priority, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(taskId) || string.IsNullOrEmpty(title))
+            return false;
+
+        var token = await _authService.GetTokenAsync(cancellationToken).ConfigureAwait(false);
+        if (!string.IsNullOrEmpty(token))
+        {
+            try
+            {
+                var body = JsonSerializer.Serialize(new { title, priority }, _jsonOptions);
+                var request = new HttpRequestMessage(HttpMethod.Put, $"api/tasks/{taskId}");
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+
+                using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                    _authService.Logout();
+                if (response.IsSuccessStatusCode)
+                    return true;
+            }
+            catch (HttpRequestException)
+            {
+                // Backend unreachable; fall through to update local
+            }
+        }
+
+        await _localDb.UpdateTaskAsync(taskId, title, priority, cancellationToken).ConfigureAwait(false);
         return true;
     }
 
@@ -178,21 +209,18 @@ public sealed class TaskService : ITaskService
                     return true;
                 if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                 {
-                    // Server doesn't have it; may be local-only
                     await _localDb.DeleteTaskAsync(taskId, cancellationToken).ConfigureAwait(false);
                     return true;
                 }
             }
             catch (HttpRequestException)
             {
-                // Backend unreachable; remove from local so UI stays consistent
                 await _localDb.DeleteTaskAsync(taskId, cancellationToken).ConfigureAwait(false);
                 return true;
             }
         }
         else
         {
-            // Offline: remove from local only
             await _localDb.DeleteTaskAsync(taskId, cancellationToken).ConfigureAwait(false);
             return true;
         }

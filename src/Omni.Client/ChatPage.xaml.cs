@@ -32,6 +32,19 @@ public class ChatMessageViewModel : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
 }
 
+// ── Conversation view model ───────────────────────────────────────────────────
+
+public class ConversationViewModel
+{
+    public string Id { get; init; } = string.Empty;
+    public string Title { get; init; } = string.Empty;
+    public string? LastMessageAtRaw { get; init; }
+
+    public string LastMessageAtDisplay => DateTimeOffset.TryParse(LastMessageAtRaw, out var dt)
+        ? dt.LocalDateTime.ToString("MMM d, h:mm tt")
+        : string.Empty;
+}
+
 // ── Starter view model ────────────────────────────────────────────────────────
 
 public class StarterViewModel
@@ -58,8 +71,10 @@ public partial class ChatPage : ContentPage, INotifyPropertyChanged
 
     private ObservableCollection<ChatMessageViewModel> _messages = [];
     private ObservableCollection<StarterViewModel> _starters = [];
+    private ObservableCollection<ConversationViewModel> _conversations = [];
     private string _inputText = string.Empty;
     private bool _isStreaming;
+    private bool _showHistory;
     private string? _currentConversationId;
     private CancellationTokenSource? _streamCts;
 
@@ -89,6 +104,12 @@ public partial class ChatPage : ContentPage, INotifyPropertyChanged
             if (action == null) return;
             await HandleActionAsync(action);
         });
+
+        SelectConversationCommand = new Command<ConversationViewModel?>(async conv =>
+        {
+            if (conv == null) return;
+            await LoadConversationAsync(conv.Id);
+        });
     }
 
     // ── Commands ──────────────────────────────────────────────────────────────
@@ -96,6 +117,7 @@ public partial class ChatPage : ContentPage, INotifyPropertyChanged
     public ICommand SendCommand { get; }
     public ICommand StarterTappedCommand { get; }
     public ICommand ActionTappedCommand { get; }
+    public ICommand SelectConversationCommand { get; }
 
     // ── Bindable properties ───────────────────────────────────────────────────
 
@@ -109,6 +131,18 @@ public partial class ChatPage : ContentPage, INotifyPropertyChanged
     {
         get => _starters;
         set { _starters = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasStarters)); }
+    }
+
+    public ObservableCollection<ConversationViewModel> Conversations
+    {
+        get => _conversations;
+        set { _conversations = value; OnPropertyChanged(); }
+    }
+
+    public bool ShowHistory
+    {
+        get => _showHistory;
+        set { if (_showHistory != value) { _showHistory = value; OnPropertyChanged(); } }
     }
 
     public string InputText
@@ -340,31 +374,42 @@ public partial class ChatPage : ContentPage, INotifyPropertyChanged
         try
         {
             var conversations = await GetChatService().GetConversationsAsync();
-            if (conversations.Count == 0)
-            {
-                await DisplayAlertAsync("No history", "You haven't had any conversations yet.", "OK");
-                return;
-            }
+            Conversations = new ObservableCollection<ConversationViewModel>(
+                conversations.Select(c => new ConversationViewModel
+                {
+                    Id = c.Id,
+                    Title = c.Title,
+                    LastMessageAtRaw = c.LastMessageAt,
+                }));
+            ShowHistory = true;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"ChatPage.OnHistoryClicked: {ex.Message}");
+        }
+    }
 
-            var options = conversations.Select(c => c.Title).ToArray();
-            var choice = await DisplayActionSheetAsync("Previous conversations", "Cancel", "New conversation", options);
+    private void OnHistoryCloseClicked(object? sender, EventArgs e)
+    {
+        ShowHistory = false;
+    }
 
-            if (choice == "Cancel") return;
+    private async void OnNewConversationClicked(object? sender, EventArgs e)
+    {
+        ShowHistory = false;
+        Messages.Clear();
+        _currentConversationId = null;
+        OnPropertyChanged(nameof(ShowWelcome));
+        await LoadStartersAsync();
+    }
 
-            if (choice == "New conversation")
-            {
-                Messages.Clear();
-                _currentConversationId = null;
-                OnPropertyChanged(nameof(ShowWelcome));
-                await LoadStartersAsync();
-                return;
-            }
-
-            var selected = conversations.FirstOrDefault(c => c.Title == choice);
-            if (selected == null) return;
-
-            var msgs = await GetChatService().GetMessagesAsync(selected.Id, limit: 20);
-            _currentConversationId = selected.Id;
+    private async Task LoadConversationAsync(string conversationId)
+    {
+        try
+        {
+            ShowHistory = false;
+            var msgs = await GetChatService().GetMessagesAsync(conversationId, limit: 20);
+            _currentConversationId = conversationId;
             Messages.Clear();
             foreach (var m in msgs)
             {
@@ -380,7 +425,7 @@ public partial class ChatPage : ContentPage, INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"ChatPage.OnHistoryClicked: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"ChatPage.LoadConversationAsync: {ex.Message}");
         }
     }
 

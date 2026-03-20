@@ -14,8 +14,11 @@ public sealed class LocalTask
 
     public string Title { get; set; } = "";
 
-    /// <summary>pending | done | cancelled</summary>
+    /// <summary>pending | in_progress | done | cancelled</summary>
     public string Status { get; set; } = "pending";
+
+    /// <summary>low | medium | high</summary>
+    public string Priority { get; set; } = "medium";
 
     public bool IsSynced { get; set; }
 

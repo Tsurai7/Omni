@@ -54,11 +54,14 @@ CREATE TABLE IF NOT EXISTS tasks (
 	user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 	title TEXT NOT NULL,
 	status TEXT NOT NULL DEFAULT 'pending',
+	priority TEXT NOT NULL DEFAULT 'medium',
 	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON tasks(user_id);
 `
+
+const alterTasksAddPriority = `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'medium'`
 
 const createTableUserNotifications = `
 CREATE TABLE IF NOT EXISTS user_notifications (
@@ -133,6 +136,9 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		return err
 	}
 	if _, err := pool.Exec(ctx, createTableTasks); err != nil {
+		return err
+	}
+	if _, err := pool.Exec(ctx, alterTasksAddPriority); err != nil {
 		return err
 	}
 	if _, err := pool.Exec(ctx, createTableUserNotifications); err != nil {
