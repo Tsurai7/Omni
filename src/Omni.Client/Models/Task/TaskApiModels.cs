@@ -24,10 +24,17 @@ public record TaskCreateResult(
     string CreatedAt = "",
     string UpdatedAt = "");
 
-/// <summary>Task item for display in the UI (adds IsPending).</summary>
+/// <summary>Task item for display in the UI (adds IsPending, StatusColor).</summary>
 public record TaskDisplayItem(string Id, string UserId, string Title, string Status, string CreatedAt, string UpdatedAt)
 {
     public bool IsPending => string.Equals(Status, "pending", StringComparison.OrdinalIgnoreCase);
+
+    public Microsoft.Maui.Graphics.Color StatusColor => Status?.ToLowerInvariant() switch
+    {
+        "done"       => Microsoft.Maui.Graphics.Color.FromArgb("#4ECCA3"),
+        "in_progress" => Microsoft.Maui.Graphics.Color.FromArgb("#F5A623"),
+        _            => Microsoft.Maui.Graphics.Color.FromArgb("#66667A"),
+    };
 
     public static TaskDisplayItem FromListItem(TaskListItem item) =>
         new(item.Id, item.UserId, item.Title, item.Status, item.CreatedAt, item.UpdatedAt);

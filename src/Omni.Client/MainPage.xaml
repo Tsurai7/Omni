@@ -3,174 +3,276 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controls="clr-namespace:Omni.Client.Controls"
              x:Class="Omni.Client.MainPage"
-             Title="Timely Tracker"
+             Title="Home"
+             Shell.NavBarIsVisible="False"
              BackgroundColor="{StaticResource ProductivityPageBackground}">
-    <RefreshView Command="{Binding RefreshCommand}"
-                 IsRefreshing="{Binding IsRefreshing}">
-        <ScrollView>
-            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Padding="20,10">
-                <!-- Header -->
-                <VerticalStackLayout Grid.Row="0" Spacing="5">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <VerticalStackLayout Grid.Column="0" Spacing="5" HorizontalOptions="Start">
-                            <Label Text="Timely Tracker"
-                                   Style="{StaticResource ProductivityHeadline}"/>
-                            <Label Text="Your activity statistics"
-                                   Style="{StaticResource ProductivityCaption}"/>
-                        </VerticalStackLayout>
-                        <Button Grid.Column="1"
-                                Text="Sign out"
-                                BackgroundColor="Transparent"
-                                TextColor="{StaticResource ProductivityTextSecondary}"
-                                FontSize="14"
-                                VerticalOptions="Center"
-                                Clicked="OnLogoutClicked"/>
-                    </Grid>
-                    <BoxView HeightRequest="1" Margin="0,15,0,10" Color="{StaticResource ProductivityCardStroke}"/>
-                </VerticalStackLayout>
 
-                <!-- Daily Pulse card -->
-                <Border Grid.Row="1" Margin="0,0,0,16"
+    <Grid RowDefinitions="Auto,*">
+        <!-- Network error banner (sits above scroll, animates in/out) -->
+        <controls:NetworkErrorBanner x:Name="MainNetworkBanner"
+                                     Grid.Row="0"
+                                     Margin="0,52,0,0"/>
+
+    <RefreshView Grid.Row="1" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsRefreshing}">
+        <ScrollView>
+            <VerticalStackLayout Padding="0,0,0,24" Spacing="0">
+
+                <!-- ═══ Header ═══════════════════════════════════════════════ -->
+                <Grid ColumnDefinitions="*,Auto" Padding="20,52,20,16">
+                    <VerticalStackLayout Spacing="3">
+                        <Label Text="Omni" Style="{StaticResource ProductivityHeadline}"/>
+                        <Label Text="{Binding DayLabel}"
+                               Style="{StaticResource ProductivityCaption}"/>
+                    </VerticalStackLayout>
+                    <!-- Streak badge -->
+                    <Border Grid.Column="1"
+                            BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
+                            Stroke="{StaticResource ProductivityCardStroke}"
+                            StrokeThickness="1"
+                            Padding="12,6"
+                            VerticalOptions="Center">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusPill}"/>
+                        </Border.StrokeShape>
+                        <HorizontalStackLayout Spacing="5" VerticalOptions="Center">
+                            <Label Text="🔥" FontSize="13" VerticalOptions="Center"/>
+                            <Label Text="{Binding StreakDays, StringFormat='{0}d'}"
+                                   FontSize="13" FontAttributes="Bold"
+                                   TextColor="{StaticResource ProductivityTextPrimary}"
+                                   VerticalOptions="Center"/>
+                        </HorizontalStackLayout>
+                    </Border>
+                </Grid>
+
+                <!-- ═══ Focus Score Hero ══════════════════════════════════════ -->
+                <Border Margin="20,0,20,14"
                         BackgroundColor="{StaticResource ProductivityCardBackground}"
                         Stroke="{StaticResource ProductivityCardStroke}"
-                        StrokeThickness="1"
-                        Padding="20,16">
+                        StrokeThickness="1" Padding="24,22">
                     <Border.Shadow>
-                        <Shadow Brush="Black" Offset="2,2" Radius="4" Opacity="0.25"/>
+                        <Shadow Brush="Black" Offset="0,2" Radius="16" Opacity="0.22"/>
                     </Border.Shadow>
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusLg}"/>
                     </Border.StrokeShape>
-                    <VerticalStackLayout Spacing="12">
-                        <Label Text="Today" Style="{StaticResource ProductivityCaption}"/>
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                            <VerticalStackLayout Spacing="4">
-                                <Label Text="{Binding GoalProgressLabel}" Style="{StaticResource ProductivityTitle}"/>
-                                <ProgressBar Progress="{Binding GoalProgress}" ProgressColor="{StaticResource ProductivityFocus}" HeightRequest="6"/>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <VerticalStackLayout Spacing="10" VerticalOptions="Center">
+                            <Label Text="TODAY'S FOCUS SCORE"
+                                   Style="{StaticResource ProductivityOverline}"/>
+                            <Label x:Name="ScoreNumberLabel"
+                                   Text="{Binding FocusScore}"
+                                   FontSize="56"
+                                   FontAttributes="Bold"
+                                   TextColor="{Binding FocusScoreColor}"/>
+                            <Label Text="{Binding FocusScoreLabel}"
+                                   Style="{StaticResource ProductivityBodySecondary}"/>
+                            <!-- Goal progress bar -->
+                            <VerticalStackLayout Spacing="5" Margin="0,4,0,0">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <Label Text="{Binding GoalProgressLabel}"
+                                           Style="{StaticResource ProductivityCaption}"/>
+                                    <Label Grid.Column="1" Text="{Binding GoalPercentLabel}"
+                                           Style="{StaticResource ProductivityCaption}"
+                                           TextColor="{StaticResource ProductivityFocus}"/>
+                                </Grid>
+                                <ProgressBar Progress="{Binding GoalProgress}"
+                                             ProgressColor="{StaticResource ProductivityFocus}"
+                                             HeightRequest="4"/>
                             </VerticalStackLayout>
-                            <VerticalStackLayout HorizontalOptions="End" Spacing="2">
-                                <Label Text="{Binding StreakDays, StringFormat='{0}'}" Style="{StaticResource ProductivityHeadline}"/>
-                                <Label Text="day streak" Style="{StaticResource ProductivityCaption}"/>
-                            </VerticalStackLayout>
-                        </Grid>
-                        <Button Text="{Binding NextBestActionText}"
-                                Style="{StaticResource ProductivityCtaButton}"
-                                Command="{Binding NextBestActionCommand}"/>
-                    </VerticalStackLayout>
-                </Border>
-
-                <!-- Now (current activity state) - always visible so usage/active app section is present -->
-                <Border Grid.Row="2" Margin="0,0,0,16"
-                        BackgroundColor="{StaticResource ProductivityCardBackground}"
-                        Stroke="{StaticResource ProductivityCardStroke}"
-                        StrokeThickness="1"
-                        Padding="16">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
-                    </Border.StrokeShape>
-                        <Grid ColumnDefinitions="Auto,*">
-                        <BoxView x:Name="NowStateIndicator" WidthRequest="4" HeightRequest="40" VerticalOptions="Center"
-                                 Color="{Binding NowStateColor}"/>
-                        <VerticalStackLayout Grid.Column="1" Margin="12,0,0,0" Spacing="2">
-                            <Label Text="Now" Style="{StaticResource ProductivityCaption}"/>
-                            <Label Text="{Binding NowDisplayName}" Style="{StaticResource ProductivityBodyBold}"/>
-                            <Label Text="{Binding NowActivityState}" Style="{StaticResource ProductivityCaption}"/>
                         </VerticalStackLayout>
+                        <!-- Ring -->
+                        <GraphicsView x:Name="ScoreRingView"
+                                      Grid.Column="1"
+                                      WidthRequest="130" HeightRequest="130"
+                                      VerticalOptions="Center"
+                                      Margin="16,0,0,0"/>
                     </Grid>
                 </Border>
 
-                <!-- Next best action row (single recommendation) -->
-                <Border Grid.Row="3" Margin="0,0,0,16"
+                <!-- ═══ Now Card (current app) ════════════════════════════════ -->
+                <Border Margin="20,0,20,14"
                         BackgroundColor="{StaticResource ProductivityCardBackground}"
                         Stroke="{StaticResource ProductivityCardStroke}"
-                        StrokeThickness="1"
-                        Padding="16">
+                        StrokeThickness="1" Padding="16,14">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
                     </Border.StrokeShape>
-                    <HorizontalStackLayout Spacing="12" VerticalOptions="Center">
-                        <Label Text="Next:" Style="{StaticResource ProductivityCaption}" VerticalOptions="Center"/>
-                        <Label Text="{Binding NextBestActionText}" Style="{StaticResource ProductivityBody}" VerticalOptions="Center" LineBreakMode="TailTruncation"/>
-                        <Button Text="Go" Style="{StaticResource ProductivitySecondaryButton}" Command="{Binding NextBestActionCommand}" VerticalOptions="Center" Padding="12,0"/>
-                    </HorizontalStackLayout>
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <!-- State dot -->
+                        <BoxView WidthRequest="8" HeightRequest="8"
+                                 CornerRadius="4" VerticalOptions="Center"
+                                 Color="{Binding NowStateColor}" Margin="0,0,12,0"/>
+                        <VerticalStackLayout Grid.Column="1" Spacing="2">
+                            <Label Text="NOW" Style="{StaticResource ProductivityOverline}"/>
+                            <Label Text="{Binding NowDisplayName}"
+                                   Style="{StaticResource ProductivityBodyBold}"
+                                   LineBreakMode="TailTruncation"/>
+                        </VerticalStackLayout>
+                        <Label Grid.Column="2"
+                               Text="{Binding NowActivityState}"
+                               Style="{StaticResource ProductivityCaption}"
+                               TextColor="{Binding NowStateColor}"
+                               VerticalOptions="Center"/>
+                    </Grid>
                 </Border>
 
-                <!-- Quick actions: surface main functions -->
-                <Border Grid.Row="4" Margin="0,0,0,16"
-                        BackgroundColor="{StaticResource ProductivityCardBackground}"
-                        Stroke="{StaticResource ProductivityCardStroke}"
-                        StrokeThickness="1"
-                        Padding="16">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
-                    </Border.StrokeShape>
-                    <VerticalStackLayout Spacing="8">
-                        <Label Text="Quick actions" Style="{StaticResource ProductivityCaption}"/>
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
-                            <Button Text="Start session" Style="{StaticResource ProductivitySecondaryButton}" Clicked="OnStartSessionClicked"/>
-                            <Button Text="Add task" Grid.Column="1" Style="{StaticResource ProductivitySecondaryButton}" Clicked="OnAddTaskClicked"/>
-                        </Grid>
-                    </VerticalStackLayout>
-                </Border>
-
-                <!-- Stats + Apps List -->
-                <VerticalStackLayout Grid.Row="5" Spacing="0">
-                    <Border Margin="0,0,0,16"
+                <!-- ═══ Daily Stats Row (3 columns) ═══════════════════════════ -->
+                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10" Margin="20,0,20,14">
+                    <!-- Focus Time -->
+                    <Border BackgroundColor="{StaticResource ProductivityCardBackground}"
+                            Stroke="{StaticResource ProductivityCardStroke}"
+                            StrokeThickness="1" Padding="14,14">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                        </Border.StrokeShape>
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="{Binding TodayFocusMinutes}"
+                                   FontSize="20" FontAttributes="Bold"
+                                   TextColor="{StaticResource ProductivityFocus}"/>
+                            <Label Text="Focus" Style="{StaticResource ProductivityCaption}"/>
+                        </VerticalStackLayout>
+                    </Border>
+                    <!-- Sessions Today -->
+                    <Border Grid.Column="1"
                             BackgroundColor="{StaticResource ProductivityCardBackground}"
                             Stroke="{StaticResource ProductivityCardStroke}"
-                            StrokeThickness="1"
-                            Padding="20,15">
+                            StrokeThickness="1" Padding="14,14">
                         <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusLg}"/>
+                            <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
                         </Border.StrokeShape>
-                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
-                            <Label Text="Total tracked time:" Grid.Column="0" Grid.Row="0" Style="{StaticResource ProductivityCaption}"/>
-                            <Label Text="{Binding TotalTrackedTime}" Grid.Column="1" Grid.Row="0" Style="{StaticResource ProductivityBody}" HorizontalOptions="End"/>
-                            <Label Text="Current category:" Grid.Column="0" Grid.Row="1" Style="{StaticResource ProductivityCaption}" Margin="0,10,0,0"/>
-                            <Label Text="{Binding CurrentCategory}" Grid.Column="1" Grid.Row="1" TextColor="{StaticResource ProductivityFocus}" FontSize="14" HorizontalOptions="End" Margin="0,10,0,0"/>
-                        </Grid>
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="{Binding SessionsToday}"
+                                   FontSize="20" FontAttributes="Bold"
+                                   TextColor="{StaticResource ProductivityNeutral}"/>
+                            <Label Text="Sessions" Style="{StaticResource ProductivityCaption}"/>
+                        </VerticalStackLayout>
                     </Border>
+                    <!-- Streak -->
+                    <Border Grid.Column="2"
+                            BackgroundColor="{StaticResource ProductivityCardBackground}"
+                            Stroke="{StaticResource ProductivityCardStroke}"
+                            StrokeThickness="1" Padding="14,14">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                        </Border.StrokeShape>
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="{Binding StreakDays}"
+                                   FontSize="20" FontAttributes="Bold"
+                                   TextColor="{StaticResource ProductivityAmber}"/>
+                            <Label Text="Streak" Style="{StaticResource ProductivityCaption}"/>
+                        </VerticalStackLayout>
+                    </Border>
+                </Grid>
+
+                <!-- ═══ AI Recommendation Card ════════════════════════════════ -->
+                <Border Margin="20,0,20,14"
+                        BackgroundColor="{StaticResource ProductivityCardBackground}"
+                        Stroke="{StaticResource ProductivityFocusDim}"
+                        StrokeThickness="1" Padding="18,16">
+                    <Border.Shadow>
+                        <Shadow Brush="#4ECCA3" Offset="0,0" Radius="18" Opacity="0.07"/>
+                    </Border.Shadow>
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                    </Border.StrokeShape>
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12">
+                        <Label Grid.Row="0" Text="AI INSIGHT"
+                               Style="{StaticResource ProductivityOverline}"
+                               TextColor="{StaticResource ProductivityFocus}"/>
+                        <Label Grid.Row="1" Text="{Binding NextBestActionText}"
+                               Style="{StaticResource ProductivityBody}"
+                               Margin="0,6,0,0"
+                               LineBreakMode="WordWrap"/>
+                        <Button Grid.Column="1" Grid.RowSpan="2"
+                                Text="Go →"
+                                Style="{StaticResource ProductivityPillButton}"
+                                Command="{Binding NextBestActionCommand}"
+                                VerticalOptions="Center"/>
+                    </Grid>
+                </Border>
+
+                <!-- ═══ Quick Actions ═════════════════════════════════════════ -->
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10" Margin="20,0,20,14">
+                    <Button Text="▶  Start Session"
+                            Style="{StaticResource ProductivityCtaButton}"
+                            Clicked="OnStartSessionClicked"/>
+                    <Button Grid.Column="1"
+                            Text="＋  Add Task"
+                            Style="{StaticResource ProductivitySecondaryButton}"
+                            Clicked="OnAddTaskClicked"/>
+                </Grid>
+
+                <!-- ═══ Top Apps Today ═════════════════════════════════════════ -->
+                <VerticalStackLayout Margin="20,0,20,0" Spacing="0">
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                        <Label Text="Active Now" Style="{StaticResource ProductivityTitle}"/>
+                        <Label Grid.Column="1" Text="{Binding TotalTrackedTime}"
+                               Style="{StaticResource ProductivityCaption}"
+                               VerticalOptions="Center"/>
+                    </Grid>
 
                     <CollectionView x:Name="AppUsageList"
                                     IsGrouped="True"
-                                    ItemsSource="{Binding GroupedApps}"
-                                    VerticalOptions="FillAndExpand">
+                                    ItemsSource="{Binding GroupedApps}">
                         <CollectionView.GroupHeaderTemplate>
                             <DataTemplate>
-                                <Grid Padding="0,15,0,5" BackgroundColor="Transparent">
-                                    <BoxView Color="{StaticResource ProductivityFocus}"
-                                             HeightRequest="2" WidthRequest="40" HorizontalOptions="Start" VerticalOptions="Center"/>
-                                    <Label Text="{Binding Category}" Margin="50,0,0,0" Style="{StaticResource ProductivityTitle}"/>
+                                <Grid Padding="0,12,0,6" BackgroundColor="Transparent">
+                                    <HorizontalStackLayout Spacing="10">
+                                        <BoxView Color="{Binding CategoryColor}"
+                                                 WidthRequest="3" HeightRequest="14"
+                                                 VerticalOptions="Center" CornerRadius="2"/>
+                                        <Label Text="{Binding Category}"
+                                               Style="{StaticResource ProductivityBodyBold}"
+                                               VerticalOptions="Center"/>
+                                    </HorizontalStackLayout>
                                 </Grid>
                             </DataTemplate>
                         </CollectionView.GroupHeaderTemplate>
                         <CollectionView.ItemTemplate>
                             <DataTemplate>
-                                <Border Padding="15" Margin="0,0,0,10"
-                                    BackgroundColor="{StaticResource ProductivityCardBackground}"
-                                    Stroke="{StaticResource ProductivityCardStroke}"
-                                    StrokeThickness="1">
+                                <Border Padding="14,12" Margin="0,0,0,8"
+                                        BackgroundColor="{StaticResource ProductivityCardBackground}"
+                                        Stroke="{StaticResource ProductivityCardStroke}"
+                                        StrokeThickness="1">
                                     <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                                        <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusSm}"/>
                                     </Border.StrokeShape>
-                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" Padding="0">
-                                        <Image Source="{Binding AppIcon}" WidthRequest="24" HeightRequest="24" VerticalOptions="Center"/>
-                                        <Label Text="{Binding AppName}" Grid.Column="1" Style="{StaticResource ProductivityBody}" VerticalOptions="Center" Margin="10,0,0,0"/>
-                                        <Label Text="{Binding FormattedTime}" Grid.Column="2" TextColor="{StaticResource ProductivityFocus}" FontSize="14" HorizontalOptions="End" VerticalOptions="Center"/>
-                                        <BoxView Grid.Column="3" WidthRequest="4" HeightRequest="40" Color="{Binding CategoryColor}" VerticalOptions="Center" Margin="10,0"/>
+                                    <Grid ColumnDefinitions="*,Auto,8">
+                                        <Label Text="{Binding AppName}"
+                                               Style="{StaticResource ProductivityBody}"
+                                               LineBreakMode="TailTruncation"
+                                               VerticalOptions="Center"/>
+                                        <Label Grid.Column="1"
+                                               Text="{Binding FormattedTime}"
+                                               TextColor="{StaticResource ProductivityFocus}"
+                                               FontSize="13" FontAttributes="Bold"
+                                               VerticalOptions="Center"/>
+                                        <BoxView Grid.Column="2"
+                                                 WidthRequest="3" HeightRequest="28"
+                                                 Color="{Binding CategoryColor}"
+                                                 CornerRadius="2"
+                                                 VerticalOptions="Center"
+                                                 Margin="8,0,0,0"/>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                         <CollectionView.EmptyView>
-                            <StackLayout VerticalOptions="Center" HorizontalOptions="Center" Padding="0,50">
-                                <Image Source="dotnet_bot.png" HeightRequest="120" Aspect="AspectFit"/>
-                                <Label Text="No active applications" Style="{StaticResource ProductivityCaption}" HorizontalOptions="Center" Margin="0,20,0,0"/>
-                            </StackLayout>
+                            <VerticalStackLayout HorizontalOptions="Center" Padding="0,40" Spacing="12">
+                                <Label Text="No active apps tracked yet"
+                                       Style="{StaticResource ProductivityBodySecondary}"
+                                       HorizontalOptions="Center"/>
+                                <Label Text="Switch to any app and it will appear here"
+                                       Style="{StaticResource ProductivityCaption}"
+                                       HorizontalOptions="Center"
+                                       HorizontalTextAlignment="Center"/>
+                            </VerticalStackLayout>
                         </CollectionView.EmptyView>
                     </CollectionView>
                 </VerticalStackLayout>
-            </Grid>
+
+            </VerticalStackLayout>
         </ScrollView>
     </RefreshView>
+    </Grid>
 </ContentPage>

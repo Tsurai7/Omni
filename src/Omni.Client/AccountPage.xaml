@@ -2,101 +2,178 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Omni.Client.AccountPage"
-             Title="Account"
+             Shell.NavBarIsVisible="False"
              BackgroundColor="{StaticResource ProductivityPageBackground}">
     <ScrollView>
-        <VerticalStackLayout Spacing="0" Padding="20">
-            <Border Margin="0,0,0,16" Padding="24"
+        <VerticalStackLayout Spacing="0" Padding="20,52,20,40">
+
+            <!-- Header -->
+            <Label Text="Account"
+                   Style="{StaticResource ProductivityHeadline}"
+                   Margin="0,0,0,4"/>
+            <Label Text="Profile and preferences"
+                   Style="{StaticResource ProductivityCaption}"
+                   Margin="0,0,0,28"/>
+
+            <!-- Profile Card -->
+            <Border Margin="0,0,0,24" Padding="20"
                     BackgroundColor="{StaticResource ProductivityCardBackground}"
                     Stroke="{StaticResource ProductivityCardStroke}"
                     StrokeThickness="1">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusLg}"/>
                 </Border.StrokeShape>
-                <VerticalStackLayout Spacing="20">
-                    <Label Text="Account" Style="{StaticResource ProductivityHeadline}" HorizontalOptions="Center"/>
-                    <Label Text="Manage your profile and productivity settings" Style="{StaticResource ProductivityCaption}" HorizontalOptions="Center"/>
-                    <BoxView HeightRequest="1" Color="{StaticResource ProductivityCardStroke}" Margin="0,8,0,8"/>
-
-                    <Label Text="Email" Style="{StaticResource ProductivityCaption}"/>
-                    <Label x:Name="EmailLabel" Text="-" Style="{StaticResource ProductivityBody}" Margin="0,0,0,8"/>
-
-                    <ActivityIndicator x:Name="LoadingIndicator" IsRunning="True" IsVisible="True"
-                                       Color="{StaticResource ProductivityFocus}" HorizontalOptions="Center"/>
-
-                    <Button x:Name="SignOutButton" Text="Sign out" Style="{StaticResource ProductivityCtaButton}"
-                            Margin="0,16,0,0" Clicked="OnSignOutClicked"/>
-                </VerticalStackLayout>
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                    <!-- Avatar -->
+                    <Border Grid.Column="0"
+                            WidthRequest="52" HeightRequest="52"
+                            BackgroundColor="{StaticResource ProductivityFocusDim}"
+                            Stroke="Transparent" StrokeThickness="0">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="26"/>
+                        </Border.StrokeShape>
+                        <Label x:Name="AvatarInitialsLabel"
+                               Text="?"
+                               FontSize="20"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource ProductivityFocus}"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"/>
+                    </Border>
+                    <!-- Email + Status -->
+                    <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
+                        <ActivityIndicator x:Name="LoadingIndicator" IsRunning="True" IsVisible="True"
+                                           Color="{StaticResource ProductivityFocus}"
+                                           HeightRequest="18" WidthRequest="18"
+                                           HorizontalOptions="Start"/>
+                        <Label x:Name="EmailLabel" Text="-"
+                               Style="{StaticResource ProductivityBody}"
+                               IsVisible="False"/>
+                        <Label Text="Active account"
+                               Style="{StaticResource ProductivityCaption}"/>
+                    </VerticalStackLayout>
+                    <!-- Sign Out -->
+                    <Button Grid.Column="2"
+                            x:Name="SignOutButton"
+                            Text="Sign out"
+                            Style="{StaticResource ProductivityDangerButton}"
+                            VerticalOptions="Center"
+                            IsEnabled="False"
+                            Clicked="OnSignOutClicked"/>
+                </Grid>
             </Border>
 
-            <Label Text="Productivity preferences" Style="{StaticResource ProductivityTitle}" Margin="0,8,0,12"/>
-            <Border Margin="0,0,0,16" Padding="16"
+            <!-- Productivity Preferences -->
+            <Label Text="PRODUCTIVITY"
+                   Style="{StaticResource ProductivityOverline}"
+                   Margin="4,0,0,10"/>
+            <Border Margin="0,0,0,24" Padding="0"
                     BackgroundColor="{StaticResource ProductivityCardBackground}"
                     Stroke="{StaticResource ProductivityCardStroke}"
                     StrokeThickness="1">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
                 </Border.StrokeShape>
-                <VerticalStackLayout Spacing="16">
-                    <Grid ColumnDefinitions="*,Auto">
+                <VerticalStackLayout Spacing="0">
+                    <!-- Daily Goal -->
+                    <Grid ColumnDefinitions="*,Auto" Padding="16,14">
                         <VerticalStackLayout Grid.Column="0" Spacing="2">
-                            <Label Text="Daily focus goal (min)" Style="{StaticResource ProductivityBody}"/>
-                            <Label Text="Used on Home for progress ring" Style="{StaticResource ProductivityCaption}"/>
+                            <Label Text="Daily focus goal" Style="{StaticResource ProductivityBody}"/>
+                            <Label Text="Target focus minutes per day" Style="{StaticResource ProductivityCaption}"/>
                         </VerticalStackLayout>
-                        <Picker Grid.Column="1" x:Name="DailyGoalPicker" Title="Goal"
+                        <Picker Grid.Column="1" x:Name="DailyGoalPicker"
+                                Title="Goal"
                                 TextColor="{StaticResource ProductivityTextPrimary}"
-                                BackgroundColor="{StaticResource ProductivityCardStroke}"
-                                WidthRequest="100" VerticalOptions="Center"
+                                BackgroundColor="Transparent"
+                                WidthRequest="96"
+                                VerticalOptions="Center"
                                 SelectedIndexChanged="OnDailyGoalChanged"/>
                     </Grid>
-                    <BoxView HeightRequest="1" Color="{StaticResource ProductivityCardStroke}"/>
-                    <Grid ColumnDefinitions="*,Auto">
+                    <BoxView HeightRequest="1" Color="{StaticResource ProductivityCardStroke}" Margin="16,0"/>
+
+                    <!-- Notification Intensity -->
+                    <Grid ColumnDefinitions="*,Auto" Padding="16,14">
                         <VerticalStackLayout Grid.Column="0" Spacing="2">
                             <Label Text="Notification intensity" Style="{StaticResource ProductivityBody}"/>
                             <Label Text="How often to nudge during focus" Style="{StaticResource ProductivityCaption}"/>
                         </VerticalStackLayout>
-                        <Picker Grid.Column="1" x:Name="NotificationIntensityPicker" Title="Intensity"
+                        <Picker Grid.Column="1" x:Name="NotificationIntensityPicker"
+                                Title="Level"
                                 TextColor="{StaticResource ProductivityTextPrimary}"
-                                BackgroundColor="{StaticResource ProductivityCardStroke}"
-                                WidthRequest="120" VerticalOptions="Center"
+                                BackgroundColor="Transparent"
+                                WidthRequest="110"
+                                VerticalOptions="Center"
                                 SelectedIndexChanged="OnNotificationIntensityChanged"/>
                     </Grid>
-                    <BoxView HeightRequest="1" Color="{StaticResource ProductivityCardStroke}"/>
-                    <Grid ColumnDefinitions="*,Auto">
+                    <BoxView HeightRequest="1" Color="{StaticResource ProductivityCardStroke}" Margin="16,0"/>
+
+                    <!-- Show Streak -->
+                    <Grid ColumnDefinitions="*,Auto" Padding="16,14">
                         <VerticalStackLayout Grid.Column="0" Spacing="2">
                             <Label Text="Show streak on Home" Style="{StaticResource ProductivityBody}"/>
-                            <Label Text="Display daily streak count" Style="{StaticResource ProductivityCaption}"/>
+                            <Label Text="Display daily streak count badge" Style="{StaticResource ProductivityCaption}"/>
                         </VerticalStackLayout>
-                        <Switch Grid.Column="1" x:Name="StreakVisibleSwitch" IsToggled="{Binding StreakVisible}"
-                                OnColor="{StaticResource ProductivityFocus}" VerticalOptions="Center"/>
+                        <Switch Grid.Column="1" x:Name="StreakVisibleSwitch"
+                                IsToggled="{Binding StreakVisible}"
+                                OnColor="{StaticResource ProductivityFocus}"
+                                VerticalOptions="Center"/>
                     </Grid>
-                    <BoxView HeightRequest="1" Color="{StaticResource ProductivityCardStroke}"/>
-                    <VerticalStackLayout Spacing="4">
-                        <Label Text="Focus hours window" Style="{StaticResource ProductivityBody}"/>
-                        <Label Text="Quiet hours for nudges (e.g. 09:00–17:00). Coming soon." Style="{StaticResource ProductivityCaption}"/>
-                    </VerticalStackLayout>
+                    <BoxView HeightRequest="1" Color="{StaticResource ProductivityCardStroke}" Margin="16,0"/>
+
+                    <!-- Focus Hours (coming soon) -->
+                    <Grid ColumnDefinitions="*,Auto" Padding="16,14">
+                        <VerticalStackLayout Grid.Column="0" Spacing="2">
+                            <Label Text="Focus hours window" Style="{StaticResource ProductivityBody}"/>
+                            <Label Text="Quiet hours window, e.g. 09:00–18:00" Style="{StaticResource ProductivityCaption}"/>
+                        </VerticalStackLayout>
+                        <Label Grid.Column="1" Text="Soon"
+                               Style="{StaticResource ProductivityCaption}"
+                               VerticalOptions="Center"
+                               Margin="0,0,4,0"/>
+                    </Grid>
                 </VerticalStackLayout>
             </Border>
 
-            <Label Text="Security" Style="{StaticResource ProductivityTitle}" Margin="0,8,0,12"/>
-            <Border Margin="0,0,0,8" Padding="16" BackgroundColor="{StaticResource ProductivityCardStroke}" Stroke="{StaticResource ProductivityCardStroke}" StrokeThickness="1">
+            <!-- Security -->
+            <Label Text="SECURITY"
+                   Style="{StaticResource ProductivityOverline}"
+                   Margin="4,0,0,10"/>
+            <Border Margin="0,0,0,32" Padding="0"
+                    BackgroundColor="{StaticResource ProductivityCardBackground}"
+                    Stroke="{StaticResource ProductivityCardStroke}"
+                    StrokeThickness="1">
                 <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusSm}"/>
+                    <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
                 </Border.StrokeShape>
-                <Grid ColumnDefinitions="*,Auto">
-                    <Label Text="Change password" Style="{StaticResource ProductivityBody}" VerticalOptions="Center"/>
-                    <Label Grid.Column="1" Text="Soon" Style="{StaticResource ProductivityCaption}" VerticalOptions="Center"/>
-                </Grid>
+                <VerticalStackLayout Spacing="0">
+                    <Grid ColumnDefinitions="*,Auto" Padding="16,14">
+                        <Label Grid.Column="0" Text="Change password"
+                               Style="{StaticResource ProductivityBody}"
+                               VerticalOptions="Center"/>
+                        <Label Grid.Column="1" Text="Soon"
+                               Style="{StaticResource ProductivityCaption}"
+                               VerticalOptions="Center"
+                               Margin="0,0,4,0"/>
+                    </Grid>
+                    <BoxView HeightRequest="1" Color="{StaticResource ProductivityCardStroke}" Margin="16,0"/>
+                    <Grid ColumnDefinitions="*,Auto" Padding="16,14">
+                        <Label Grid.Column="0" Text="Delete account"
+                               Style="{StaticResource ProductivityBody}"
+                               TextColor="{StaticResource ProductivityDanger}"
+                               VerticalOptions="Center"/>
+                        <Label Grid.Column="1" Text="Soon"
+                               Style="{StaticResource ProductivityCaption}"
+                               VerticalOptions="Center"
+                               Margin="0,0,4,0"/>
+                    </Grid>
+                </VerticalStackLayout>
             </Border>
-            <Border Margin="0,0,0,24" Padding="16" BackgroundColor="{StaticResource ProductivityCardStroke}" Stroke="{StaticResource ProductivityCardStroke}" StrokeThickness="1">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusSm}"/>
-                </Border.StrokeShape>
-                <Grid ColumnDefinitions="*,Auto">
-                    <Label Text="Delete account" Style="{StaticResource ProductivityBody}" VerticalOptions="Center"/>
-                    <Label Grid.Column="1" Text="Soon" Style="{StaticResource ProductivityCaption}" VerticalOptions="Center"/>
-                </Grid>
-            </Border>
+
+            <!-- Version -->
+            <Label Text="Omni · v1.0"
+                   Style="{StaticResource ProductivityCaption}"
+                   HorizontalOptions="Center"/>
+
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

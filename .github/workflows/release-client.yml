@@ -20,7 +20,7 @@ jobs:
           dotnet-version: "10.0.1xx"  # 10.0.2xx bundles MacCatalyst SDK 26.2 which requires Xcode 26 (beta); 10.0.1xx is compatible with Xcode 16
 
       - name: Install MAUI workload
-        run: dotnet workload install maui-maccatalyst
+        run: dotnet workload install maui-maccatalyst --skip-manifest-update
 
       - name: Publish macOS (Mac Catalyst)
         working-directory: src/Omni.Client

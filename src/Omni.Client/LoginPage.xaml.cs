@@ -35,7 +35,9 @@ public partial class LoginPage : ContentPage
                 await Shell.Current.GoToAsync("..");
                 return;
             }
-            ErrorLabel.Text = "Invalid email or password.";
+            ErrorLabel.Text = string.IsNullOrEmpty(_authService.LastAuthError)
+                ? "Invalid email or password."
+                : _authService.LastAuthError;
             ErrorLabel.IsVisible = true;
         }
         catch (Exception ex)

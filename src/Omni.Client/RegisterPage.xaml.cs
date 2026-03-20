@@ -48,10 +48,15 @@ public partial class RegisterPage : ContentPage
             var result = await _authService.RegisterAsync(email, password, cts.Token);
             if (result != null)
             {
-                await Shell.Current.GoToAsync("..");
+                await Shell.Current.GoToAsync("../..");
                 return;
             }
-            ErrorLabel.Text = "Registration failed. Email may already be in use.";
+            var serverError = _authService.LastAuthError?.ToLowerInvariant() ?? "";
+            ErrorLabel.Text = serverError.Contains("already") || serverError.Contains("registered")
+                ? "An account with this email already exists. Try logging in instead."
+                : string.IsNullOrEmpty(serverError)
+                    ? "Registration failed. Please try again."
+                    : $"Registration failed: {_authService.LastAuthError}";
             ErrorLabel.IsVisible = true;
         }
         catch (OperationCanceledException)

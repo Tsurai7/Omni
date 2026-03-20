@@ -10,7 +10,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -21,6 +20,7 @@ import (
 	_ "omni-backend/cmd/gateway/docs"
 	"omni-backend/internal/config"
 	"omni-backend/internal/gateway"
+	"omni-backend/internal/logger"
 	"omni-backend/internal/middleware"
 
 	"github.com/gin-contrib/cors"
@@ -30,22 +30,41 @@ import (
 )
 
 func main() {
+	log := logger.New(os.Getenv("DEBUG") == "true")
+
 	cfg, err := config.LoadGateway()
 	if err != nil {
-		log.Fatalf("config: %v", err)
+		log.Error("failed to load config", "error", err)
+		os.Exit(1)
 	}
 
-	profileProxy, err := gateway.ReverseProxyTo(cfg.ProfileURL)
+	profileProxy, err := gateway.ReverseProxyTo(cfg.ProfileURL, log)
 	if err != nil {
-		log.Fatalf("profile proxy: %v", err)
+		log.Error("failed to set up profile proxy", "error", err)
+		os.Exit(1)
 	}
-	taskProxy, err := gateway.ReverseProxyTo(cfg.TaskURL)
+	taskProxy, err := gateway.ReverseProxyTo(cfg.TaskURL, log)
 	if err != nil {
-		log.Fatalf("task proxy: %v", err)
+		log.Error("failed to set up task proxy", "error", err)
+		os.Exit(1)
 	}
-	telemetryProxy, err := gateway.ReverseProxyTo(cfg.TelemetryURL)
+	telemetryProxy, err := gateway.ReverseProxyTo(cfg.TelemetryURL, log)
 	if err != nil {
-		log.Fatalf("telemetry proxy: %v", err)
+		log.Error("failed to set up telemetry proxy", "error", err)
+		os.Exit(1)
+	}
+	var aiProxy http.Handler
+	if cfg.AIURL != "" {
+		aiProxy, err = gateway.ReverseProxyTo(cfg.AIURL, log)
+		if err != nil {
+			log.Error("failed to set up ai proxy", "error", err)
+			os.Exit(1)
+		}
+	} else {
+		log.Info("AI service not configured, /api/ai/* will return 503")
+		aiProxy = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, `{"error":"AI service not configured"}`, http.StatusServiceUnavailable)
+		})
 	}
 
 	if os.Getenv("GIN_MODE") != "debug" {
@@ -66,37 +85,40 @@ func main() {
 	{
 		auth.POST("/register", gin.WrapH(profileProxy))
 		auth.POST("/login", gin.WrapH(profileProxy))
-		auth.GET("/me", middleware.AuthRequired(cfg.JWTSecret), gin.WrapH(profileProxy))
+		auth.GET("/me", middleware.AuthRequired(cfg.JWTSecret, log), gin.WrapH(profileProxy))
 	}
-	usage := api.Group("/usage").Use(middleware.AuthRequired(cfg.JWTSecret))
+	usage := api.Group("/usage").Use(middleware.AuthRequired(cfg.JWTSecret, log))
 	usage.GET("", gin.WrapH(telemetryProxy))
 	usage.POST("/sync", gin.WrapH(telemetryProxy))
-	sessions := api.Group("/sessions").Use(middleware.AuthRequired(cfg.JWTSecret))
+	sessions := api.Group("/sessions").Use(middleware.AuthRequired(cfg.JWTSecret, log))
 	sessions.GET("", gin.WrapH(telemetryProxy))
 	sessions.POST("/sync", gin.WrapH(telemetryProxy))
-	tasks := api.Group("/tasks").Use(middleware.AuthRequired(cfg.JWTSecret))
+	tasks := api.Group("/tasks").Use(middleware.AuthRequired(cfg.JWTSecret, log))
 	tasks.GET("", gin.WrapH(taskProxy))
 	tasks.POST("", gin.WrapH(taskProxy))
 	tasks.Any("/*path", gin.WrapH(taskProxy))
-	productivity := api.Group("/productivity").Use(middleware.AuthRequired(cfg.JWTSecret))
+	productivity := api.Group("/productivity").Use(middleware.AuthRequired(cfg.JWTSecret, log))
 	productivity.GET("/notifications", gin.WrapH(telemetryProxy))
 	productivity.PATCH("/notifications/:id/read", gin.WrapH(telemetryProxy))
+	ai := api.Group("/ai").Use(middleware.AuthRequired(cfg.JWTSecret, log))
+	ai.Any("/*path", gin.WrapH(aiProxy))
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: router}
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server: %v", err)
+			log.Error("server listen failed", "error", err)
+			os.Exit(1)
 		}
 	}()
 	waitForListen(":"+cfg.Port, 5*time.Second)
-	log.Printf("gateway started successfully on port %s", cfg.Port)
+	log.Info("gateway started", "port", cfg.Port)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("shutting down...")
+	log.Info("shutting down gateway")
 	if err := srv.Shutdown(context.Background()); err != nil {
-		log.Printf("shutdown: %v", err)
+		log.Error("shutdown error", "error", err)
 	}
 }
 

@@ -4,7 +4,9 @@ using System.ComponentModel;
 using System.Windows.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Omni.Client.Abstractions;
+using Omni.Client.Controls;
 using Omni.Client.Models;
+using Omni.Client.Services;
 
 namespace Omni.Client;
 
@@ -14,46 +16,67 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
     private readonly IAuthService _authService;
     private readonly IUsageService _usageService;
     private readonly IProductivityService _productivityService;
+    private readonly IFocusScoreService _focusScoreService;
     private readonly System.Timers.Timer _uiTimer;
-    private const int UiUpdateIntervalMs = 2500; // Reduced from 1s to lower CPU usage
+    private const int UiUpdateIntervalMs = 2500;
     private bool _updateInProgress;
 
-    // Server-driven next best action (null = use local fallback)
     private string? _nextBestActionFromServer;
     private string? _currentNotificationId;
 
-    // Для привязок в XAML
     private bool _isRefreshing;
-    private string _totalTrackedTime = "0h 0m";
-    private string _currentCategory = "None";
+    private string _totalTrackedTime = "0m";
     private ObservableCollection<AppUsageGroup> _groupedApps = new();
-    private string _todayFocusMinutes = "0 min";
+    private string _todayFocusMinutes = "0m";
     private int _goalMinutes = 60;
     private double _goalProgress;
     private int _streakDays;
     private string _nextBestActionText = "Start a focus session";
     private string _nowAppName = "";
     private string _nowActivityState = "Neutral";
+    private int _focusScore;
+    private string _focusTrend = "flat";
+    private int _sessionsToday;
+    private readonly FocusScoreRingDrawable _ringDrawable = new();
 
-    /// <summary>Used when Shell creates the page without DI (e.g. from XAML DataTemplate). Resolves services from app container.</summary>
+    // tracks whether at least one remote load succeeded on this appearance
+    private bool _anyLoadSucceeded;
+
     public MainPage() : this(
         RequireService<IActiveWindowTracker>(),
         RequireService<IAuthService>(),
         RequireService<IUsageService>(),
-        RequireService<IProductivityService>())
+        RequireService<IProductivityService>(),
+        RequireService<IFocusScoreService>())
     { }
 
     private static T RequireService<T>() where T : class =>
         MauiProgram.AppServices?.GetService<T>() ?? throw new InvalidOperationException($"{typeof(T).Name} not registered.");
 
-    public MainPage(IActiveWindowTracker tracker, IAuthService authService, IUsageService usageService, IProductivityService productivityService)
+    public MainPage(IActiveWindowTracker tracker, IAuthService authService,
+        IUsageService usageService, IProductivityService productivityService,
+        IFocusScoreService focusScoreService)
     {
         InitializeComponent();
         _tracker = tracker;
         _authService = authService;
         _usageService = usageService;
         _productivityService = productivityService;
+        _focusScoreService = focusScoreService;
         BindingContext = this;
+
+        ScoreRingView.Drawable = _ringDrawable;
+
+        // Wire the banner retry action
+        MainNetworkBanner.RetryAction = () =>
+        {
+            _ = Task.Run(async () =>
+            {
+                await LoadTodayFocusAsync();
+                await LoadFocusScoreAsync();
+                await LoadNextBestActionAsync();
+            });
+        };
 
         _uiTimer = new System.Timers.Timer(UiUpdateIntervalMs);
         _uiTimer.Elapsed += (s, e) => UpdateAppList();
@@ -61,7 +84,6 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
 
         _tracker.StartTracking();
         _uiTimer.Start();
-
         UpdateAppList();
     }
 
@@ -74,70 +96,55 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
             return;
         }
         _usageService.StartPeriodicSync();
-        _ = _usageService.SyncAsync(); // initial sync
-        _ = LoadTodayFocusAsync();
-        _ = LoadNextBestActionAsync();
+        _ = _usageService.SyncAsync();
+        _anyLoadSucceeded = false;
+        _ = LoadAllRemoteDataAsync();
         _uiTimer?.Start();
         GoalMinutes = ProductivityPreferences.GetDailyGoalMinutes();
     }
 
-    // Свойства для привязок
+    private async Task LoadAllRemoteDataAsync()
+    {
+        var t1 = LoadTodayFocusAsync();
+        var t2 = LoadFocusScoreAsync();
+        var t3 = LoadNextBestActionAsync();
+        await Task.WhenAll(t1, t2, t3);
+
+        // If nothing came back, show the banner
+        if (!_anyLoadSucceeded)
+            await MainNetworkBanner.ShowBannerAsync();
+    }
+
+    // ── Properties ───────────────────────────────────────────────────────────
+
     public bool IsRefreshing
     {
         get => _isRefreshing;
-        set
-        {
-            if (_isRefreshing != value)
-            {
-                _isRefreshing = value;
-                OnPropertyChanged();
-            }
-        }
+        set { if (_isRefreshing != value) { _isRefreshing = value; OnPropertyChanged(); } }
     }
 
     public string TotalTrackedTime
     {
         get => _totalTrackedTime;
-        set
-        {
-            if (_totalTrackedTime != value)
-            {
-                _totalTrackedTime = value;
-                OnPropertyChanged();
-            }
-        }
-    }
-
-    public string CurrentCategory
-    {
-        get => _currentCategory;
-        set
-        {
-            if (_currentCategory != value)
-            {
-                _currentCategory = value;
-                OnPropertyChanged();
-            }
-        }
+        set { if (_totalTrackedTime != value) { _totalTrackedTime = value; OnPropertyChanged(); } }
     }
 
     public ObservableCollection<AppUsageGroup> GroupedApps
     {
         get => _groupedApps;
-        set
-        {
-            if (_groupedApps != value)
-            {
-                _groupedApps = value;
-                OnPropertyChanged();
-            }
-        }
+        set { if (_groupedApps != value) { _groupedApps = value; OnPropertyChanged(); } }
     }
 
     public string TodayFocusMinutes
     {
         get => _todayFocusMinutes;
         set { if (_todayFocusMinutes != value) { _todayFocusMinutes = value; OnPropertyChanged(); OnPropertyChanged(nameof(GoalProgressLabel)); } }
+    }
+
+    public int SessionsToday
+    {
+        get => _sessionsToday;
+        set { if (_sessionsToday != value) { _sessionsToday = value; OnPropertyChanged(); } }
     }
 
     public int GoalMinutes
@@ -149,10 +156,11 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
     public double GoalProgress
     {
         get => _goalProgress;
-        set { if (Math.Abs(_goalProgress - value) > 0.001) { _goalProgress = value; OnPropertyChanged(); OnPropertyChanged(nameof(GoalProgressLabel)); } }
+        set { if (Math.Abs(_goalProgress - value) > 0.001) { _goalProgress = value; OnPropertyChanged(); OnPropertyChanged(nameof(GoalPercentLabel)); } }
     }
 
-    public string GoalProgressLabel => $"{TodayFocusMinutes} / {GoalMinutes} min";
+    public string GoalProgressLabel => $"{TodayFocusMinutes} of {GoalMinutes} min goal";
+    public string GoalPercentLabel => $"{(int)(GoalProgress * 100)}%";
 
     public int StreakDays
     {
@@ -166,14 +174,7 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
         set { if (_nextBestActionText != value) { _nextBestActionText = value; OnPropertyChanged(); } }
     }
 
-    public string NowAppName
-    {
-        get => _nowAppName;
-        set { if (_nowAppName != value) { _nowAppName = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsNowVisible)); OnPropertyChanged(nameof(NowDisplayName)); } }
-    }
-
-    /// <summary>Display text for Now card: app name when present, otherwise a short hint so the section is always visible.</summary>
-    public string NowDisplayName => string.IsNullOrEmpty(NowAppName) ? "No active app" : NowAppName;
+    public string NowDisplayName => string.IsNullOrEmpty(_nowAppName) ? "No active app" : _nowAppName;
 
     public string NowActivityState
     {
@@ -183,20 +184,60 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
 
     public Color NowStateColor => NowActivityState switch
     {
-        "Focus" => Color.FromArgb("#4ECCA3"),
+        "Focus"       => Color.FromArgb("#4ECCA3"),
         "Distraction" => Color.FromArgb("#E07A5F"),
-        _ => Color.FromArgb("#6B9AC4")
+        _             => Color.FromArgb("#6B9AC4")
     };
 
-    public bool IsNowVisible => !string.IsNullOrEmpty(NowAppName);
+    public int FocusScore
+    {
+        get => _focusScore;
+        set
+        {
+            if (_focusScore != value)
+            {
+                _focusScore = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(FocusScoreLabel));
+                OnPropertyChanged(nameof(FocusScoreColor));
+                _ringDrawable.Score = value;
+                Dispatcher.Dispatch(() => ScoreRingView.Invalidate());
+            }
+        }
+    }
 
-    // Команда для RefreshView
+    public string FocusScoreLabel => FocusScore switch
+    {
+        >= 80 => "Excellent — you're in the zone",
+        >= 60 => "Good focus day",
+        >= 40 => "Room to improve",
+        >= 20 => "Getting started",
+        _     => "Let's build some momentum"
+    };
+
+    public Color FocusScoreColor => FocusScore switch
+    {
+        >= 60 => Color.FromArgb("#4ECCA3"),
+        >= 30 => Color.FromArgb("#F5A623"),
+        _     => Color.FromArgb("#E07A5F")
+    };
+
+    public string DayLabel
+    {
+        get
+        {
+            var day = DateTime.Now.DayOfWeek.ToString();
+            var date = DateTime.Now.ToString("MMMM d");
+            return $"{day}, {date}";
+        }
+    }
+
     public ICommand RefreshCommand => new Command(async () =>
     {
         IsRefreshing = true;
-        await Task.Run(() => UpdateAppList());
-        await LoadTodayFocusAsync();
-        await LoadNextBestActionAsync();
+        _ = Task.Run(UpdateAppList);
+        _anyLoadSucceeded = false;
+        await LoadAllRemoteDataAsync();
         IsRefreshing = false;
     });
 
@@ -207,168 +248,31 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
         await Shell.Current.GoToAsync(nameof(SessionPage));
     });
 
-    private void UpdateAppList()
+    // ── Remote data loaders ───────────────────────────────────────────────────
+
+    private async Task LoadFocusScoreAsync()
     {
-        if (_updateInProgress)
-            return;
         try
         {
-            _updateInProgress = true;
-            var currentUsage = _tracker.GetAppUsage();
-            var newGroups = new Dictionary<string, List<AppUsageInfo>>();
-
-            // Группируем приложения по категориям
-            foreach (var kvp in currentUsage)
+            var result = await _focusScoreService.GetFocusScoreAsync();
+            if (result == null) return;
+            _anyLoadSucceeded = true;
+            Dispatcher.Dispatch(async () =>
             {
-                var category = CategoryResolver.ResolveCategory(kvp.Key);
-                if (!newGroups.ContainsKey(category))
-                {
-                    newGroups[category] = new List<AppUsageInfo>();
-                }
-
-                var existingItem = GroupedApps
-                    .SelectMany(g => g)
-                    .FirstOrDefault(x => x.AppName == kvp.Key);
-
-                if (existingItem != null)
-                {
-                    existingItem.RunningTime = kvp.Value;
-                }
-                else
-                {
-                    newGroups[category].Add(new AppUsageInfo
-                    {
-                        AppName = kvp.Key,
-                        Category = category,
-                        RunningTime = kvp.Value
-                    });
-                }
-            }
-
-            // Обновляем GroupedApps в UI потоке
-            Dispatcher.Dispatch(() =>
-            {
-                // Удаляем пустые категории
-                foreach (var group in GroupedApps.ToList())
-                {
-                    if (!newGroups.ContainsKey(group.Category))
-                    {
-                        GroupedApps.Remove(group);
-                    }
-                }
-
-                // Обновляем или добавляем категории
-                foreach (var kvp in newGroups)
-                {
-                    var existingGroup = GroupedApps.FirstOrDefault(g => g.Category == kvp.Key);
-                    if (existingGroup != null)
-                    {
-                        // Обновляем существующую группу
-                        foreach (var item in kvp.Value)
-                        {
-                            if (!existingGroup.Any(x => x.AppName == item.AppName))
-                            {
-                                existingGroup.Add(item);
-                            }
-                        }
-
-                        // Удаляем отсутствующие приложения
-                        for (var i = existingGroup.Count - 1; i >= 0; i--)
-                        {
-                            if (!currentUsage.ContainsKey(existingGroup[i].AppName))
-                            {
-                                existingGroup.RemoveAt(i);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        // Добавляем новую группу
-                        GroupedApps.Add(new AppUsageGroup(kvp.Key, kvp.Value));
-                    }
-                }
-
-                // Сортируем группы по времени
-                foreach (var group in GroupedApps)
-                {
-                    var sorted = group.OrderByDescending(x => x.RunningTime).ToList();
-                    for (int i = 0; i < sorted.Count; i++)
-                    {
-                        group.Move(group.IndexOf(sorted[i]), i);
-                    }
-                }
-
-                // Обновляем статистику
-                UpdateStatistics();
-                UpdateNowAndNextAction();
-                _updateInProgress = false;
+                FocusScore = result.Score;
+                _focusTrend = result.Trend;
+                _ringDrawable.Trend = result.Trend;
+                SessionsToday = result.SessionsToday;
+                StreakDays = result.StreakDays;
+                ScoreRingView.Invalidate();
+                await MainNetworkBanner.HideBannerAsync();
             });
         }
         catch (Exception ex)
         {
-            _updateInProgress = false;
-            Debug.WriteLine($"Ошибка обновления: {ex}");
-            Dispatcher.Dispatch(() =>
-            {
-                GroupedApps.Clear();
-                GroupedApps.Add(new AppUsageGroup("System", new List<AppUsageInfo>
-                {
-                    new() { AppName = "Ошибка получения данных", RunningTime = TimeSpan.Zero }
-                }));
-                _updateInProgress = false;
-            });
+            Debug.WriteLine($"LoadFocusScore: {ex.Message}");
+            NetworkStatusService.Instance.ReportFailure(ex);
         }
-    }
-
-    private void UpdateStatistics()
-    {
-        // Общее время
-        var totalTime = GroupedApps
-            .SelectMany(g => g)
-            .Aggregate(TimeSpan.Zero, (sum, item) => sum + item.RunningTime);
-
-        TotalTrackedTime = $"{totalTime.Hours}h {totalTime.Minutes}m";
-
-        // Самая активная категория
-        var mostActiveCategory = GroupedApps
-            .OrderByDescending(g => g.Sum(x => x.RunningTime.Ticks))
-            .FirstOrDefault()?.Category ?? "None";
-
-        CurrentCategory = mostActiveCategory;
-    }
-
-    private void UpdateNowAndNextAction()
-    {
-        var top = GroupedApps
-            .SelectMany(g => g)
-            .OrderByDescending(x => x.RunningTime.Ticks)
-            .FirstOrDefault();
-        if (top != null)
-        {
-            NowAppName = top.AppName;
-            var state = top.Category switch
-            {
-                "Coding" or "Productivity" => "Focus",
-                "Gaming" or "Chilling" => "Distraction",
-                _ => "Neutral"
-            };
-            NowActivityState = state;
-        }
-        else
-        {
-            // No usage yet (e.g. first load, or stub): show current app from tracker so "Now" card is visible
-            var currentApp = _tracker.GetCurrentAppName();
-            NowAppName = string.IsNullOrEmpty(currentApp) ? "" : currentApp;
-            var category = _tracker.GetCurrentCategory();
-            NowActivityState = category switch
-            {
-                "Coding" or "Productivity" => "Focus",
-                "Gaming" or "Chilling" => "Distraction",
-                _ => "Neutral"
-            };
-        }
-        var fallback = GoalProgress >= 1.0 ? "You hit your goal" : "Start a focus session";
-        NextBestActionText = _nextBestActionFromServer ?? fallback;
     }
 
     private async Task LoadNextBestActionAsync()
@@ -376,6 +280,21 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
         try
         {
             var items = await _productivityService.GetNotificationsAsync(unreadOnly: true);
+            _anyLoadSucceeded = true;
+
+            // Show weekly digest modal if one is unread
+            var digest = items.FirstOrDefault(n =>
+                string.Equals(n.Type, "weekly_digest", StringComparison.OrdinalIgnoreCase));
+            if (digest != null)
+            {
+                var digestPage = MauiProgram.AppServices?.GetService<DigestPage>();
+                if (digestPage != null)
+                {
+                    digestPage.LoadDigest(digest);
+                    await Shell.Current.GoToAsync(nameof(DigestPage));
+                }
+            }
+
             var first = items.FirstOrDefault(n =>
                 string.Equals(n.Type, "recommendation", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(n.Type, "insight", StringComparison.OrdinalIgnoreCase));
@@ -389,12 +308,15 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
                 _nextBestActionFromServer = null;
                 _currentNotificationId = null;
             }
-            var fallback = GoalProgress >= 1.0 ? "You hit your goal" : "Start a focus session";
+            var fallback = GoalProgress >= 1.0 ? "You hit your daily goal!" : "Start a 25 min focus session";
             NextBestActionText = _nextBestActionFromServer ?? fallback;
+
+            await MainNetworkBanner.HideBannerAsync();
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"LoadNextBestAction: {ex}");
+            Debug.WriteLine($"LoadNextBestAction: {ex.Message}");
+            NetworkStatusService.Instance.ReportFailure(ex);
         }
     }
 
@@ -403,34 +325,143 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
         try
         {
             var from = DateTime.Today.ToString("yyyy-MM-dd");
-            var to = DateTime.Today.ToString("yyyy-MM-dd");
-            var response = await _usageService.GetUsageAsync(from, to, "day", null, null);
+            var response = await _usageService.GetUsageAsync(from, from, "day", null, null);
             if (response?.Entries == null || response.Entries.Count == 0)
             {
-                TodayFocusMinutes = "0 min";
+                TodayFocusMinutes = "0m";
                 GoalProgress = 0;
+                // A 200 with empty entries still counts as success
+                _anyLoadSucceeded = true;
+                await MainNetworkBanner.HideBannerAsync();
                 return;
             }
-            const string focusCategory1 = "Coding";
-            const string focusCategory2 = "Productivity";
+            _anyLoadSucceeded = true;
             var focusSeconds = response.Entries
-                .Where(e => string.Equals(e.Category, focusCategory1, StringComparison.OrdinalIgnoreCase) ||
-                            string.Equals(e.Category, focusCategory2, StringComparison.OrdinalIgnoreCase))
+                .Where(e => string.Equals(e.Category, "Coding", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(e.Category, "Productivity", StringComparison.OrdinalIgnoreCase))
                 .Sum(e => e.TotalSeconds);
             var focusMinutes = (int)(focusSeconds / 60);
-            TodayFocusMinutes = $"{focusMinutes} min";
+            TodayFocusMinutes = focusMinutes >= 60
+                ? $"{focusMinutes / 60}h {focusMinutes % 60}m"
+                : $"{focusMinutes}m";
             GoalProgress = _goalMinutes <= 0 ? 0 : Math.Min(1.0, (double)focusMinutes / _goalMinutes);
+            await MainNetworkBanner.HideBannerAsync();
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"LoadTodayFocus: {ex}");
+            Debug.WriteLine($"LoadTodayFocus: {ex.Message}");
+            NetworkStatusService.Instance.ReportFailure(ex);
         }
+    }
+
+    // ── Local tracker update ──────────────────────────────────────────────────
+
+    private void UpdateAppList()
+    {
+        if (_updateInProgress) return;
+        try
+        {
+            _updateInProgress = true;
+            var currentUsage = _tracker.GetAppUsage();
+            var newGroups = new Dictionary<string, List<AppUsageInfo>>();
+
+            foreach (var kvp in currentUsage)
+            {
+                var category = CategoryResolver.ResolveCategory(kvp.Key);
+                if (!newGroups.ContainsKey(category))
+                    newGroups[category] = new List<AppUsageInfo>();
+
+                var existingItem = GroupedApps.SelectMany(g => g).FirstOrDefault(x => x.AppName == kvp.Key);
+                if (existingItem != null)
+                    existingItem.RunningTime = kvp.Value;
+                else
+                    newGroups[category].Add(new AppUsageInfo { AppName = kvp.Key, Category = category, RunningTime = kvp.Value });
+            }
+
+            Dispatcher.Dispatch(() =>
+            {
+                foreach (var group in GroupedApps.ToList())
+                    if (!newGroups.ContainsKey(group.Category))
+                        GroupedApps.Remove(group);
+
+                foreach (var kvp in newGroups)
+                {
+                    var existing = GroupedApps.FirstOrDefault(g => g.Category == kvp.Key);
+                    if (existing != null)
+                    {
+                        foreach (var item in kvp.Value)
+                            if (!existing.Any(x => x.AppName == item.AppName))
+                                existing.Add(item);
+                        for (var i = existing.Count - 1; i >= 0; i--)
+                            if (!currentUsage.ContainsKey(existing[i].AppName))
+                                existing.RemoveAt(i);
+                    }
+                    else
+                    {
+                        GroupedApps.Add(new AppUsageGroup(kvp.Key, kvp.Value));
+                    }
+                }
+
+                foreach (var group in GroupedApps)
+                {
+                    var sorted = group.OrderByDescending(x => x.RunningTime).ToList();
+                    for (int i = 0; i < sorted.Count; i++)
+                        group.Move(group.IndexOf(sorted[i]), i);
+                }
+
+                UpdateStatistics();
+                UpdateNow();
+                _updateInProgress = false;
+            });
+        }
+        catch (Exception ex)
+        {
+            _updateInProgress = false;
+            Debug.WriteLine($"UpdateAppList: {ex}");
+            Dispatcher.Dispatch(() => { GroupedApps.Clear(); _updateInProgress = false; });
+        }
+    }
+
+    private void UpdateStatistics()
+    {
+        var totalTime = GroupedApps.SelectMany(g => g).Aggregate(TimeSpan.Zero, (sum, item) => sum + item.RunningTime);
+        TotalTrackedTime = totalTime.TotalHours >= 1
+            ? $"{(int)totalTime.TotalHours}h {totalTime.Minutes}m"
+            : $"{totalTime.Minutes}m";
+    }
+
+    private void UpdateNow()
+    {
+        var top = GroupedApps.SelectMany(g => g).OrderByDescending(x => x.RunningTime).FirstOrDefault();
+        if (top != null)
+        {
+            _nowAppName = top.AppName;
+            NowActivityState = top.Category switch
+            {
+                "Coding" or "Productivity" => "Focus",
+                "Gaming" or "Chilling"     => "Distraction",
+                _                          => "Neutral"
+            };
+        }
+        else
+        {
+            var currentApp = _tracker.GetCurrentAppName();
+            _nowAppName = string.IsNullOrEmpty(currentApp) ? "" : currentApp;
+            NowActivityState = _tracker.GetCurrentCategory() switch
+            {
+                "Coding" or "Productivity" => "Focus",
+                "Gaming" or "Chilling"     => "Distraction",
+                _                          => "Neutral"
+            };
+        }
+        OnPropertyChanged(nameof(NowDisplayName));
+        var fallback = GoalProgress >= 1.0 ? "You hit your daily goal!" : "Start a 25 min focus session";
+        NextBestActionText = _nextBestActionFromServer ?? fallback;
     }
 
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
-        // Keep sync running when navigating away (e.g. to Usage stats); only stop on logout
         _uiTimer?.Stop();
     }
 
@@ -442,19 +473,12 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
     }
 
     private async void OnStartSessionClicked(object? sender, EventArgs e)
-    {
-        await Shell.Current.GoToAsync(nameof(SessionPage));
-    }
+        => await Shell.Current.GoToAsync(nameof(SessionPage));
 
     private async void OnAddTaskClicked(object? sender, EventArgs e)
-    {
-        await Shell.Current.GoToAsync(nameof(TasksPage));
-    }
+        => await Shell.Current.GoToAsync(nameof(TasksPage));
 
     public new event PropertyChangedEventHandler? PropertyChanged;
     protected new virtual void OnPropertyChanged([System.Runtime.CompilerServices.CallerMemberName] string? propertyName = null)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
-    
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }

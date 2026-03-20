@@ -62,11 +62,18 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredService<IAuthService>(),
                 sp.GetRequiredService<JsonSerializerOptions>()));
 
+        services.AddSingleton<IFocusScoreService>(sp =>
+            new FocusScoreService(
+                sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackend"),
+                sp.GetRequiredService<IAuthService>(),
+                sp.GetRequiredService<JsonSerializerOptions>()));
+
         services.AddTransient<MainPage>();
         services.AddTransient<UsageStatsPage>();
         services.AddTransient<SessionPage>();
         services.AddTransient<TasksPage>();
         services.AddTransient<AccountPage>();
+        services.AddTransient<DigestPage>();
 
         services.AddActiveWindowTracker();
         services.AddNotificationManager();

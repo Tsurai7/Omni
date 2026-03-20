@@ -520,3 +520,259 @@ def run_analysis_for_user(user_id: UUID) -> dict[str, Any] | None:
         return None
     rec, _ = build_recommendation(ctx)
     return rec
+
+
+# ── Focus Score ───────────────────────────────────────────────────────────────
+
+@dataclass
+class FocusScoreResult:
+    """0-100 daily focus score with per-dimension breakdown."""
+    score: int
+    focus_ratio: int          # 0-40 pts: % of today's active time spent in focus
+    session_completion: int   # 0-25 pts: ratio of completed sessions to started
+    distraction_penalty: int  # 0-20 pts: inverted distraction share
+    consistency_bonus: int    # 0-15 pts: streak and regular session pattern
+    trend: str                # "up" | "down" | "flat"
+    focus_minutes_today: int
+    sessions_today: int
+    streak_days: int
+
+
+def compute_focus_score(user_id: UUID) -> FocusScoreResult:
+    """
+    Compute a 0-100 daily focus score for a user.
+    Components:
+      focus_ratio      × 40  — what share of tracked time is focus vs distraction
+      session_completion × 25 — did the user actually do sessions today
+      distraction_penalty × 20 — inverted distraction fraction
+      consistency_bonus × 15  — streak + regular session pattern
+    """
+    client = get_clickhouse_client()
+    uid = str(user_id)
+
+    # Today's usage breakdown
+    today_usage = None
+    sessions_today = 0
+    focus_minutes = 0
+    distraction_minutes = 0
+    total_tracked = 0
+
+    try:
+        if client:
+            usage_r = client.query(f"""
+            SELECT
+                sumIf(duration_seconds, {FOCUS_SQL})       AS focus_sec,
+                sumIf(duration_seconds, {DISTRACTION_SQL}) AS distract_sec,
+                sum(duration_seconds)                       AS total_sec
+            FROM omni_analytics.telemetry_events
+            WHERE event_type = 'usage'
+              AND user_id = '{uid}'
+              AND toDate(at) = today()
+            """)
+            if usage_r.result_set:
+                r = usage_r.result_set[0]
+                focus_sec = int(r[0] or 0)
+                distract_sec = int(r[1] or 0)
+                total_tracked = int(r[2] or 0)
+                focus_minutes = focus_sec // 60
+                distraction_minutes = distract_sec // 60
+
+            session_r = client.query(f"""
+            SELECT count() AS cnt
+            FROM omni_analytics.telemetry_events
+            WHERE event_type = 'session'
+              AND user_id = '{uid}'
+              AND toDate(at) = today()
+            """)
+            if session_r.result_set:
+                sessions_today = int(session_r.result_set[0][0] or 0)
+    except Exception as e:
+        logger.warning("compute_focus_score usage query failed for %s: %s", user_id, e)
+
+    # ── Component 1: focus_ratio (0-40) ───────────────────────────────────────
+    if total_tracked > 0:
+        focus_share = focus_sec / total_tracked
+        focus_ratio_pts = int(min(40, focus_share * 40))
+    elif focus_minutes > 0:
+        focus_ratio_pts = min(40, focus_minutes // 3)  # 2h → 40pts
+    else:
+        focus_ratio_pts = 0
+
+    # ── Component 2: session_completion (0-25) ────────────────────────────────
+    # Based on focus minutes: ≥ 60 min → 25 pts, linear below
+    session_pts = int(min(25, (focus_minutes / 60) * 25))
+
+    # ── Component 3: distraction_penalty (0-20) ───────────────────────────────
+    if total_tracked > 0 and distract_sec > 0:
+        distraction_share = distract_sec / total_tracked
+        distraction_penalty_pts = int((1 - distraction_share) * 20)
+    else:
+        distraction_penalty_pts = 20  # no distraction → full points
+
+    # ── Component 4: consistency_bonus (0-15) ─────────────────────────────────
+    streak = get_streak_days(user_id)
+    if streak >= 7:
+        consistency_pts = 15
+    elif streak >= 3:
+        consistency_pts = 10
+    elif streak >= 1:
+        consistency_pts = 6
+    else:
+        consistency_pts = 0
+
+    # ── Total ─────────────────────────────────────────────────────────────────
+    total = min(100, focus_ratio_pts + session_pts + distraction_penalty_pts + consistency_pts)
+
+    # ── Trend (compare yesterday) ─────────────────────────────────────────────
+    trend = "flat"
+    try:
+        if client:
+            yesterday_r = client.query(f"""
+            SELECT sumIf(duration_seconds, {FOCUS_SQL}) AS focus_sec_yesterday
+            FROM omni_analytics.telemetry_events
+            WHERE event_type = 'usage'
+              AND user_id = '{uid}'
+              AND toDate(at) = today() - 1
+            """)
+            if yesterday_r.result_set:
+                yest_focus = int(yesterday_r.result_set[0][0] or 0)
+                if yest_focus > 0:
+                    if focus_sec > yest_focus * 1.1:
+                        trend = "up"
+                    elif focus_sec < yest_focus * 0.9:
+                        trend = "down"
+    except Exception as e:
+        logger.warning("compute_focus_score trend query failed: %s", e)
+
+    return FocusScoreResult(
+        score=total,
+        focus_ratio=focus_ratio_pts,
+        session_completion=session_pts,
+        distraction_penalty=distraction_penalty_pts,
+        consistency_bonus=consistency_pts,
+        trend=trend,
+        focus_minutes_today=focus_minutes,
+        sessions_today=sessions_today,
+        streak_days=streak,
+    )
+
+
+# ── Weekly Digest ─────────────────────────────────────────────────────────────
+
+def generate_weekly_digest(user_id: UUID) -> dict[str, Any] | None:
+    """
+    Generate a weekly productivity digest for a user.
+    Returns a rich notification payload with stats, trends, and a personal insight.
+    """
+    client = get_clickhouse_client()
+    if not client:
+        return None
+    uid = str(user_id)
+    try:
+        # This week vs last week focus
+        week_r = client.query(f"""
+        SELECT
+            sumIf(duration_seconds, {FOCUS_SQL} AND toDate(at) >= today() - 7)   AS this_week,
+            sumIf(duration_seconds, {FOCUS_SQL} AND toDate(at) BETWEEN today()-14 AND today()-8) AS last_week,
+            countDistinctIf(toDate(at), {FOCUS_SQL} AND toDate(at) >= today()-7
+                AND sumIf(duration_seconds, {FOCUS_SQL}) >= {STREAK_MIN_DAILY_FOCUS_SECONDS}) AS active_days
+        FROM omni_analytics.telemetry_events
+        WHERE event_type = 'usage'
+          AND user_id = '{uid}'
+          AND at >= today() - 14
+        """)
+
+        # Per-day focus this week for best day
+        days_r = client.query(f"""
+        SELECT toDate(at) AS day, sumIf(duration_seconds, {FOCUS_SQL}) AS focus_sec
+        FROM omni_analytics.telemetry_events
+        WHERE event_type = 'usage'
+          AND user_id = '{uid}'
+          AND {FOCUS_SQL}
+          AND at >= today() - 7
+        GROUP BY day
+        ORDER BY focus_sec DESC
+        LIMIT 1
+        """)
+
+        # Top distraction this week
+        distraction_r = client.query(f"""
+        SELECT category, sum(duration_seconds) AS total
+        FROM omni_analytics.telemetry_events
+        WHERE event_type = 'usage'
+          AND user_id = '{uid}'
+          AND {DISTRACTION_SQL}
+          AND at >= today() - 7
+        GROUP BY category
+        ORDER BY total DESC
+        LIMIT 1
+        """)
+
+        this_week_min = 0
+        last_week_min = 0
+        if week_r.result_set:
+            r = week_r.result_set[0]
+            this_week_min = int(r[0] or 0) // 60
+            last_week_min = int(r[1] or 0) // 60
+
+        best_day = None
+        if days_r.result_set and days_r.result_set[0]:
+            best_day = str(days_r.result_set[0][0])
+
+        top_distraction = None
+        if distraction_r.result_set and distraction_r.result_set[0]:
+            top_distraction = str(distraction_r.result_set[0][0])
+
+        streak = get_streak_days(user_id)
+
+        # Build headline + insight
+        if this_week_min == 0:
+            return None  # no activity, no digest
+        this_week_h = this_week_min // 60
+        this_week_m = this_week_min % 60
+        focus_str = f"{this_week_h}h {this_week_m}m" if this_week_h > 0 else f"{this_week_min}m"
+
+        if last_week_min > 0:
+            change_pct = int((this_week_min - last_week_min) / last_week_min * 100)
+            comparison = f"{abs(change_pct)}% {'more' if change_pct >= 0 else 'less'} than last week"
+        else:
+            comparison = "first week tracked!"
+
+        insight = f"You focused for {focus_str} this week — {comparison}."
+        if streak >= 3:
+            insight += f" Your {streak}-day streak is going strong."
+        if top_distraction:
+            insight += f" Watch out for {top_distraction} pulling your attention."
+
+        return {
+            "type": "weekly_digest",
+            "title": f"Weekly recap: {focus_str} of focus",
+            "body": insight,
+            "action_type": "none",
+            "action_payload": {
+                "focus_minutes_this_week": this_week_min,
+                "focus_minutes_last_week": last_week_min,
+                "best_day": best_day,
+                "top_distraction": top_distraction,
+                "streak_days": streak,
+            },
+        }
+    except Exception as e:
+        logger.warning("generate_weekly_digest failed for %s: %s", user_id, e)
+        return None
+
+
+STREAK_MILESTONES = [3, 7, 14, 30, 60, 100]
+
+
+def check_streak_milestone(streak: int) -> dict[str, Any] | None:
+    """Return a milestone celebration notification if the streak hits a milestone."""
+    if streak not in STREAK_MILESTONES:
+        return None
+    return {
+        "type": "milestone",
+        "title": f"{streak}-day streak!",
+        "body": f"You've focused every day for {streak} days in a row. That's real momentum.",
+        "action_type": "none",
+        "action_payload": {"streak_days": streak},
+    }

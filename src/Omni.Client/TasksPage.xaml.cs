@@ -32,7 +32,7 @@ public partial class TasksPage : ContentPage, INotifyPropertyChanged
         DeleteTaskCommand = new Command<TaskDisplayItem?>(async item =>
         {
             if (item == null) return;
-            var confirm = await DisplayAlert("Delete task", $"Remove \"{item.Title}\"?", "Delete", "Cancel");
+            var confirm = await DisplayAlertAsync("Delete task", $"Remove \"{item.Title}\"?", "Delete", "Cancel");
             if (!confirm) return;
             await GetTaskService().DeleteTaskAsync(item.Id);
             await LoadAsync();

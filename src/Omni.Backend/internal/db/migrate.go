@@ -35,7 +35,10 @@ CREATE TABLE IF NOT EXISTS sessions (
 	name TEXT NOT NULL,
 	activity_type TEXT NOT NULL DEFAULT 'other',
 	started_at TIMESTAMPTZ NOT NULL,
-	duration_seconds BIGINT NOT NULL
+	duration_seconds BIGINT NOT NULL,
+	intention TEXT,
+	subjective_rating INT,
+	reflection_note TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_user_started ON sessions(user_id, started_at);
 `
@@ -67,6 +70,19 @@ CREATE TABLE IF NOT EXISTS user_notifications (
 CREATE INDEX IF NOT EXISTS idx_user_notifications_user_created ON user_notifications(user_id, created_at DESC);
 `
 
+const createTableDailyFocusScores = `
+CREATE TABLE IF NOT EXISTS daily_focus_scores (
+	id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+	score_date DATE NOT NULL,
+	score INT NOT NULL,
+	breakdown JSONB,
+	computed_at TIMESTAMPTZ DEFAULT NOW(),
+	UNIQUE (user_id, score_date)
+);
+CREATE INDEX IF NOT EXISTS idx_daily_focus_scores_user_date ON daily_focus_scores(user_id, score_date DESC);
+`
+
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, err := pool.Exec(ctx, createTableUsers); err != nil {
 		return err
@@ -80,6 +96,9 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, err := pool.Exec(ctx, createTableTasks); err != nil {
 		return err
 	}
-	_, err := pool.Exec(ctx, createTableUserNotifications)
+	if _, err := pool.Exec(ctx, createTableUserNotifications); err != nil {
+		return err
+	}
+	_, err := pool.Exec(ctx, createTableDailyFocusScores)
 	return err
 }

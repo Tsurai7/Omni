@@ -6,6 +6,7 @@ using Omni.Client.Abstractions;
 using Omni.Client.Controls;
 using Omni.Client.Models.Productivity;
 using Omni.Client.Models.Usage;
+using Omni.Client.Services;
 
 namespace Omni.Client;
 
@@ -22,6 +23,12 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
     private bool _ignorePickerChanges;
     private readonly UsagePieDrawable _pieDrawable = new();
     private readonly UsageBarDrawable _barDrawable = new();
+    private readonly FocusScoreTrendDrawable _trendDrawable = new();
+    private readonly ActivityHeatmapDrawable _heatmapDrawable = new();
+    private string _selectedPeriod = "today"; // today, week, month
+    private string _summaryFocusTime = "—";
+    private string _summaryAvgScore = "—";
+    private string _summaryPeakHour = "—";
 
     private string _insightBiggestDistraction = "";
     private string _insightFocusThisWeek = "";
@@ -34,14 +41,18 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
         InitializeComponent();
         BindingContext = this;
         RefreshCommand = new Command(async () => await LoadAsync());
-        ViewPicker.ItemsSource = _viewOptions;
-        ViewPicker.SelectedIndex = 0;
         CategoryPicker.ItemsSource = _categoryOptions;
         CategoryPicker.SelectedIndex = 0;
         AppPicker.ItemsSource = _appOptions;
         AppPicker.SelectedIndex = 0;
         PieChartView.Drawable = _pieDrawable;
         BarChartView.Drawable = _barDrawable;
+        TrendChartView.Drawable = _trendDrawable;
+        HeatmapView.Drawable = _heatmapDrawable;
+        UpdatePeriodButtons();
+
+        // Wire banner retry
+        StatsNetworkBanner.RetryAction = () => _ = LoadAsync();
     }
 
     private IUsageService GetUsageService()
@@ -102,8 +113,72 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
         set { if (_recommendationChipText != value) { _recommendationChipText = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasRecommendation)); } }
     }
 
+    public string SummaryFocusTime
+    {
+        get => _summaryFocusTime;
+        set { if (_summaryFocusTime != value) { _summaryFocusTime = value; OnPropertyChanged(); } }
+    }
+
+    public string SummaryAvgScore
+    {
+        get => _summaryAvgScore;
+        set { if (_summaryAvgScore != value) { _summaryAvgScore = value; OnPropertyChanged(); } }
+    }
+
+    public string SummaryPeakHour
+    {
+        get => _summaryPeakHour;
+        set { if (_summaryPeakHour != value) { _summaryPeakHour = value; OnPropertyChanged(); } }
+    }
+
     public bool HasInsights => !string.IsNullOrEmpty(InsightBiggestDistraction) || !string.IsNullOrEmpty(InsightFocusThisWeek) || !string.IsNullOrEmpty(InsightTrend);
     public bool HasRecommendation => !string.IsNullOrEmpty(RecommendationChipText);
+
+    private void OnPeriodTodayClicked(object? sender, EventArgs e)
+    {
+        _selectedPeriod = "today";
+        UpdatePeriodButtons();
+        _ = LoadAsync();
+    }
+
+    private void OnPeriodWeekClicked(object? sender, EventArgs e)
+    {
+        _selectedPeriod = "week";
+        UpdatePeriodButtons();
+        _ = LoadAsync();
+    }
+
+    private void OnPeriodMonthClicked(object? sender, EventArgs e)
+    {
+        _selectedPeriod = "month";
+        UpdatePeriodButtons();
+        _ = LoadAsync();
+    }
+
+    private void UpdatePeriodButtons()
+    {
+        Style? ctaStyle = null;
+        Style? secStyle = null;
+        try {
+            ctaStyle = (Style)Application.Current!.Resources["ProductivityPillButton"];
+            secStyle = (Style)Application.Current!.Resources["ProductivitySecondaryButton"];
+        } catch { }
+        if (ctaStyle == null || secStyle == null) return;
+        PeriodTodayBtn.Style = _selectedPeriod == "today" ? ctaStyle : secStyle;
+        PeriodWeekBtn.Style = _selectedPeriod == "week" ? ctaStyle : secStyle;
+        PeriodMonthBtn.Style = _selectedPeriod == "month" ? ctaStyle : secStyle;
+    }
+
+    private (string from, string to, string groupBy) GetDateRange()
+    {
+        var today = DateTime.Today;
+        return _selectedPeriod switch
+        {
+            "week"  => (today.AddDays(-6).ToString("yyyy-MM-dd"), today.ToString("yyyy-MM-dd"), "day"),
+            "month" => (today.AddDays(-29).ToString("yyyy-MM-dd"), today.ToString("yyyy-MM-dd"), "day"),
+            _       => (today.ToString("yyyy-MM-dd"), today.ToString("yyyy-MM-dd"), "day"),
+        };
+    }
 
     protected override async void OnAppearing()
     {
@@ -123,7 +198,7 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
 
     private void OnViewChanged(object? sender, EventArgs e)
     {
-        if (_ignorePickerChanges || ViewPicker.SelectedIndex < 0) return;
+        if (_ignorePickerChanges) return;
         _ = LoadAsync();
     }
 
@@ -141,10 +216,12 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
 
     private string GetGroupBy()
     {
-        var i = ViewPicker.SelectedIndex;
-        if (i == 1) return "week";
-        if (i == 2) return "month";
-        return "day";
+        return _selectedPeriod switch
+        {
+            "Week" => "week",
+            "Month" => "month",
+            _ => "day"
+        };
     }
 
     private string? GetCategoryFilter()
@@ -161,8 +238,8 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
         return string.IsNullOrEmpty(s) || s == "All" ? null : s;
     }
 
-    private bool IsViewByCategory => ViewPicker.SelectedIndex == 3;
-    private bool IsViewByApp => ViewPicker.SelectedIndex == 4;
+    private bool IsViewByCategory => false;
+    private bool IsViewByApp => false;
 
     private async Task LoadAsync()
     {
@@ -178,13 +255,30 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
                 return;
             }
             // Push any pending usage so the list is up-to-date
-            await usageService.SyncAsync();
-            var from = DateTime.Now.AddDays(-30).ToString("yyyy-MM-dd");
-            var to = DateTime.Now.ToString("yyyy-MM-dd");
-            var groupBy = GetGroupBy();
+            try { await usageService.SyncAsync(); } catch { /* best-effort */ }
+
+            var (from, to, groupBy) = GetDateRange();
             var categoryFilter = GetCategoryFilter();
             var appFilter = GetAppFilter();
-            var response = await usageService.GetUsageAsync(from, to, groupBy, categoryFilter, appFilter);
+            UsageListResponse? response;
+            try
+            {
+                response = await usageService.GetUsageAsync(from, to, groupBy, categoryFilter, appFilter);
+                NetworkStatusService.Instance.ReportSuccess();
+                await StatsNetworkBanner.HideBannerAsync();
+            }
+            catch (Exception netEx)
+            {
+                NetworkStatusService.Instance.ReportFailure(netEx);
+                await StatsNetworkBanner.ShowBannerAsync(
+                    "Can't load stats",
+                    "Check your connection — showing last cached data.");
+                EmptyView = "Couldn't reach the server. Pull to retry.";
+                GroupedEntries.Clear();
+                UpdateCharts(new List<UsageListEntry>());
+                return;
+            }
+
             if (response == null)
             {
                 EmptyView = "Not signed in or couldn't load usage.";
@@ -246,10 +340,12 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            EmptyView = "Error loading usage. Check backend is running.";
+            NetworkStatusService.Instance.ReportFailure(ex);
+            EmptyView = "Error loading usage.";
             GroupedEntries.Clear();
             UpdateCharts(new List<UsageListEntry>());
             System.Diagnostics.Debug.WriteLine($"UsageStats LoadAsync: {ex}");
+            await StatsNetworkBanner.ShowBannerAsync("Can't load stats", "Pull to retry when back online.");
         }
         finally
         {
@@ -324,6 +420,8 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
             }
         }
         UpdateInsightsAndRecommendationFromUsage(entries);
+        UpdateSummaryMetrics(entries);
+        UpdateNewCharts(entries);
     }
 
     private void UpdateInsightsAndRecommendationFromUsage(List<UsageListEntry> entries)
@@ -380,6 +478,48 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
         }
         await Shell.Current.GoToAsync(nameof(SessionPage));
     });
+
+    private void UpdateSummaryMetrics(List<UsageListEntry> entries)
+    {
+        var focusSec = entries
+            .Where(e => e.Category == "Coding" || e.Category == "Productivity")
+            .Sum(e => e.TotalSeconds);
+        var focusMin = (int)(focusSec / 60);
+        SummaryFocusTime = focusMin >= 60 ? $"{focusMin / 60}h {focusMin % 60}m" : $"{focusMin}m";
+
+        // Peak hour: find hour with most focus seconds
+        var peakEntry = entries
+            .Where(e => (e.Category == "Coding" || e.Category == "Productivity")
+                        && DateTime.TryParse(e.Date, out _))
+            .GroupBy(e => DateTime.Parse(e.Date).Hour)
+            .OrderByDescending(g => g.Sum(x => x.TotalSeconds))
+            .FirstOrDefault();
+        SummaryPeakHour = peakEntry != null ? $"{peakEntry.Key:D2}:00" : "—";
+        SummaryAvgScore = "—"; // populated by AI service
+    }
+
+    private void UpdateNewCharts(List<UsageListEntry> entries)
+    {
+        // Trend chart: group focus by day
+        var dailyFocus = entries
+            .Where(e => (e.Category == "Coding" || e.Category == "Productivity")
+                        && DateTime.TryParse(e.Date, out _))
+            .GroupBy(e => DateTime.Parse(e.Date).ToString("yyyy-MM-dd"))
+            .Select(g => (Date: g.Key, Score: Math.Min(100, (int)(g.Sum(x => x.TotalSeconds) / 36))))
+            .OrderBy(x => x.Date)
+            .ToList();
+        _trendDrawable.SetData(dailyFocus);
+        TrendChartView.Invalidate();
+
+        // Heatmap: focus minutes per day
+        var heatmapData = entries
+            .Where(e => (e.Category == "Coding" || e.Category == "Productivity")
+                        && DateTime.TryParse(e.Date, out _))
+            .GroupBy(e => DateTime.Parse(e.Date).ToString("yyyy-MM-dd"))
+            .Select(g => (Date: g.Key, FocusMinutes: (int)(g.Sum(x => x.TotalSeconds) / 60)));
+        _heatmapDrawable.SetData(heatmapData);
+        HeatmapView.Invalidate();
+    }
 
     public new event PropertyChangedEventHandler? PropertyChanged;
     protected new void OnPropertyChanged([CallerMemberName] string? name = null) =>

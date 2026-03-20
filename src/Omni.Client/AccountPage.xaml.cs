@@ -73,8 +73,11 @@ public partial class AccountPage : ContentPage, INotifyPropertyChanged
 
         var user = await _authService.GetCurrentUserAsync();
         LoadingIndicator.IsVisible = false;
+        EmailLabel.IsVisible = true;
         SignOutButton.IsEnabled = true;
         EmailLabel.Text = user?.Email ?? "-";
+        if (!string.IsNullOrEmpty(user?.Email))
+            AvatarInitialsLabel.Text = user.Email[0].ToString().ToUpperInvariant();
         LoadProductivityPreferences();
     }
 

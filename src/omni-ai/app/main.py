@@ -8,8 +8,9 @@ from uuid import UUID
 
 from fastapi import FastAPI, HTTPException
 
+from app.algorithm import compute_focus_score, generate_weekly_digest
 from app.db import close_clients, get_clickhouse_client, get_pg_engine, init_clients
-from app.scheduler import run_recommendation_job_once, start_scheduler, stop_scheduler
+from app.scheduler import run_recommendation_job_once, run_weekly_digest_job, start_scheduler, stop_scheduler
 from app.simulate import SimulationRequest, run_simulation
 
 
@@ -99,6 +100,41 @@ def simulate_recommendations(req: SimulationRequest):
         }'
     """
     return run_simulation(req)
+
+
+@app.get("/api/ai/focus-score/{user_id}")
+def focus_score(user_id: str):
+    """
+    Return the 0-100 daily focus score for a user with per-dimension breakdown.
+    Called by the client via the API gateway.
+    """
+    try:
+        uid = UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid user_id — must be a UUID")
+    result = compute_focus_score(uid)
+    return {
+        "score": result.score,
+        "breakdown": {
+            "focus_ratio": result.focus_ratio,
+            "session_completion": result.session_completion,
+            "distraction_penalty": result.distraction_penalty,
+            "consistency_bonus": result.consistency_bonus,
+        },
+        "trend": result.trend,
+        "focus_minutes_today": result.focus_minutes_today,
+        "sessions_today": result.sessions_today,
+        "streak_days": result.streak_days,
+    }
+
+
+@app.post("/internal/run-weekly-digest")
+def trigger_weekly_digest():
+    """
+    Run the weekly digest job immediately (for testing).
+    Sends digest notifications to all users with activity in the last 7 days.
+    """
+    return run_weekly_digest_job()
 
 
 @app.get("/internal/user-profile/{user_id}")

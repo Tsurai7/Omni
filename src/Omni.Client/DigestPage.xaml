@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Omni.Client.DigestPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource ProductivityPageBackground}">
+    <ScrollView>
+        <VerticalStackLayout Spacing="0" Padding="20,52,20,40">
+
+            <!-- Header -->
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,24">
+                <VerticalStackLayout Grid.Column="0" Spacing="4">
+                    <Label Text="Weekly Digest" Style="{StaticResource ProductivityHeadline}"/>
+                    <Label x:Name="DigestDateLabel" Text="This week" Style="{StaticResource ProductivityCaption}"/>
+                </VerticalStackLayout>
+                <Button Grid.Column="1"
+                        Text="Dismiss"
+                        Style="{StaticResource ProductivitySecondaryButton}"
+                        VerticalOptions="Center"
+                        Clicked="OnDismissClicked"/>
+            </Grid>
+
+            <!-- Headline Stat Card -->
+            <Border Margin="0,0,0,16" Padding="24"
+                    BackgroundColor="{StaticResource ProductivityCardBackground}"
+                    StrokeThickness="1">
+                <Border.Stroke>
+                    <SolidColorBrush Color="#4ECCA3"/>
+                </Border.Stroke>
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusLg}"/>
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="6" HorizontalOptions="Center">
+                    <Label x:Name="HeadlineValueLabel"
+                           Text="—"
+                           Style="{StaticResource ProductivityMetric}"
+                           HorizontalOptions="Center"/>
+                    <Label Text="total focus hours this week"
+                           Style="{StaticResource ProductivityCaption}"
+                           HorizontalOptions="Center"/>
+                    <Label x:Name="ComparisonLabel"
+                           Text=""
+                           Style="{StaticResource ProductivityCaption}"
+                           TextColor="{StaticResource ProductivityFocus}"
+                           HorizontalOptions="Center"
+                           IsVisible="False"/>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- 2×2 Metrics Grid -->
+            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="12" Margin="0,0,0,16">
+                <!-- Avg Daily Score -->
+                <Border Grid.Row="0" Grid.Column="0" Padding="16"
+                        BackgroundColor="{StaticResource ProductivityCardBackground}"
+                        Stroke="{StaticResource ProductivityCardStroke}" StrokeThickness="1">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="4">
+                        <Label x:Name="AvgScoreLabel" Text="—"
+                               Style="{StaticResource ProductivityTitle}"
+                               FontSize="26" FontAttributes="Bold"
+                               TextColor="{StaticResource ProductivityFocus}"/>
+                        <Label Text="avg focus score" Style="{StaticResource ProductivityCaption}"/>
+                    </VerticalStackLayout>
+                </Border>
+                <!-- Most Productive Day -->
+                <Border Grid.Row="0" Grid.Column="1" Padding="16"
+                        BackgroundColor="{StaticResource ProductivityCardBackground}"
+                        Stroke="{StaticResource ProductivityCardStroke}" StrokeThickness="1">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="4">
+                        <Label x:Name="BestDayLabel" Text="—"
+                               Style="{StaticResource ProductivityTitle}"
+                               FontSize="20" FontAttributes="Bold"/>
+                        <Label Text="most productive day" Style="{StaticResource ProductivityCaption}"/>
+                    </VerticalStackLayout>
+                </Border>
+                <!-- Top Focus App -->
+                <Border Grid.Row="1" Grid.Column="0" Padding="16"
+                        BackgroundColor="{StaticResource ProductivityCardBackground}"
+                        Stroke="{StaticResource ProductivityCardStroke}" StrokeThickness="1">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="4">
+                        <Label x:Name="TopAppLabel" Text="—"
+                               Style="{StaticResource ProductivityTitle}"
+                               FontSize="16" FontAttributes="Bold"
+                               LineBreakMode="TailTruncation"/>
+                        <Label Text="top focus app" Style="{StaticResource ProductivityCaption}"/>
+                    </VerticalStackLayout>
+                </Border>
+                <!-- Streak -->
+                <Border Grid.Row="1" Grid.Column="1" Padding="16"
+                        BackgroundColor="{StaticResource ProductivityCardBackground}"
+                        Stroke="{StaticResource ProductivityCardStroke}" StrokeThickness="1">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                    </Border.StrokeShape>
+                    <VerticalStackLayout Spacing="4">
+                        <Label x:Name="StreakLabel" Text="—"
+                               Style="{StaticResource ProductivityTitle}"
+                               FontSize="26" FontAttributes="Bold"
+                               TextColor="{StaticResource ProductivityAmber}"/>
+                        <Label Text="day streak 🔥" Style="{StaticResource ProductivityCaption}"/>
+                    </VerticalStackLayout>
+                </Border>
+            </Grid>
+
+            <!-- AI Insight Callout -->
+            <Border x:Name="InsightCard" Margin="0,0,0,28" Padding="20"
+                    BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
+                    Stroke="{StaticResource ProductivityCardStroke}" StrokeThickness="1"
+                    IsVisible="False">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="AI INSIGHT"
+                           Style="{StaticResource ProductivityOverline}"/>
+                    <Label x:Name="InsightLabel"
+                           Text=""
+                           Style="{StaticResource ProductivityBody}"
+                           LineBreakMode="WordWrap"/>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Dismiss CTA -->
+            <Button Text="Got it →"
+                    Style="{StaticResource ProductivityPillButton}"
+                    HorizontalOptions="Fill"
+                    Clicked="OnDismissClicked"/>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -4,37 +4,49 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:Omni.Client"
-    Shell.FlyoutBehavior="Flyout"
-    Title="Omni.Client">
+    Shell.FlyoutBehavior="Disabled"
+    Shell.NavBarIsVisible="False"
+    BackgroundColor="{StaticResource ProductivityPageBackground}">
 
-    <FlyoutItem Title="Home" Icon="dotnet_bot.png">
-        <ShellContent
-            Title="Home"
-            ContentTemplate="{DataTemplate local:MainPage}"
-            Route="MainPage" />
-    </FlyoutItem>
-    <FlyoutItem Title="Usage stats" Icon="dotnet_bot.png">
-        <ShellContent
-            Title="Usage stats"
-            ContentTemplate="{DataTemplate local:UsageStatsPage}"
-            Route="UsageStatsPage" />
-    </FlyoutItem>
-    <FlyoutItem Title="Session" Icon="dotnet_bot.png">
-        <ShellContent
-            Title="Session"
-            ContentTemplate="{DataTemplate local:SessionPage}"
-            Route="SessionPage" />
-    </FlyoutItem>
-    <FlyoutItem Title="Tasks" Icon="dotnet_bot.png">
-        <ShellContent
-            Title="Tasks"
-            ContentTemplate="{DataTemplate local:TasksPage}"
-            Route="TasksPage" />
-    </FlyoutItem>
-    <FlyoutItem Title="Account" Icon="dotnet_bot.png">
-        <ShellContent
-            Title="Account"
-            ContentTemplate="{DataTemplate local:AccountPage}"
-            Route="AccountPage" />
-    </FlyoutItem>
+    <Shell.Resources>
+        <Style TargetType="TabBar">
+            <Setter Property="Shell.TabBarBackgroundColor" Value="#16161A"/>
+            <Setter Property="Shell.TabBarForegroundColor" Value="{StaticResource ProductivityTextSecondary}"/>
+            <Setter Property="Shell.TabBarTitleColor" Value="{StaticResource ProductivityFocus}"/>
+            <Setter Property="Shell.TabBarUnselectedColor" Value="{StaticResource ProductivityTextMuted}"/>
+        </Style>
+    </Shell.Resources>
+
+    <TabBar>
+        <Tab Title="Home" Icon="tab_home.png">
+            <ShellContent
+                ContentTemplate="{DataTemplate local:MainPage}"
+                Route="MainPage"/>
+        </Tab>
+
+        <Tab Title="Stats" Icon="tab_stats.png">
+            <ShellContent
+                ContentTemplate="{DataTemplate local:UsageStatsPage}"
+                Route="UsageStatsPage"/>
+        </Tab>
+
+        <Tab Title="Session" Icon="tab_session.png">
+            <ShellContent
+                ContentTemplate="{DataTemplate local:SessionPage}"
+                Route="SessionPage"/>
+        </Tab>
+
+        <Tab Title="Tasks" Icon="tab_tasks.png">
+            <ShellContent
+                ContentTemplate="{DataTemplate local:TasksPage}"
+                Route="TasksPage"/>
+        </Tab>
+
+        <Tab Title="Account" Icon="tab_account.png">
+            <ShellContent
+                ContentTemplate="{DataTemplate local:AccountPage}"
+                Route="AccountPage"/>
+        </Tab>
+    </TabBar>
+
 </Shell>
