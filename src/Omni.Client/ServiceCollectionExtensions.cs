@@ -85,6 +85,12 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredService<IAuthService>(),
                 sp.GetRequiredService<JsonSerializerOptions>()));
 
+        services.AddSingleton<CalendarService>(sp =>
+            new CalendarService(
+                sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackend"),
+                sp.GetRequiredService<IAuthService>(),
+                sp.GetRequiredService<JsonSerializerOptions>()));
+
         services.AddTransient<MainPage>();
         services.AddTransient<UsageStatsPage>();
         services.AddTransient<SessionPage>();
@@ -92,6 +98,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<AccountPage>();
         services.AddTransient<DigestPage>();
         services.AddTransient<ChatPage>();
+        services.AddTransient<CalendarPage>();
 
         services.AddActiveWindowTracker();
         services.AddNotificationManager();

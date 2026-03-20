@@ -24,4 +24,13 @@ public sealed class LocalTask
 
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+
+    /// <summary>Optional due date for calendar display.</summary>
+    public DateTime? DueDate { get; set; }
+
+    /// <summary>Optional scheduled time (more precise than due date).</summary>
+    public DateTime? ScheduledFor { get; set; }
+
+    /// <summary>Google Calendar event ID if synced.</summary>
+    public string? GoogleEventId { get; set; }
 }

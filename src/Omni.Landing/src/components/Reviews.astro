@@ -1,0 +1,60 @@
+---
+import type { Review } from "@/config/reviews";
+
+interface Props {
+  reviews: Review[];
+}
+
+const { reviews } = Astro.props;
+
+function stars(n: number) {
+  return "★".repeat(n) + "☆".repeat(5 - n);
+}
+---
+
+<section class="section reviews" id="reviews">
+  <div class="section__header reveal">
+    <p class="section-label">Reviews</p>
+    <h2 class="section-title">Loved by productive people</h2>
+    <p class="section-sub">Real results from people who take their time seriously.</p>
+  </div>
+
+  <div class="reviews__grid">
+    {
+      reviews.map((review, i) => (
+        <article
+          class="review-card reveal"
+          style={`transition-delay: ${i * 80}ms`}
+        >
+          <p class="review-stars" aria-label={`${review.stars} out of 5 stars`}>
+            {stars(review.stars)}
+          </p>
+          <blockquote class="review-quote">"{review.quote}"</blockquote>
+          <footer class="review-author">
+            {review.avatar ? (
+              <img
+                src={review.avatar}
+                alt={review.name}
+                class="avatar avatar--img"
+                width="40"
+                height="40"
+              />
+            ) : (
+              <div
+                class="avatar"
+                style={`background: ${review.avatarColor}`}
+                aria-hidden="true"
+              >
+                {review.initials}
+              </div>
+            )}
+            <div>
+              <p class="author-name">{review.name}</p>
+              <p class="author-role">{review.role}</p>
+            </div>
+          </footer>
+        </article>
+      ))
+    }
+  </div>
+</section>

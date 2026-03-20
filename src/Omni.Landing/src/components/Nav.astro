@@ -1,0 +1,24 @@
+---
+// No props — nav is always the same
+---
+
+<header class="nav" id="nav">
+  <a class="nav__logo" href="#">Omni</a>
+
+  <nav class="nav__links" aria-label="Site navigation">
+    <a href="#features">Features</a>
+    <a href="#reviews">Reviews</a>
+    <a href="#download">Download</a>
+  </nav>
+
+  <a class="nav__cta" href="#download">Get the app</a>
+</header>
+
+<script>
+  const nav = document.getElementById("nav") as HTMLElement;
+  window.addEventListener(
+    "scroll",
+    () => nav.classList.toggle("nav--scrolled", window.scrollY > 48),
+    { passive: true }
+  );
+</script>

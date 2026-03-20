@@ -48,6 +48,12 @@
                 Route="TasksPage"/>
         </Tab>
 
+        <Tab Title="Calendar" Icon="tab_calendar.svg">
+            <ShellContent
+                ContentTemplate="{DataTemplate local:CalendarPage}"
+                Route="CalendarPage"/>
+        </Tab>
+
         <Tab Title="Account" Icon="tab_account.png">
             <ShellContent
                 ContentTemplate="{DataTemplate local:AccountPage}"

@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Omni.Client.CalendarPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource ProductivityPageBackground}">
+
+    <Grid RowDefinitions="Auto,Auto,*">
+
+        <!-- ── Header ── -->
+        <Grid Grid.Row="0" Padding="20,52,20,0" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
+            <Button Grid.Column="0"
+                    x:Name="PrevButton"
+                    Text="‹"
+                    FontSize="22"
+                    Style="{StaticResource ProductivitySecondaryButton}"
+                    WidthRequest="40" HeightRequest="40" Padding="0"
+                    Clicked="OnPrevClicked"/>
+            <Label Grid.Column="1"
+                   x:Name="MonthYearLabel"
+                   Text="March 2026"
+                   Style="{StaticResource ProductivityHeadline}"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center"/>
+            <Button Grid.Column="2"
+                    x:Name="NextButton"
+                    Text="›"
+                    FontSize="22"
+                    Style="{StaticResource ProductivitySecondaryButton}"
+                    WidthRequest="40" HeightRequest="40" Padding="0"
+                    Clicked="OnNextClicked"/>
+            <Button Grid.Column="3"
+                    x:Name="TodayButton"
+                    Text="Today"
+                    FontSize="13"
+                    Style="{StaticResource ProductivityPillButton}"
+                    HeightRequest="36"
+                    Clicked="OnTodayClicked"/>
+        </Grid>
+
+        <!-- ── View selector (Month / Week / Day) + sync status ── -->
+        <Grid Grid.Row="1" Padding="20,12,20,4" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Border Grid.Column="0"
+                    Padding="2"
+                    BackgroundColor="{StaticResource ProductivityCardBackground}"
+                    Stroke="{StaticResource ProductivityCardStroke}"
+                    StrokeThickness="1">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="10"/>
+                </Border.StrokeShape>
+                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="2">
+                    <Button x:Name="MonthViewBtn"
+                            Grid.Column="0"
+                            Text="Month"
+                            FontSize="13"
+                            Style="{StaticResource ProductivityPillButton}"
+                            HeightRequest="32"
+                            Clicked="OnMonthViewClicked"/>
+                    <Button x:Name="WeekViewBtn"
+                            Grid.Column="1"
+                            Text="Week"
+                            FontSize="13"
+                            Style="{StaticResource ProductivitySecondaryButton}"
+                            HeightRequest="32"
+                            Clicked="OnWeekViewClicked"/>
+                    <Button x:Name="DayViewBtn"
+                            Grid.Column="2"
+                            Text="Day"
+                            FontSize="13"
+                            Style="{StaticResource ProductivitySecondaryButton}"
+                            HeightRequest="32"
+                            Clicked="OnDayViewClicked"/>
+                </Grid>
+            </Border>
+            <!-- Sync status badge -->
+            <Label Grid.Column="1"
+                   x:Name="SyncStatusLabel"
+                   Text="●"
+                   FontSize="12"
+                   TextColor="#66667A"
+                   VerticalOptions="Center"/>
+        </Grid>
+
+        <!-- ── Calendar body ── -->
+        <Grid Grid.Row="2">
+
+            <!-- ════ MONTH VIEW ════ -->
+            <Grid x:Name="MonthView" RowDefinitions="Auto,*" Padding="12,0,12,0">
+
+                <!-- Day-of-week header row (S M T W T F S) -->
+                <Grid Grid.Row="0" ColumnDefinitions="*,*,*,*,*,*,*" Padding="0,0,0,8">
+                    <Label Grid.Column="0" Text="Su" Style="{StaticResource ProductivityCaption}" HorizontalOptions="Center"/>
+                    <Label Grid.Column="1" Text="Mo" Style="{StaticResource ProductivityCaption}" HorizontalOptions="Center"/>
+                    <Label Grid.Column="2" Text="Tu" Style="{StaticResource ProductivityCaption}" HorizontalOptions="Center"/>
+                    <Label Grid.Column="3" Text="We" Style="{StaticResource ProductivityCaption}" HorizontalOptions="Center"/>
+                    <Label Grid.Column="4" Text="Th" Style="{StaticResource ProductivityCaption}" HorizontalOptions="Center"/>
+                    <Label Grid.Column="5" Text="Fr" Style="{StaticResource ProductivityCaption}" HorizontalOptions="Center"/>
+                    <Label Grid.Column="6" Text="Sa" Style="{StaticResource ProductivityCaption}" HorizontalOptions="Center"/>
+                </Grid>
+
+                <!-- Month grid (6 rows × 7 days, built in code-behind) -->
+                <ScrollView Grid.Row="1" VerticalScrollBarVisibility="Never">
+                    <VerticalStackLayout x:Name="MonthGridContainer" Spacing="2"/>
+                </ScrollView>
+            </Grid>
+
+            <!-- ════ WEEK VIEW ════ -->
+            <Grid x:Name="WeekView" IsVisible="False" RowDefinitions="Auto,*" Padding="0">
+
+                <!-- Day headers (Sun 21, Mon 22, …) -->
+                <Grid x:Name="WeekDayHeaders" Grid.Row="0" ColumnDefinitions="40,*,*,*,*,*,*,*"
+                      Padding="0,0,0,4" BackgroundColor="{StaticResource ProductivityPageBackground}">
+                    <!-- Time gutter label -->
+                    <Label Grid.Column="0" Text="" FontSize="10" TextColor="#44444F" HorizontalOptions="Center"/>
+                    <!-- Day labels inserted in code-behind -->
+                </Grid>
+
+                <ScrollView Grid.Row="1" x:Name="WeekScrollView">
+                    <Grid x:Name="WeekTimeGrid" ColumnDefinitions="40,*,*,*,*,*,*,*" RowSpacing="0">
+                        <!-- Hour rows + event blocks inserted in code-behind -->
+                    </Grid>
+                </ScrollView>
+            </Grid>
+
+            <!-- ════ DAY VIEW ════ -->
+            <Grid x:Name="DayView" IsVisible="False" RowDefinitions="Auto,*" Padding="0">
+
+                <!-- Day label -->
+                <Label x:Name="DayViewTitle" Grid.Row="0"
+                       Text="Saturday, 21 March"
+                       Style="{StaticResource ProductivityBody}"
+                       FontAttributes="Bold"
+                       Margin="20,0,20,8"/>
+
+                <ScrollView Grid.Row="1" x:Name="DayScrollView">
+                    <Grid x:Name="DayTimeGrid" ColumnDefinitions="48,*" RowSpacing="0">
+                        <!-- Hour rows + event blocks inserted in code-behind -->
+                    </Grid>
+                </ScrollView>
+            </Grid>
+
+        </Grid>
+
+        <!-- ── Day detail bottom sheet (slides up when month day is tapped) ── -->
+        <Grid x:Name="DayDetailOverlay" Grid.RowSpan="3"
+              IsVisible="False"
+              BackgroundColor="#80000000">
+            <Grid.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnOverlayTapped"/>
+            </Grid.GestureRecognizers>
+            <Border x:Name="DayDetailSheet"
+                    VerticalOptions="End"
+                    BackgroundColor="{StaticResource ProductivityCardBackground}"
+                    Stroke="{StaticResource ProductivityCardStroke}"
+                    StrokeThickness="1">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="20,20,0,0"/>
+                </Border.StrokeShape>
+                <VerticalStackLayout Padding="20,16,20,32" Spacing="12">
+                    <!-- Handle -->
+                    <BoxView WidthRequest="36" HeightRequest="4" CornerRadius="2"
+                             Color="#44444F" HorizontalOptions="Center"/>
+                    <!-- Date title -->
+                    <Label x:Name="DayDetailTitle"
+                           Text="Monday, 24 March"
+                           Style="{StaticResource ProductivityBody}"
+                           FontAttributes="Bold"/>
+                    <!-- Event list for the day -->
+                    <ScrollView MaximumHeightRequest="300">
+                        <VerticalStackLayout x:Name="DayDetailList" Spacing="8"/>
+                    </ScrollView>
+                    <!-- Add task for this day -->
+                    <Button Text="+ Add task for this day"
+                            Style="{StaticResource ProductivityPillButton}"
+                            Clicked="OnAddTaskForDayClicked"/>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+
+    </Grid>
+</ContentPage>

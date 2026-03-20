@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # Use BuildKit for cache mounts: DOCKER_BUILDKIT=1 (default in Docker 23+)
-FROM python:3.14-slim-bookworm
+FROM python:3.13-slim-bookworm
 
 WORKDIR /app
 

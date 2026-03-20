@@ -1,0 +1,100 @@
+---
+import type { Feature } from "@/config/features";
+
+interface Props {
+  features: Feature[];
+}
+
+const { features } = Astro.props;
+---
+
+<section class="section features" id="features">
+  <div class="section__header reveal">
+    <p class="section-label">Features</p>
+    <h2 class="section-title">Everything in one place</h2>
+    <p class="section-sub">
+      Built for people who care about where their time goes.
+    </p>
+  </div>
+
+  <div class="feature-list">
+    {
+      features.map((feature, i) => (
+        <div class={`feature-block ${i % 2 === 1 ? "feature-block--flip" : ""} reveal`}>
+          <div class="feature-block__text">
+            <span class="feature-icon">{feature.icon}</span>
+            <p class="feature-label">{feature.label}</p>
+            <h3 class="feature-title">{feature.title}</h3>
+            <p class="feature-desc">{feature.description}</p>
+          </div>
+
+          <div class="feature-block__visual">
+            <div class="mac-frame">
+              <div class="mac-frame__bar">
+                <span class="mac-dot mac-dot--red" />
+                <span class="mac-dot mac-dot--yellow" />
+                <span class="mac-dot mac-dot--green" />
+              </div>
+              <div class="mac-frame__content">
+                {feature.screenshot ? (
+                  <img
+                    src={feature.screenshot}
+                    alt={`${feature.label} screenshot`}
+                    class="feature-screenshot"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div class="screenshot-placeholder" aria-hidden="true">
+                    <div class="placeholder-topbar">
+                      <div class="placeholder-chip" />
+                      <div class="placeholder-chip placeholder-chip--wide" />
+                      <div class="placeholder-chip placeholder-chip--sm" />
+                    </div>
+                    <div class="placeholder-cards">
+                      <div class="placeholder-card">
+                        <div class="placeholder-line placeholder-line--sm" />
+                        <div class="placeholder-num" />
+                      </div>
+                      <div class="placeholder-card">
+                        <div class="placeholder-line placeholder-line--sm" />
+                        <div class="placeholder-num placeholder-num--accent" />
+                      </div>
+                      <div class="placeholder-card">
+                        <div class="placeholder-line placeholder-line--sm" />
+                        <div class="placeholder-num" />
+                      </div>
+                    </div>
+                    <div class="placeholder-chart">
+                      <div class="placeholder-bars">
+                        {[40, 65, 50, 80, 60, 75, 55].map((h) => (
+                          <div class="placeholder-bar" style={`height:${h}%`} />
+                        ))}
+                      </div>
+                    </div>
+                    <div class="placeholder-rows">
+                      <div class="placeholder-row">
+                        <div class="placeholder-dot" />
+                        <div class="placeholder-line" />
+                        <div class="placeholder-pill" />
+                      </div>
+                      <div class="placeholder-row">
+                        <div class="placeholder-dot" />
+                        <div class="placeholder-line placeholder-line--med" />
+                        <div class="placeholder-pill placeholder-pill--accent" />
+                      </div>
+                      <div class="placeholder-row">
+                        <div class="placeholder-dot" />
+                        <div class="placeholder-line placeholder-line--lg" />
+                        <div class="placeholder-pill" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ))
+    }
+  </div>
+</section>

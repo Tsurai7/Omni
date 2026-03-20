@@ -60,6 +60,20 @@ func main() {
 		log.Error("failed to set up telemetry proxy", "error", err)
 		os.Exit(1)
 	}
+	var calendarProxy http.Handler
+	if cfg.CalendarURL != "" {
+		calendarProxy, err = gateway.ReverseProxyTo(cfg.CalendarURL, log)
+		if err != nil {
+			log.Error("failed to set up calendar proxy", "error", err)
+			os.Exit(1)
+		}
+	} else {
+		log.Info("Calendar service not configured, /api/calendar/* will return 503")
+		calendarProxy = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, `{"error":"Calendar service not configured"}`, http.StatusServiceUnavailable)
+		})
+	}
+
 	var aiProxy http.Handler
 	if cfg.AIURL != "" {
 		aiProxy, err = gateway.ReverseProxyTo(cfg.AIURL, log)
@@ -107,6 +121,8 @@ func main() {
 	productivity := api.Group("/productivity").Use(middleware.AuthRequired(cfg.JWTSecret, log))
 	productivity.GET("/notifications", gin.WrapH(telemetryProxy))
 	productivity.PATCH("/notifications/:id/read", gin.WrapH(telemetryProxy))
+	calendarGroup := api.Group("/calendar").Use(middleware.AuthRequired(cfg.JWTSecret, log))
+	calendarGroup.Any("/*path", gin.WrapH(calendarProxy))
 	ai := api.Group("/ai").Use(middleware.AuthRequired(cfg.JWTSecret, log))
 	ai.Any("/*path", gin.WrapH(aiProxy))
 

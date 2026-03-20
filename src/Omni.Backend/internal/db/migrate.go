@@ -63,6 +63,41 @@ CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON tasks(user_id);
 
 const alterTasksAddPriority = `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'medium'`
 
+const alterTasksAddDueDate = `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_date TIMESTAMPTZ`
+const alterTasksAddScheduledFor = `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS scheduled_for TIMESTAMPTZ`
+const alterTasksAddGoogleEventID = `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS google_event_id TEXT`
+
+const createTableUserGoogleTokens = `
+CREATE TABLE IF NOT EXISTS user_google_tokens (
+	user_id       UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+	access_token  TEXT NOT NULL,
+	refresh_token TEXT NOT NULL,
+	expires_at    TIMESTAMPTZ NOT NULL,
+	email         TEXT,
+	connected_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+`
+
+const createTableCalendarEvents = `
+CREATE TABLE IF NOT EXISTS calendar_events (
+	id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	user_id            UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+	google_event_id    TEXT,
+	title              TEXT NOT NULL,
+	description        TEXT,
+	start_at           TIMESTAMPTZ NOT NULL,
+	end_at             TIMESTAMPTZ,
+	is_all_day         BOOLEAN NOT NULL DEFAULT FALSE,
+	google_calendar_id TEXT,
+	color              TEXT,
+	omni_task_id       UUID REFERENCES tasks(id) ON DELETE SET NULL,
+	last_synced_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	UNIQUE (user_id, google_event_id)
+);
+CREATE INDEX IF NOT EXISTS idx_calendar_events_user_start ON calendar_events(user_id, start_at);
+`
+
 const createTableUserNotifications = `
 CREATE TABLE IF NOT EXISTS user_notifications (
 	id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -139,6 +174,21 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		return err
 	}
 	if _, err := pool.Exec(ctx, alterTasksAddPriority); err != nil {
+		return err
+	}
+	if _, err := pool.Exec(ctx, alterTasksAddDueDate); err != nil {
+		return err
+	}
+	if _, err := pool.Exec(ctx, alterTasksAddScheduledFor); err != nil {
+		return err
+	}
+	if _, err := pool.Exec(ctx, alterTasksAddGoogleEventID); err != nil {
+		return err
+	}
+	if _, err := pool.Exec(ctx, createTableUserGoogleTokens); err != nil {
+		return err
+	}
+	if _, err := pool.Exec(ctx, createTableCalendarEvents); err != nil {
 		return err
 	}
 	if _, err := pool.Exec(ctx, createTableUserNotifications); err != nil {

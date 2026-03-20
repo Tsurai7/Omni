@@ -134,6 +134,68 @@
                 </VerticalStackLayout>
             </Border>
 
+            <!-- Google Calendar Integration -->
+            <Label Text="INTEGRATIONS"
+                   Style="{StaticResource ProductivityOverline}"
+                   Margin="4,0,0,10"/>
+            <Border Margin="0,0,0,24" Padding="0"
+                    BackgroundColor="{StaticResource ProductivityCardBackground}"
+                    Stroke="{StaticResource ProductivityCardStroke}"
+                    StrokeThickness="1">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="0">
+                    <Grid ColumnDefinitions="Auto,*,Auto" Padding="16,14" ColumnSpacing="12">
+                        <Border Grid.Column="0"
+                                WidthRequest="36" HeightRequest="36"
+                                BackgroundColor="#1A2A4A"
+                                Stroke="Transparent" StrokeThickness="0">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="8"/>
+                            </Border.StrokeShape>
+                            <Label Text="📅" FontSize="18"
+                                   HorizontalOptions="Center" VerticalOptions="Center"/>
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                            <Label Text="Google Calendar" Style="{StaticResource ProductivityBody}"/>
+                            <Label x:Name="GCalStatusLabel"
+                                   Text="Not connected"
+                                   Style="{StaticResource ProductivityCaption}"/>
+                        </VerticalStackLayout>
+                        <Button Grid.Column="2"
+                                x:Name="GCalConnectButton"
+                                Text="Connect"
+                                Style="{StaticResource ProductivityPillButton}"
+                                FontSize="12"
+                                HeightRequest="34"
+                                VerticalOptions="Center"
+                                Clicked="OnGCalConnectClicked"/>
+                    </Grid>
+                    <BoxView x:Name="GCalSyncDivider"
+                             HeightRequest="1" Color="{StaticResource ProductivityCardStroke}"
+                             Margin="16,0" IsVisible="False"/>
+                    <Grid x:Name="GCalSyncRow"
+                          ColumnDefinitions="*,Auto" Padding="16,14"
+                          IsVisible="False">
+                        <VerticalStackLayout Grid.Column="0" Spacing="2">
+                            <Label Text="Sync now" Style="{StaticResource ProductivityBody}"/>
+                            <Label x:Name="GCalLastSyncLabel"
+                                   Text="Never synced"
+                                   Style="{StaticResource ProductivityCaption}"/>
+                        </VerticalStackLayout>
+                        <Button Grid.Column="1"
+                                x:Name="GCalSyncButton"
+                                Text="↻ Sync"
+                                Style="{StaticResource ProductivitySecondaryButton}"
+                                FontSize="12"
+                                HeightRequest="34"
+                                VerticalOptions="Center"
+                                Clicked="OnGCalSyncClicked"/>
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
             <!-- Security -->
             <Label Text="SECURITY"
                    Style="{StaticResource ProductivityOverline}"

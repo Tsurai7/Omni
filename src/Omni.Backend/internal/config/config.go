@@ -63,6 +63,7 @@ type GatewayConfig struct {
 	ProfileURL   string
 	TaskURL      string
 	TelemetryURL string
+	CalendarURL  string // optional; empty = calendar endpoints return 503
 	AIURL        string // optional; empty = AI endpoints return 503
 	// AIURLHadTrailingAPISuffix is true when AI_URL had a trailing /api/ai path; it was stripped to the service root.
 	AIURLHadTrailingAPISuffix bool
@@ -90,6 +91,8 @@ func LoadGateway() (*GatewayConfig, error) {
 	if telemetryURL == "" {
 		return nil, fmt.Errorf("TELEMETRY_URL is required")
 	}
+	// Calendar service is optional — if not set, /api/calendar/* routes return 503
+	calendarURL := strings.TrimSuffix(strings.TrimSpace(os.Getenv("CALENDAR_URL")), "/")
 	// AI service is optional — if not set, /api/ai/* routes return 503
 	rawAI := strings.TrimSpace(os.Getenv("AI_URL"))
 	aiURL, aiStripped := normalizeGatewayAIURL(rawAI)
@@ -99,6 +102,7 @@ func LoadGateway() (*GatewayConfig, error) {
 		ProfileURL:                strings.TrimSuffix(profileURL, "/"),
 		TaskURL:                   strings.TrimSuffix(taskURL, "/"),
 		TelemetryURL:              strings.TrimSuffix(telemetryURL, "/"),
+		CalendarURL:               calendarURL,
 		AIURL:                     aiURL,
 		AIURLHadTrailingAPISuffix: aiStripped,
 	}, nil

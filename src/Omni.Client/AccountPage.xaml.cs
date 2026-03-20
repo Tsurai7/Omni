@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Omni.Client.Abstractions;
+using Omni.Client.Services;
 
 namespace Omni.Client;
 
@@ -8,6 +9,7 @@ public partial class AccountPage : ContentPage, INotifyPropertyChanged
 {
     private readonly IAuthService _authService;
     private readonly IUsageService? _usageService;
+    private CalendarService? _calendarService;
     private int _dailyGoalMinutes = ProductivityPreferences.DefaultDailyGoalMinutes;
     private string _notificationIntensity = ProductivityPreferences.DefaultNotificationIntensity;
     private bool _streakVisible = ProductivityPreferences.DefaultStreakVisible;
@@ -27,6 +29,9 @@ public partial class AccountPage : ContentPage, INotifyPropertyChanged
         DailyGoalPicker.ItemsSource = DailyGoalOptions.Select(i => i.ToString()).ToList();
         NotificationIntensityPicker.ItemsSource = NotificationIntensityOptions;
     }
+
+    private CalendarService GetCalendarService() =>
+        _calendarService ??= MauiProgram.AppServices?.GetService<CalendarService>()!;
 
     public int DailyGoalMinutes
     {
@@ -79,6 +84,7 @@ public partial class AccountPage : ContentPage, INotifyPropertyChanged
         if (!string.IsNullOrEmpty(user?.Email))
             AvatarInitialsLabel.Text = user.Email[0].ToString().ToUpperInvariant();
         LoadProductivityPreferences();
+        await RefreshGCalStatusAsync();
     }
 
     private void LoadProductivityPreferences()
@@ -120,6 +126,116 @@ public partial class AccountPage : ContentPage, INotifyPropertyChanged
         _authService.Logout();
         await Shell.Current.GoToAsync(nameof(LoginPage));
     }
+
+    // ── Google Calendar ───────────────────────────────────────────────────
+
+    private async Task RefreshGCalStatusAsync()
+    {
+        try
+        {
+            var status = await GetCalendarService().RefreshStatusAsync();
+            if (status == null || !status.Connected)
+            {
+                GCalStatusLabel.Text = "Not connected";
+                GCalConnectButton.Text = "Connect";
+                GCalConnectButton.Style = (Style)Resources["ProductivityPillButton"];
+                GCalSyncRow.IsVisible = false;
+                GCalSyncDivider.IsVisible = false;
+            }
+            else
+            {
+                var email = string.IsNullOrEmpty(status.Email) ? "" : $" ({status.Email})";
+                GCalStatusLabel.Text = $"Connected{email}";
+                GCalConnectButton.Text = "Disconnect";
+                GCalConnectButton.Style = (Style)Resources["ProductivityDangerButton"];
+                GCalSyncRow.IsVisible = true;
+                GCalSyncDivider.IsVisible = true;
+                GCalLastSyncLabel.Text = status.LastSyncedAt != null
+                    ? $"Last synced {status.LastSyncedAt}"
+                    : "Never synced";
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"AccountPage.RefreshGCalStatusAsync: {ex.Message}");
+        }
+    }
+
+    private async void OnGCalConnectClicked(object? sender, EventArgs e)
+    {
+        var svc = GetCalendarService();
+
+        if (svc.IsConnected)
+        {
+            var confirm = await DisplayAlertAsync("Disconnect Google Calendar",
+                "This will remove calendar sync. Your tasks will remain intact.", "Disconnect", "Cancel");
+            if (!confirm) return;
+            await svc.DisconnectAsync();
+            await RefreshGCalStatusAsync();
+            return;
+        }
+
+        // Get the OAuth URL and open it in the browser
+        GCalConnectButton.IsEnabled = false;
+        GCalStatusLabel.Text = "Opening Google sign-in…";
+
+        try
+        {
+            var authUrl = await svc.GetAuthUrlAsync();
+            if (string.IsNullOrEmpty(authUrl))
+            {
+                await DisplayAlertAsync("Error", "Could not get Google sign-in URL. Check backend configuration.", "OK");
+                await RefreshGCalStatusAsync();
+                GCalConnectButton.IsEnabled = true;
+                return;
+            }
+
+            // Use MAUI WebAuthenticator for OAuth flow
+            var callbackUri = new Uri("omni://calendar/connected");
+            try
+            {
+                var result = await WebAuthenticator.Default.AuthenticateAsync(
+                    new Uri(authUrl), callbackUri);
+
+                var code = result.Properties.TryGetValue("code", out var c) ? c : null;
+                if (!string.IsNullOrEmpty(code))
+                {
+                    GCalStatusLabel.Text = "Connecting…";
+                    var success = await svc.ConnectAsync(code);
+                    if (!success)
+                        await DisplayAlertAsync("Error", "Failed to connect Google Calendar. Please try again.", "OK");
+                }
+            }
+            catch (TaskCanceledException)
+            {
+                // User cancelled the OAuth flow
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"AccountPage.OnGCalConnectClicked: {ex.Message}");
+            await DisplayAlertAsync("Error", "Google sign-in failed. Please try again.", "OK");
+        }
+
+        GCalConnectButton.IsEnabled = true;
+        await RefreshGCalStatusAsync();
+    }
+
+    private async void OnGCalSyncClicked(object? sender, EventArgs e)
+    {
+        GCalSyncButton.IsEnabled = false;
+        GCalLastSyncLabel.Text = "Syncing…";
+        var success = await GetCalendarService().SyncAsync();
+        GCalSyncButton.IsEnabled = true;
+        GCalLastSyncLabel.Text = success ? $"Synced {DateTime.Now:HH:mm}" : "Sync failed";
+    }
+
+    // ── Helper (thread-safe alert) ────────────────────────────────────────
+    private Task<bool> DisplayAlertAsync(string title, string message, string accept, string cancel) =>
+        MainThread.InvokeOnMainThreadAsync(() => DisplayAlert(title, message, accept, cancel));
+
+    private Task DisplayAlertAsync(string title, string message, string cancel) =>
+        MainThread.InvokeOnMainThreadAsync(() => DisplayAlert(title, message, cancel));
 
     public new event PropertyChangedEventHandler? PropertyChanged;
     protected new void OnPropertyChanged([CallerMemberName] string? name = null) =>

@@ -167,8 +167,27 @@ public partial class TasksPage : ContentPage, INotifyPropertyChanged
             _      => "medium",
         };
 
-        await GetTaskService().CreateTaskAsync(title.Trim(), p);
+        var dueDateChoice = await DisplayActionSheetAsync(
+            "Due date", "No due date", null,
+            "Today", "Tomorrow", "This week", "Pick date");
+        DateTime? dueDate = dueDateChoice switch
+        {
+            "Today"     => DateTime.Today,
+            "Tomorrow"  => DateTime.Today.AddDays(1),
+            "This week" => DateTime.Today.AddDays(7 - (int)DateTime.Today.DayOfWeek),
+            "Pick date" => await PickDateAsync(),
+            _           => null,
+        };
+
+        await GetTaskService().CreateTaskAsync(title.Trim(), p, dueDate);
         await LoadAsync();
+    }
+
+    private static Task<DateTime?> PickDateAsync()
+    {
+        // DatePicker isn't available as async; return a week from now as sensible default
+        // A full date picker sheet would require a custom overlay — deferred to CalendarPage flow
+        return Task.FromResult<DateTime?>(DateTime.Today.AddDays(7));
     }
 
     // ── Edit ─────────────────────────────────────────────────────────────
@@ -190,8 +209,21 @@ public partial class TasksPage : ContentPage, INotifyPropertyChanged
             _        => item.Priority, // "Keep current" or cancelled
         };
 
+        var currentDueLabel = item.HasDueDate ? item.DueDateLabel : "None";
+        var dueDateChoice = await DisplayActionSheetAsync(
+            $"Due date (current: {currentDueLabel})", "Keep current", null,
+            "Today", "Tomorrow", "This week", "Remove due date");
+        DateTime? newDueDate = dueDateChoice switch
+        {
+            "Today"          => DateTime.Today,
+            "Tomorrow"       => DateTime.Today.AddDays(1),
+            "This week"      => DateTime.Today.AddDays(7 - (int)DateTime.Today.DayOfWeek),
+            "Remove due date" => (DateTime?)null,
+            _                => item.DueDateParsed, // "Keep current"
+        };
+
         var finalTitle = string.IsNullOrWhiteSpace(newTitle) ? item.Title : newTitle.Trim();
-        await GetTaskService().UpdateTaskAsync(item.Id, finalTitle, newPriority ?? "medium");
+        await GetTaskService().UpdateTaskAsync(item.Id, finalTitle, newPriority ?? "medium", newDueDate);
         await LoadAsync();
     }
 

@@ -65,18 +65,22 @@ public sealed class TaskService : ITaskService
         }
     }
 
-    public async Task<TaskCreateResult?> CreateTaskAsync(string title, string priority = "medium", CancellationToken cancellationToken = default)
+    public async Task<TaskCreateResult?> CreateTaskAsync(string title, string priority = "medium", DateTime? dueDate = null, CancellationToken cancellationToken = default)
     {
         var token = await _authService.GetTokenAsync(cancellationToken).ConfigureAwait(false);
         title = (title ?? "").Trim();
         if (string.IsNullOrEmpty(title))
             return null;
 
+        var dueDateStr = dueDate?.ToUniversalTime().ToString("O");
+
         if (!string.IsNullOrEmpty(token))
         {
             try
             {
-                var body = JsonSerializer.Serialize(new { title, status = "pending", priority }, _jsonOptions);
+                var body = JsonSerializer.Serialize(
+                    new { title, status = "pending", priority, due_date = dueDateStr },
+                    _jsonOptions);
                 var request = new HttpRequestMessage(HttpMethod.Post, "api/tasks");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
                 request.Content = new StringContent(body, Encoding.UTF8, "application/json");
@@ -112,6 +116,7 @@ public sealed class TaskService : ITaskService
             Title = title,
             Status = "pending",
             Priority = priority,
+            DueDate = dueDate,
             IsSynced = false,
             CreatedAt = now,
             UpdatedAt = now
@@ -124,7 +129,8 @@ public sealed class TaskService : ITaskService
             Status: "pending",
             Priority: priority,
             CreatedAt: now.ToString("O"),
-            UpdatedAt: now.ToString("O"));
+            UpdatedAt: now.ToString("O"),
+            DueDate: dueDateStr);
     }
 
     public async Task<bool> UpdateStatusAsync(string taskId, string status, CancellationToken cancellationToken = default)
@@ -158,7 +164,7 @@ public sealed class TaskService : ITaskService
         return true;
     }
 
-    public async Task<bool> UpdateTaskAsync(string taskId, string title, string priority, CancellationToken cancellationToken = default)
+    public async Task<bool> UpdateTaskAsync(string taskId, string title, string priority, DateTime? dueDate = default, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(taskId) || string.IsNullOrEmpty(title))
             return false;
@@ -168,7 +174,8 @@ public sealed class TaskService : ITaskService
         {
             try
             {
-                var body = JsonSerializer.Serialize(new { title, priority }, _jsonOptions);
+                var dueDateStr = dueDate.HasValue ? dueDate.Value.ToUniversalTime().ToString("O") : null;
+                var body = JsonSerializer.Serialize(new { title, priority, due_date = dueDateStr }, _jsonOptions);
                 var request = new HttpRequestMessage(HttpMethod.Put, $"api/tasks/{taskId}");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
                 request.Content = new StringContent(body, Encoding.UTF8, "application/json");

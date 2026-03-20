@@ -108,26 +108,41 @@
                                                         CommandParameter="{Binding .}"
                                                         WidthRequest="34" HeightRequest="34"
                                                         Padding="0"/>
-                                                <!-- Priority badge -->
-                                                <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3"
-                                                        HorizontalOptions="Start"
-                                                        Padding="6,2" BackgroundColor="Transparent"
-                                                        Stroke="{Binding PriorityColor}"
-                                                        StrokeThickness="1">
-                                                    <Border.StrokeShape>
-                                                        <RoundRectangle CornerRadius="4"/>
-                                                    </Border.StrokeShape>
-                                                    <Border.GestureRecognizers>
-                                                        <TapGestureRecognizer
-                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.CyclePriorityCommand}"
-                                                            CommandParameter="{Binding .}"/>
-                                                    </Border.GestureRecognizers>
-                                                    <Label Text="{Binding PriorityLabel}"
-                                                           TextColor="{Binding PriorityColor}"
-                                                           FontSize="10"
-                                                           FontAttributes="Bold"
-                                                           CharacterSpacing="0.8"/>
-                                                </Border>
+                                                <!-- Priority badge + due date row -->
+                                                <HorizontalStackLayout Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Spacing="6">
+                                                    <Border Padding="6,2" BackgroundColor="Transparent"
+                                                            Stroke="{Binding PriorityColor}"
+                                                            StrokeThickness="1">
+                                                        <Border.StrokeShape>
+                                                            <RoundRectangle CornerRadius="4"/>
+                                                        </Border.StrokeShape>
+                                                        <Border.GestureRecognizers>
+                                                            <TapGestureRecognizer
+                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.CyclePriorityCommand}"
+                                                                CommandParameter="{Binding .}"/>
+                                                        </Border.GestureRecognizers>
+                                                        <Label Text="{Binding PriorityLabel}"
+                                                               TextColor="{Binding PriorityColor}"
+                                                               FontSize="10"
+                                                               FontAttributes="Bold"
+                                                               CharacterSpacing="0.8"/>
+                                                    </Border>
+                                                    <Border Padding="6,2" BackgroundColor="Transparent"
+                                                            Stroke="{Binding DueDateColor}"
+                                                            StrokeThickness="1"
+                                                            IsVisible="{Binding HasDueDate}">
+                                                        <Border.StrokeShape>
+                                                            <RoundRectangle CornerRadius="4"/>
+                                                        </Border.StrokeShape>
+                                                        <HorizontalStackLayout Spacing="3">
+                                                            <Label Text="📅" FontSize="9"/>
+                                                            <Label Text="{Binding DueDateLabel}"
+                                                                   TextColor="{Binding DueDateColor}"
+                                                                   FontSize="10"
+                                                                   CharacterSpacing="0.4"/>
+                                                        </HorizontalStackLayout>
+                                                    </Border>
+                                                </HorizontalStackLayout>
                                             </Grid>
                                         </Grid>
                                     </Border>
