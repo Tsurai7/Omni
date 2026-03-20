@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -15,10 +14,11 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/google/uuid"
 	"github.com/segmentio/kafka-go"
+	"omni-backend/internal/logger"
 	"omni-backend/internal/telemetry"
 )
 
-func waitForKafka(brokers string, maxWait time.Duration) {
+func waitForKafka(log interface{ Info(string, ...any); Warn(string, ...any); Error(string, ...any) }, brokers string, maxWait time.Duration) {
 	brokerList := strings.Split(strings.TrimSpace(brokers), ",")
 	if len(brokerList) == 0 {
 		return
@@ -32,19 +32,23 @@ func waitForKafka(brokers string, maxWait time.Duration) {
 		c, err := net.DialTimeout("tcp", first, 2*time.Second)
 		if err == nil {
 			c.Close()
-			log.Printf("Kafka reachable at %s", first)
+			log.Info("kafka reachable", "broker", first)
 			return
 		}
-		log.Printf("Waiting for Kafka at %s (%v), retrying in 5s...", first, err)
+		log.Warn("waiting for kafka", "broker", first, "error", err)
 		time.Sleep(5 * time.Second)
 	}
-	log.Fatalf("Kafka at %s not reachable after %v", first, maxWait)
+	log.Error("kafka not reachable, giving up", "broker", first, "waited", maxWait)
+	os.Exit(1)
 }
 
 func main() {
+	log := logger.New(os.Getenv("DEBUG") == "true")
+
 	kafkaBrokers := strings.TrimSpace(os.Getenv("KAFKA_BROKERS"))
 	if kafkaBrokers == "" {
-		log.Fatal("KAFKA_BROKERS is required")
+		log.Error("KAFKA_BROKERS is required")
+		os.Exit(1)
 	}
 	topic := os.Getenv("TELEMETRY_TOPIC")
 	if topic == "" {
@@ -68,7 +72,7 @@ func main() {
 		chDB = "omni_analytics"
 	}
 
-	waitForKafka(kafkaBrokers, 2*time.Minute)
+	waitForKafka(log, kafkaBrokers, 2*time.Minute)
 
 	ctx := context.Background()
 	conn, err := clickhouse.Open(&clickhouse.Options{
@@ -81,15 +85,19 @@ func main() {
 		DialTimeout: 10 * time.Second,
 	})
 	if err != nil {
-		log.Fatalf("clickhouse open: %v", err)
+		log.Error("failed to open clickhouse connection", "error", err)
+		os.Exit(1)
 	}
 	defer conn.Close()
 	if err := conn.Ping(ctx); err != nil {
-		log.Fatalf("clickhouse ping: %v", err)
+		log.Error("clickhouse ping failed", "host", chHost, "port", chPort, "error", err)
+		os.Exit(1)
 	}
+	log.Info("clickhouse connected", "host", chHost, "port", chPort, "db", chDB)
 
 	if err := ensureSchema(ctx, conn, chDB); err != nil {
-		log.Fatalf("clickhouse schema: %v", err)
+		log.Error("failed to ensure clickhouse schema", "error", err)
+		os.Exit(1)
 	}
 
 	reader := kafka.NewReader(kafka.ReaderConfig{
@@ -103,7 +111,7 @@ func main() {
 	})
 	defer reader.Close()
 
-	log.Printf("telemetry-consumer started successfully (topic=%s, clickhouse=%s:%s)", topic, chHost, chPort)
+	log.Info("telemetry-consumer started", "topic", topic, "clickhouse", chHost+":"+chPort)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -111,6 +119,7 @@ func main() {
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 		<-sig
+		log.Info("shutting down telemetry consumer")
 		cancel()
 	}()
 
@@ -132,7 +141,7 @@ func main() {
 			events[i] = batch[i].ev
 		}
 		if err := insertBatch(ctx, conn, chDB, events); err != nil {
-			log.Printf("insert batch: %v", err)
+			log.Error("failed to insert batch into clickhouse", "count", len(batch), "error", err)
 			return
 		}
 		msgs := make([]kafka.Message, len(batch))
@@ -140,9 +149,9 @@ func main() {
 			msgs[i] = batch[i].msg
 		}
 		if err := reader.CommitMessages(ctx, msgs...); err != nil {
-			log.Printf("commit offsets: %v", err)
+			log.Error("failed to commit kafka offsets", "error", err)
 		}
-		log.Printf("inserted %d events", len(batch))
+		log.Info("batch committed", "count", len(batch))
 		batch = batch[:0]
 	}
 
@@ -153,12 +162,13 @@ func main() {
 				flush()
 				return
 			}
-			log.Printf("read message: %v", err)
+			log.Error("failed to read kafka message", "error", err)
 			continue
 		}
+		log.Debug("message received", "topic", m.Topic, "partition", m.Partition, "offset", m.Offset)
 		var ev telemetry.TelemetryEvent
 		if err := json.Unmarshal(m.Value, &ev); err != nil {
-			log.Printf("unmarshal: %v", err)
+			log.Error("failed to unmarshal telemetry event", "error", err)
 			continue
 		}
 		batch = append(batch, batchItem{ev: ev, msg: m})

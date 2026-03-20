@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -14,7 +15,8 @@ import (
 )
 
 type UsageHandler struct {
-	Pool *pgxpool.Pool
+	Pool   *pgxpool.Pool
+	logger *slog.Logger
 }
 
 type syncEntry struct {
@@ -27,8 +29,8 @@ type syncRequest struct {
 	Entries []syncEntry `json:"entries"`
 }
 
-func NewUsageHandler(pool *pgxpool.Pool) *UsageHandler {
-	return &UsageHandler{Pool: pool}
+func NewUsageHandler(pool *pgxpool.Pool, logger *slog.Logger) *UsageHandler {
+	return &UsageHandler{Pool: pool, logger: logger}
 }
 
 func (h *UsageHandler) Sync(c *gin.Context) {
@@ -57,6 +59,7 @@ func (h *UsageHandler) Sync(c *gin.Context) {
 	now := time.Now().UTC()
 	tx, err := h.Pool.Begin(ctx)
 	if err != nil {
+		h.logger.Error("failed to begin usage sync transaction", "user_id", userID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save usage"})
 		return
 	}
@@ -73,14 +76,17 @@ func (h *UsageHandler) Sync(c *gin.Context) {
 			`INSERT INTO usage_records (user_id, app_name, category, duration_seconds, recorded_at) VALUES ($1, $2, $3, $4, $5)`,
 			userID, e.AppName, category, e.DurationSeconds, now)
 		if err != nil {
+			h.logger.Error("failed to insert usage record", "user_id", userID, "app_name", e.AppName, "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save usage"})
 			return
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {
+		h.logger.Error("failed to commit usage sync", "user_id", userID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save usage"})
 		return
 	}
+	h.logger.Info("usage synced", "user_id", userID, "entries", len(req.Entries))
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -150,8 +156,10 @@ func (h *UsageHandler) List(c *gin.Context) {
 		 ORDER BY period DESC, total_seconds DESC`,
 		dateExpr)
 
+	h.logger.Debug("listing usage", "user_id", userID, "from", from, "to", to, "group_by", groupBy)
 	rows, err := h.Pool.Query(ctx, query, args...)
 	if err != nil {
+		h.logger.Error("failed to query usage records", "user_id", userID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load usage"})
 		return
 	}

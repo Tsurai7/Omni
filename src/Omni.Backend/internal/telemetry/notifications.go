@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -15,12 +16,13 @@ import (
 
 // NotificationsHandler serves GET /api/productivity/notifications and PATCH .../:id/read.
 type NotificationsHandler struct {
-	Pool *pgxpool.Pool
+	Pool   *pgxpool.Pool
+	logger *slog.Logger
 }
 
 // NewNotificationsHandler returns a handler that uses the given pool.
-func NewNotificationsHandler(pool *pgxpool.Pool) *NotificationsHandler {
-	return &NotificationsHandler{Pool: pool}
+func NewNotificationsHandler(pool *pgxpool.Pool, logger *slog.Logger) *NotificationsHandler {
+	return &NotificationsHandler{Pool: pool, logger: logger}
 }
 
 // NotificationItem is one row from user_notifications for JSON response.
@@ -62,6 +64,7 @@ func (h *NotificationsHandler) List(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
+	h.logger.Debug("listing notifications", "user_id", userID, "unread_only", unreadOnly)
 	query := `SELECT id, created_at, type, title, body, action_type, action_payload, read_at
 		FROM user_notifications
 		WHERE user_id = $1`
@@ -73,6 +76,7 @@ func (h *NotificationsHandler) List(c *gin.Context) {
 
 	rows, err := h.Pool.Query(ctx, query, args...)
 	if err != nil {
+		h.logger.Error("failed to query notifications", "user_id", userID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load notifications"})
 		return
 	}
@@ -144,6 +148,7 @@ func (h *NotificationsHandler) MarkRead(c *gin.Context) {
 		`UPDATE user_notifications SET read_at = NOW() WHERE id = $1 AND user_id = $2`,
 		notifID, userID)
 	if err != nil {
+		h.logger.Error("failed to mark notification as read", "notification_id", notifID, "user_id", userID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update"})
 		return
 	}
@@ -151,5 +156,6 @@ func (h *NotificationsHandler) MarkRead(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 		return
 	}
+	h.logger.Info("notification marked as read", "notification_id", notifID, "user_id", userID)
 	c.Status(http.StatusNoContent)
 }

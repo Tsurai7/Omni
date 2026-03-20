@@ -2,6 +2,7 @@ package profile
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
@@ -26,6 +27,7 @@ type Handler struct {
 	Pool      *pgxpool.Pool
 	JWTSecret string
 	JWTExpiry time.Duration
+	logger    *slog.Logger
 }
 
 type registerRequest struct {
@@ -55,8 +57,8 @@ type registerResponse struct {
 	ExpiresAt string `json:"expires_at"`
 }
 
-func NewHandler(pool *pgxpool.Pool, jwtSecret string, jwtExpiry time.Duration) *Handler {
-	return &Handler{Pool: pool, JWTSecret: jwtSecret, JWTExpiry: jwtExpiry}
+func NewHandler(pool *pgxpool.Pool, jwtSecret string, jwtExpiry time.Duration, logger *slog.Logger) *Handler {
+	return &Handler{Pool: pool, JWTSecret: jwtSecret, JWTExpiry: jwtExpiry, logger: logger}
 }
 
 // Register godoc
@@ -95,17 +97,21 @@ func (h *Handler) Register(c *gin.Context) {
 		userID, req.Email, hash)
 	if err != nil {
 		if isUniqueViolation(err) {
+			h.logger.Warn("registration attempted with existing email", "email", req.Email)
 			c.JSON(http.StatusConflict, gin.H{"error": "email already registered"})
 			return
 		}
+		h.logger.Error("failed to create user account", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create account"})
 		return
 	}
 	token, expiresAt, err := auth.GenerateToken(userID, req.Email, h.JWTSecret, h.JWTExpiry)
 	if err != nil {
+		h.logger.Error("failed to generate token after registration", "user_id", userID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to issue token"})
 		return
 	}
+	h.logger.Info("user registered", "user_id", userID, "email", req.Email)
 	c.JSON(http.StatusCreated, registerResponse{
 		ID:        userID.String(),
 		Email:     req.Email,
@@ -136,21 +142,26 @@ func (h *Handler) Login(c *gin.Context) {
 		Scan(&u.ID, &u.Email, &u.PasswordHash, &u.CreatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
+			h.logger.Warn("login failed: user not found", "email", req.Email)
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
 			return
 		}
+		h.logger.Error("login db query failed", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "login failed"})
 		return
 	}
 	if err := auth.ComparePassword(u.PasswordHash, req.Password); err != nil {
+		h.logger.Warn("login failed: wrong password", "email", req.Email)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
 		return
 	}
 	token, expiresAt, err := auth.GenerateToken(u.ID, u.Email, h.JWTSecret, h.JWTExpiry)
 	if err != nil {
+		h.logger.Error("failed to generate token after login", "user_id", u.ID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to issue token"})
 		return
 	}
+	h.logger.Info("user logged in", "user_id", u.ID, "email", req.Email)
 	c.JSON(http.StatusOK, tokenResponse{
 		Token:     token,
 		ExpiresAt: expiresAt.Format("2006-01-02T15:04:05Z07:00"),

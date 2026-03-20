@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -12,7 +13,8 @@ import (
 )
 
 type SessionsHandler struct {
-	Pool *pgxpool.Pool
+	Pool   *pgxpool.Pool
+	logger *slog.Logger
 }
 
 type sessionSyncEntry struct {
@@ -26,8 +28,8 @@ type sessionSyncRequest struct {
 	Entries []sessionSyncEntry `json:"entries"`
 }
 
-func NewSessionsHandler(pool *pgxpool.Pool) *SessionsHandler {
-	return &SessionsHandler{Pool: pool}
+func NewSessionsHandler(pool *pgxpool.Pool, logger *slog.Logger) *SessionsHandler {
+	return &SessionsHandler{Pool: pool, logger: logger}
 }
 
 func (h *SessionsHandler) Sync(c *gin.Context) {
@@ -55,6 +57,7 @@ func (h *SessionsHandler) Sync(c *gin.Context) {
 	ctx := c.Request.Context()
 	tx, err := h.Pool.Begin(ctx)
 	if err != nil {
+		h.logger.Error("failed to begin sessions sync transaction", "user_id", userID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save sessions"})
 		return
 	}
@@ -66,6 +69,7 @@ func (h *SessionsHandler) Sync(c *gin.Context) {
 		}
 		startedAt, err := time.Parse(time.RFC3339, e.StartedAt)
 		if err != nil {
+			h.logger.Warn("invalid started_at in session entry", "user_id", userID, "value", e.StartedAt)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid started_at format"})
 			return
 		}
@@ -77,15 +81,18 @@ func (h *SessionsHandler) Sync(c *gin.Context) {
 			`INSERT INTO sessions (user_id, name, activity_type, started_at, duration_seconds) VALUES ($1, $2, $3, $4, $5)`,
 			userID, e.Name, activityType, startedAt.UTC(), e.DurationSeconds)
 		if err != nil {
+			h.logger.Error("failed to insert session record", "user_id", userID, "name", e.Name, "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save sessions"})
 			return
 		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
+		h.logger.Error("failed to commit sessions sync", "user_id", userID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save sessions"})
 		return
 	}
+	h.logger.Info("sessions synced", "user_id", userID, "entries", len(req.Entries))
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -111,6 +118,7 @@ func (h *SessionsHandler) List(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
+	h.logger.Debug("listing sessions", "user_id", userID, "from", from, "to", to)
 	rows, err := h.Pool.Query(ctx,
 		`SELECT id, name, activity_type, started_at, duration_seconds
 		 FROM sessions
@@ -118,6 +126,7 @@ func (h *SessionsHandler) List(c *gin.Context) {
 		 ORDER BY started_at DESC`,
 		userID, from, to)
 	if err != nil {
+		h.logger.Error("failed to query sessions", "user_id", userID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load sessions"})
 		return
 	}

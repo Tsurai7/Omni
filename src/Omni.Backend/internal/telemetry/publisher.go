@@ -3,7 +3,7 @@ package telemetry
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -15,13 +15,15 @@ import (
 type KafkaPublisher struct {
 	writer *kafka.Writer
 	topic  string
+	logger *slog.Logger
 }
 
 // NewKafkaPublisher creates a publisher. If brokers is empty, returns a no-op publisher.
-func NewKafkaPublisher(brokers, topic string) (*KafkaPublisher, error) {
+func NewKafkaPublisher(brokers, topic string, logger *slog.Logger) (*KafkaPublisher, error) {
 	brokers = strings.TrimSpace(brokers)
 	if brokers == "" {
-		return &KafkaPublisher{topic: topic}, nil
+		logger.Warn("kafka brokers not configured, telemetry publishing disabled")
+		return &KafkaPublisher{topic: topic, logger: logger}, nil
 	}
 	writer := &kafka.Writer{
 		Addr:         kafka.TCP(strings.Split(brokers, ",")...),
@@ -30,7 +32,7 @@ func NewKafkaPublisher(brokers, topic string) (*KafkaPublisher, error) {
 		BatchSize:    10,
 		BatchTimeout: 10 * time.Millisecond,
 	}
-	return &KafkaPublisher{writer: writer, topic: topic}, nil
+	return &KafkaPublisher{writer: writer, topic: topic, logger: logger}, nil
 }
 
 // PublishUsage sends a usage event (non-blocking).
@@ -70,7 +72,7 @@ func (p *KafkaPublisher) PublishSession(userID uuid.UUID, name, activityType str
 func (p *KafkaPublisher) publish(ev TelemetryEvent) {
 	body, err := json.Marshal(ev)
 	if err != nil {
-		log.Printf("[telemetry] marshal event: %v", err)
+		p.logger.Error("failed to marshal telemetry event", "event_type", ev.EventType, "error", err)
 		return
 	}
 	go func() {
@@ -80,8 +82,10 @@ func (p *KafkaPublisher) publish(ev TelemetryEvent) {
 			Key:   []byte(ev.EventID),
 			Value: body,
 		}); err != nil {
-			log.Printf("[telemetry] write to kafka: %v", err)
+			p.logger.Error("failed to write telemetry event to kafka", "event_type", ev.EventType, "event_id", ev.EventID, "error", err)
+			return
 		}
+		p.logger.Debug("telemetry event published", "event_type", ev.EventType, "event_id", ev.EventID)
 	}()
 }
 

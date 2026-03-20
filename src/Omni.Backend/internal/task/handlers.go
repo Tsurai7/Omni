@@ -1,6 +1,7 @@
 package task
 
 import (
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -12,11 +13,12 @@ import (
 )
 
 type Handler struct {
-	Pool *pgxpool.Pool
+	Pool   *pgxpool.Pool
+	logger *slog.Logger
 }
 
-func NewHandler(pool *pgxpool.Pool) *Handler {
-	return &Handler{Pool: pool}
+func NewHandler(pool *pgxpool.Pool, logger *slog.Logger) *Handler {
+	return &Handler{Pool: pool, logger: logger}
 }
 
 var allowedStatuses = map[string]bool{"pending": true, "done": true, "cancelled": true}
@@ -47,6 +49,7 @@ func (h *Handler) List(c *gin.Context) {
 		`SELECT id::text, user_id::text, title, status, created_at::text, updated_at::text FROM tasks WHERE user_id = $1 ORDER BY created_at DESC`,
 		userID)
 	if err != nil {
+		h.logger.Error("failed to list tasks", "user_id", userID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list tasks"})
 		return
 	}
@@ -56,6 +59,7 @@ func (h *Handler) List(c *gin.Context) {
 	for rows.Next() {
 		var t TaskResponse
 		if err := rows.Scan(&t.ID, &t.UserID, &t.Title, &t.Status, &t.CreatedAt, &t.UpdatedAt); err != nil {
+			h.logger.Error("failed to scan task row", "user_id", userID, "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list tasks"})
 			return
 		}
@@ -64,6 +68,7 @@ func (h *Handler) List(c *gin.Context) {
 	if tasks == nil {
 		tasks = []TaskResponse{}
 	}
+	h.logger.Debug("tasks listed", "user_id", userID, "count", len(tasks))
 	c.JSON(http.StatusOK, ListResponse{Tasks: tasks})
 }
 
@@ -116,9 +121,11 @@ func (h *Handler) Create(c *gin.Context) {
 		`INSERT INTO tasks (user_id, title, status) VALUES ($1, $2, $3) RETURNING id::text, created_at::text, updated_at::text`,
 		userID, title, status).Scan(&id, &createdAt, &updatedAt)
 	if err != nil {
+		h.logger.Error("failed to create task", "user_id", userID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create task"})
 		return
 	}
+	h.logger.Info("task created", "task_id", id, "user_id", userID, "status", status)
 	c.JSON(http.StatusCreated, TaskResponse{
 		ID:        id,
 		UserID:    userID.String(),
@@ -182,9 +189,11 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
 			return
 		}
+		h.logger.Error("failed to update task status", "task_id", taskID, "user_id", userID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update task"})
 		return
 	}
+	h.logger.Info("task status updated", "task_id", id, "user_id", userID, "status", status)
 	c.JSON(http.StatusOK, TaskResponse{
 		ID:        id,
 		UserID:    uid.String(),
@@ -226,6 +235,7 @@ func (h *Handler) Delete(c *gin.Context) {
 	ctx := c.Request.Context()
 	cmdTag, err := h.Pool.Exec(ctx, `DELETE FROM tasks WHERE id = $1 AND user_id = $2`, taskID, userID)
 	if err != nil {
+		h.logger.Error("failed to delete task", "task_id", taskID, "user_id", userID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete task"})
 		return
 	}
@@ -233,5 +243,6 @@ func (h *Handler) Delete(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
 		return
 	}
+	h.logger.Info("task deleted", "task_id", taskID, "user_id", userID)
 	c.Status(http.StatusNoContent)
 }

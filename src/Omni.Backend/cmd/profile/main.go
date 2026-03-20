@@ -10,7 +10,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -21,6 +20,7 @@ import (
 	_ "omni-backend/cmd/profile/docs"
 	"omni-backend/internal/config"
 	"omni-backend/internal/db"
+	"omni-backend/internal/logger"
 	"omni-backend/internal/middleware"
 	"omni-backend/internal/profile"
 
@@ -31,21 +31,28 @@ import (
 )
 
 func main() {
+	log := logger.New(os.Getenv("DEBUG") == "true")
+
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("config: %v", err)
+		log.Error("failed to load config", "error", err)
+		os.Exit(1)
 	}
 
 	ctx := context.Background()
 	pool, err := db.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("database: %v", err)
+		log.Error("failed to connect to database", "error", err)
+		os.Exit(1)
 	}
 	defer pool.Close()
+	log.Info("database connected")
 
 	if err := db.Migrate(ctx, pool); err != nil {
-		log.Fatalf("migrate: %v", err)
+		log.Error("failed to run migrations", "error", err)
+		os.Exit(1)
 	}
+	log.Info("migrations complete")
 
 	if os.Getenv("GIN_MODE") != "debug" {
 		gin.SetMode(gin.ReleaseMode)
@@ -59,31 +66,32 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	h := profile.NewHandler(pool, cfg.JWTSecret, cfg.JWTExpiry())
+	h := profile.NewHandler(pool, cfg.JWTSecret, cfg.JWTExpiry(), log)
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	api := router.Group("/api")
 	auth := api.Group("/auth")
 	{
 		auth.POST("/register", h.Register)
 		auth.POST("/login", h.Login)
-		auth.GET("/me", middleware.AuthRequired(cfg.JWTSecret), h.Me)
+		auth.GET("/me", middleware.AuthRequired(cfg.JWTSecret, log), h.Me)
 	}
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: router}
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server: %v", err)
+			log.Error("server listen failed", "error", err)
+			os.Exit(1)
 		}
 	}()
 	waitForListen(":"+cfg.Port, 5*time.Second)
-	log.Printf("profile service started successfully on port %s", cfg.Port)
+	log.Info("profile service started", "port", cfg.Port)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("shutting down...")
+	log.Info("shutting down profile service")
 	if err := srv.Shutdown(context.Background()); err != nil {
-		log.Printf("shutdown: %v", err)
+		log.Error("shutdown error", "error", err)
 	}
 }
 
