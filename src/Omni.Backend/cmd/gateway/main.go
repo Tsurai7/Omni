@@ -37,6 +37,13 @@ func main() {
 		log.Error("failed to load config", "error", err)
 		os.Exit(1)
 	}
+	if cfg.AIURLHadTrailingAPISuffix {
+		log.Info("AI_URL had trailing /api/ai; normalized to omni-ai service root (gateway forwards full /api/ai/... paths)", "ai_url", cfg.AIURL)
+	}
+	if err := gateway.CheckOmniAIAtStartup(cfg.AIURL, log); err != nil {
+		log.Error("omni-ai startup check failed", "error", err)
+		os.Exit(1)
+	}
 
 	profileProxy, err := gateway.ReverseProxyTo(cfg.ProfileURL, log)
 	if err != nil {
@@ -112,6 +119,9 @@ func main() {
 	}()
 	waitForListen(":"+cfg.Port, 5*time.Second)
 	log.Info("gateway started", "port", cfg.Port)
+	if cfg.AIURL != "" {
+		gateway.LogAIReachability(cfg.AIURL, log)
+	}
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

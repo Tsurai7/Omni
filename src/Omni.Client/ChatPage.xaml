@@ -213,7 +213,8 @@
                         <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusLg}"/>
                     </Border.StrokeShape>
                     <Editor x:Name="MessageEditor"
-                            Text="{Binding InputText}"
+                            Text="{Binding InputText, Mode=TwoWay}"
+                            TextChanged="OnMessageEditorTextChanged"
                             Placeholder="Ask your coach anything..."
                             PlaceholderColor="{StaticResource ProductivityTextMuted}"
                             TextColor="{StaticResource ProductivityTextPrimary}"

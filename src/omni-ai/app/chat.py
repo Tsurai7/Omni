@@ -1,5 +1,5 @@
 """
-AI Coach chat — DeepSeek integration, context builder, conversation starters, rate limiter.
+AI Coach chat — Google Gemini integration, context builder, conversation starters, rate limiter.
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Generator
 from uuid import UUID
 
-from openai import OpenAI
+import google.generativeai as genai
 
 from app.algorithm import (
     STREAK_MILESTONES,
@@ -24,18 +24,48 @@ from app.db import get_pg_engine
 
 logger = logging.getLogger(__name__)
 
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
-DEEPSEEK_BASE_URL = "https://api.deepseek.com"
-DEEPSEEK_MODEL = "deepseek-chat"
+def _gemini_api_key() -> str:
+    return (
+        (os.getenv("GEMINI_API_KEY") or "").strip()
+        or (os.getenv("GOOGLE_API_KEY") or "").strip()
+    )
+
+
+def _gemini_model() -> str:
+    # Unversioned "gemini-1.5-flash" returns 404 on current v1beta; use a current id (override via GEMINI_MODEL).
+    return (os.getenv("GEMINI_MODEL") or "").strip() or "gemini-2.0-flash-lite"
+
+
+def _gemini_stream_error_message(exc: BaseException, *, model_id: str = "") -> str:
+    """Short user-visible text; log full exception separately."""
+    raw = str(exc)
+    low = raw.lower()
+    model_hint = f" ({model_id})" if model_id else ""
+    if "404" in raw or "not found" in low or "is not supported for generatecontent" in low:
+        return (
+            "Gemini model not available for this API key. In AI Studio, open the model list, "
+            "pick a model that supports generateContent, set GEMINI_MODEL to that id, and redeploy."
+        )
+    if (
+        "429" in raw
+        or "quota" in low
+        or "resource exhausted" in low
+        or "rate limit" in low
+        or "exceeded your current quota" in low
+    ):
+        return (
+            f"Gemini quota or rate limit reached{model_hint}. "
+            "Wait a few minutes for the window to reset, use the coach less often, "
+            "or enable pay-as-you-go billing for this API key in Google AI / Cloud. "
+            "If another model still has free quota, try a different GEMINI_MODEL."
+        )
+    return "Sorry, I'm having trouble connecting right now. Try again in a moment."
+
 
 # Rate limit: per user_id → list of timestamps
 _rate_limit_store: dict[str, list[float]] = defaultdict(list)
 RATE_LIMIT_HOURLY = 30
 RATE_LIMIT_DAILY = 200
-
-
-def _get_client() -> OpenAI:
-    return OpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_BASE_URL)
 
 
 # ── Rate limiting ─────────────────────────────────────────────────────────────
@@ -320,43 +350,67 @@ def generate_starters(user_id: UUID) -> list[dict]:
 
 # ── Streaming chat ────────────────────────────────────────────────────────────
 
+def _history_to_gemini_turns(history: list[dict]) -> list[dict]:
+    """Map stored user/assistant messages to Gemini chat history format."""
+    turns: list[dict] = []
+    for msg in history:
+        role = msg.get("role")
+        content = (msg.get("content") or "").strip()
+        if not content:
+            continue
+        if role == "user":
+            turns.append({"role": "user", "parts": [content]})
+        elif role == "assistant":
+            turns.append({"role": "model", "parts": [content]})
+    return turns
+
+
 def stream_chat_response(
     system_prompt: str,
     history: list[dict],
     user_message: str,
 ) -> Generator[str, None, None]:
     """
-    Stream a DeepSeek chat completion. Yields SSE-formatted lines.
+    Stream a Gemini completion. Yields SSE-formatted lines.
     Each line: "data: {json}\\n\\n"
     Final line: "data: {done: true}\\n\\n"
     """
-    if not DEEPSEEK_API_KEY:
-        yield 'data: {"delta": "DeepSeek API key not configured.", "error": true}\n\n'
+    if not _gemini_api_key():
+        yield 'data: {"delta": "Gemini API key not configured (set GEMINI_API_KEY or GOOGLE_API_KEY).", "error": true}\n\n'
         yield 'data: {"done": true}\n\n'
         return
 
-    messages = [{"role": "system", "content": system_prompt}]
-    for msg in history:
-        messages.append({"role": msg["role"], "content": msg["content"]})
-    messages.append({"role": "user", "content": user_message})
+    genai.configure(api_key=_gemini_api_key())
+    gem_history = _history_to_gemini_turns(history)
 
+    model_name = _gemini_model()
     try:
-        client = _get_client()
-        stream = client.chat.completions.create(
-            model=DEEPSEEK_MODEL,
-            messages=messages,
-            stream=True,
-            max_tokens=512,
+        model = genai.GenerativeModel(
+            model_name,
+            system_instruction=system_prompt,
+        )
+        generation_config = genai.GenerationConfig(
+            max_output_tokens=1024,
             temperature=0.7,
         )
-        for chunk in stream:
-            delta = chunk.choices[0].delta.content if chunk.choices else None
-            if delta:
-                payload = json.dumps({"delta": delta})
+        chat = model.start_chat(history=gem_history)
+        response = chat.send_message(
+            user_message,
+            stream=True,
+            generation_config=generation_config,
+        )
+        for chunk in response:
+            try:
+                text = chunk.text or ""
+            except ValueError:
+                # No text in this chunk (e.g. safety filter, finish reason only)
+                continue
+            if text:
+                payload = json.dumps({"delta": text})
                 yield f"data: {payload}\n\n"
     except Exception as e:
-        logger.error("DeepSeek stream error: %s", e)
-        err_payload = json.dumps({"delta": "Sorry, I'm having trouble connecting right now. Try again in a moment.", "error": True})
+        logger.error("Gemini stream error: %s", e)
+        err_payload = json.dumps({"delta": _gemini_stream_error_message(e, model_id=model_name), "error": True})
         yield f"data: {err_payload}\n\n"
 
     yield 'data: {"done": true}\n\n'

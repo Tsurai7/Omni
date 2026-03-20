@@ -43,6 +43,11 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE INDEX IF NOT EXISTS idx_sessions_user_started ON sessions(user_id, started_at);
 `
 
+// Older deployments created sessions before these columns existed; CREATE TABLE IF NOT EXISTS does not add them.
+const alterSessionsAddIntention = `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS intention TEXT`
+const alterSessionsAddSubjectiveRating = `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS subjective_rating INT`
+const alterSessionsAddReflectionNote = `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS reflection_note TEXT`
+
 const createTableTasks = `
 CREATE TABLE IF NOT EXISTS tasks (
 	id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -116,6 +121,15 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		return err
 	}
 	if _, err := pool.Exec(ctx, createTableSessions); err != nil {
+		return err
+	}
+	if _, err := pool.Exec(ctx, alterSessionsAddIntention); err != nil {
+		return err
+	}
+	if _, err := pool.Exec(ctx, alterSessionsAddSubjectiveRating); err != nil {
+		return err
+	}
+	if _, err := pool.Exec(ctx, alterSessionsAddReflectionNote); err != nil {
 		return err
 	}
 	if _, err := pool.Exec(ctx, createTableTasks); err != nil {

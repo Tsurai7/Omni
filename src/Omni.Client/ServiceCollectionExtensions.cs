@@ -26,8 +26,9 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient("OmniBackend", (sp, client) =>
         {
             var opts = sp.GetRequiredService<BackendOptions>();
-            if (!string.IsNullOrWhiteSpace(opts.BaseUrl))
-                client.BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/");
+            var baseUri = BuildGatewayBaseUri(opts.BaseUrl);
+            if (baseUri != null)
+                client.BaseAddress = baseUri;
             client.Timeout = TimeSpan.FromSeconds(30);
         });
         services.AddSingleton<IAuthService>(sp =>
@@ -73,8 +74,9 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient("OmniBackendStream", (sp, client) =>
         {
             var opts = sp.GetRequiredService<BackendOptions>();
-            if (!string.IsNullOrWhiteSpace(opts.BaseUrl))
-                client.BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/");
+            var baseUri = BuildGatewayBaseUri(opts.BaseUrl);
+            if (baseUri != null)
+                client.BaseAddress = baseUri;
             client.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
         });
         services.AddSingleton<IChatService>(sp =>
@@ -110,6 +112,24 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredService<JsonSerializerOptions>()));
 
         return services;
+    }
+
+    // Gateway root only (e.g. http://127.0.0.1:8080); strip trailing /api so requests are not /api/api/...
+    private static Uri? BuildGatewayBaseUri(string? rawBaseUrl)
+    {
+        if (string.IsNullOrWhiteSpace(rawBaseUrl))
+            return null;
+        var s = rawBaseUrl.Trim();
+        while (s.EndsWith('/'))
+            s = s[..^1];
+        while (s.EndsWith("/api", StringComparison.OrdinalIgnoreCase))
+        {
+            s = s[..^4];
+            while (s.EndsWith('/'))
+                s = s[..^1];
+        }
+
+        return string.IsNullOrWhiteSpace(s) ? null : new Uri(s + "/");
     }
 
     private static IServiceCollection AddNotificationManager(this IServiceCollection services)

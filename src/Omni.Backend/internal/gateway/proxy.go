@@ -9,7 +9,8 @@ import (
 )
 
 // ReverseProxyTo creates a handler that proxies requests to the given target base URL.
-// The request path and headers (including Authorization) are forwarded as-is.
+// Request paths are joined with the target URL the same way as [httputil.NewSingleHostReverseProxy]
+// (via [httputil.ProxyRequest.SetURL]) so RawPath/query are handled correctly.
 // FlushInterval is set to 50ms so SSE (Server-Sent Events) responses stream
 // immediately instead of being buffered.
 func ReverseProxyTo(targetBase string, logger *slog.Logger) (http.Handler, error) {
@@ -17,17 +18,25 @@ func ReverseProxyTo(targetBase string, logger *slog.Logger) (http.Handler, error
 	if err != nil {
 		return nil, err
 	}
-	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.FlushInterval = 50 * time.Millisecond
-	proxy.Director = func(req *http.Request) {
-		req.URL.Scheme = target.Scheme
-		req.URL.Host = target.Host
-		req.Host = target.Host
-		logger.Debug("proxying request", "method", req.Method, "path", req.URL.Path, "upstream", targetBase)
-	}
-	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		logger.Error("upstream proxy error", "method", r.Method, "path", r.URL.Path, "upstream", targetBase, "error", err)
-		w.WriteHeader(http.StatusBadGateway)
+	proxy := &httputil.ReverseProxy{
+		Rewrite: func(r *httputil.ProxyRequest) {
+			r.SetURL(target)
+			logger.Debug("proxying request", "method", r.In.Method, "path", r.In.URL.Path, "upstream", targetBase)
+		},
+		FlushInterval: 50 * time.Millisecond,
+		ModifyResponse: func(resp *http.Response) error {
+			if resp.StatusCode == http.StatusNotFound && resp.Request != nil {
+				logger.Warn("upstream returned 404 — wrong service? AI_URL must be the omni-ai base (e.g. http://ai:8000 in Docker, http://127.0.0.1:8000 on host)",
+					"method", resp.Request.Method,
+					"path", resp.Request.URL.Path,
+					"upstream", targetBase)
+			}
+			return nil
+		},
+		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+			logger.Error("upstream proxy error", "method", r.Method, "path", r.URL.Path, "upstream", targetBase, "error", err)
+			w.WriteHeader(http.StatusBadGateway)
+		},
 	}
 	return proxy, nil
 }

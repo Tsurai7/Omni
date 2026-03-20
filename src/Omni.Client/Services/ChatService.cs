@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -133,8 +134,16 @@ public class ChatService : IChatService
 
         if (!resp.IsSuccessStatusCode)
         {
-            req.Dispose();
+            var status = resp.StatusCode;
+            var errorBody = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            Debug.WriteLine($"ChatService.SendMessageAsync: {(int)status} {errorBody}");
             resp.Dispose();
+            req.Dispose();
+            var msg = status == HttpStatusCode.ServiceUnavailable
+                ? "Coach isn’t available: the gateway needs AI_URL pointing at the omni-ai service (e.g. http://ai:8000 in Docker)."
+                : $"Couldn’t reach the coach ({(int)status}). Try again.";
+            yield return new ChatStreamDelta(msg, null, false, true);
+            yield return new ChatStreamDelta(null, null, true, null);
             yield break;
         }
 
@@ -145,9 +154,10 @@ public class ChatService : IChatService
             stream = await resp.Content.ReadAsStreamAsync(ct);
             reader = new StreamReader(stream);
 
-            while (!reader.EndOfStream && !ct.IsCancellationRequested)
+            while (!ct.IsCancellationRequested)
             {
                 var line = await reader.ReadLineAsync(ct);
+                if (line == null) break;
                 if (string.IsNullOrEmpty(line)) continue;
                 if (!line.StartsWith("data: ")) continue;
 

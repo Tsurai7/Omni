@@ -73,7 +73,7 @@ public partial class ChatPage : ContentPage, INotifyPropertyChanged
 
         SendCommand = new Command(
             async () => await SendMessageAsync(),
-            () => CanSend);
+            () => CanSendFromEditor);
 
         StarterTappedCommand = new Command<string>(async text =>
         {
@@ -125,6 +125,17 @@ public partial class ChatPage : ContentPage, INotifyPropertyChanged
         }
     }
 
+    private void OnMessageEditorTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        // Keep view model in sync when platform binding doesn’t push each character (common on Mac).
+        var live = MessageEditor?.Text ?? string.Empty;
+        if (_inputText == live) return;
+        _inputText = live;
+        OnPropertyChanged(nameof(InputText));
+        OnPropertyChanged(nameof(CanSend));
+        ((Command)SendCommand).ChangeCanExecute();
+    }
+
     public bool IsStreaming
     {
         get => _isStreaming;
@@ -143,6 +154,11 @@ public partial class ChatPage : ContentPage, INotifyPropertyChanged
     }
 
     public bool CanSend => !IsStreaming && !string.IsNullOrWhiteSpace(InputText);
+
+    // Mac Catalyst: Editor often doesn’t update bound InputText each keystroke; gate send on live editor text.
+    private bool CanSendFromEditor =>
+        !IsStreaming && !string.IsNullOrWhiteSpace(MessageEditor?.Text ?? InputText);
+
     public bool ShowWelcome => Messages.Count == 0;
     public bool HasStarters => Starters.Count > 0;
     // Bound to Editor.IsEnabled — user can type but not send while streaming
@@ -203,7 +219,7 @@ public partial class ChatPage : ContentPage, INotifyPropertyChanged
 
     private async Task SendMessageAsync()
     {
-        var text = InputText.Trim();
+        var text = (MessageEditor?.Text ?? InputText).Trim();
         if (string.IsNullOrEmpty(text) || IsStreaming) return;
 
         InputText = string.Empty;
@@ -391,12 +407,12 @@ public partial class ChatPage : ContentPage, INotifyPropertyChanged
         {
             while (IsStreaming)
             {
-                await Dot1.FadeTo(1, 200);
-                await Dot2.FadeTo(1, 200);
-                await Dot3.FadeTo(1, 200);
-                await Dot1.FadeTo(0.2, 200);
-                await Dot2.FadeTo(0.2, 200);
-                await Dot3.FadeTo(0.2, 200);
+                await Dot1.FadeToAsync(1, 200);
+                await Dot2.FadeToAsync(1, 200);
+                await Dot3.FadeToAsync(1, 200);
+                await Dot1.FadeToAsync(0.2, 200);
+                await Dot2.FadeToAsync(0.2, 200);
+                await Dot3.FadeToAsync(0.2, 200);
             }
             Dot1.Opacity = 0.4;
             Dot2.Opacity = 0.4;
@@ -404,17 +420,6 @@ public partial class ChatPage : ContentPage, INotifyPropertyChanged
             _dotAnimRunning = false;
         });
     }
-
-    // ── DisplayAlert wrappers (avoids ambiguous call warnings) ───────────────
-
-    private Task<bool> DisplayAlertAsync(string title, string message, string accept, string cancel) =>
-        base.DisplayAlert(title, message, accept, cancel);
-
-    private Task DisplayAlertAsync(string title, string message, string cancel) =>
-        base.DisplayAlert(title, message, cancel);
-
-    private Task<string> DisplayActionSheetAsync(string title, string cancel, string? destruction, params string[] buttons) =>
-        base.DisplayActionSheet(title, cancel, destruction, buttons);
 
     // ── INotifyPropertyChanged ────────────────────────────────────────────────
 

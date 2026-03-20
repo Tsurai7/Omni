@@ -64,6 +64,8 @@ type GatewayConfig struct {
 	TaskURL      string
 	TelemetryURL string
 	AIURL        string // optional; empty = AI endpoints return 503
+	// AIURLHadTrailingAPISuffix is true when AI_URL had a trailing /api/ai path; it was stripped to the service root.
+	AIURLHadTrailingAPISuffix bool
 }
 
 // LoadGateway loads config for the gateway from env. DATABASE_URL is not required.
@@ -89,13 +91,15 @@ func LoadGateway() (*GatewayConfig, error) {
 		return nil, fmt.Errorf("TELEMETRY_URL is required")
 	}
 	// AI service is optional — if not set, /api/ai/* routes return 503
-	aiURL := strings.TrimSuffix(os.Getenv("AI_URL"), "/")
+	rawAI := strings.TrimSpace(os.Getenv("AI_URL"))
+	aiURL, aiStripped := normalizeGatewayAIURL(rawAI)
 	return &GatewayConfig{
-		Port:         port,
-		JWTSecret:    jwtSecret,
-		ProfileURL:   strings.TrimSuffix(profileURL, "/"),
-		TaskURL:      strings.TrimSuffix(taskURL, "/"),
-		TelemetryURL: strings.TrimSuffix(telemetryURL, "/"),
-		AIURL:        aiURL,
+		Port:                      port,
+		JWTSecret:                 jwtSecret,
+		ProfileURL:                strings.TrimSuffix(profileURL, "/"),
+		TaskURL:                   strings.TrimSuffix(taskURL, "/"),
+		TelemetryURL:              strings.TrimSuffix(telemetryURL, "/"),
+		AIURL:                     aiURL,
+		AIURLHadTrailingAPISuffix: aiStripped,
 	}, nil
 }
