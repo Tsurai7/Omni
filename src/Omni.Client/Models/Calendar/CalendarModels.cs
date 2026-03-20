@@ -1,4 +1,5 @@
-using Microsoft.Maui.Graphics;
+using System.Globalization;
+using MColor = Microsoft.Maui.Graphics.Color;
 
 namespace Omni.Client.Models.Calendar;
 
@@ -22,14 +23,14 @@ public record CalendarEvent(
     public bool IsOmniTask       => Source == CalendarEventSource.OmniTask;
     public bool IsGoogleCalendar => Source == CalendarEventSource.GoogleCalendar;
 
-    public Color EventColor => Source switch
+    public MColor EventColor => Source switch
     {
-        CalendarEventSource.GoogleCalendar => Color.FromArgb(Color ?? "#4A90E2"),
+        CalendarEventSource.GoogleCalendar => MColor.FromArgb(Color ?? "#4A90E2"),
         _ => Priority?.ToLowerInvariant() switch
         {
-            "high"   => Color.FromArgb("#FF5C5C"),
-            "low"    => Color.FromArgb("#4ECCA3"),
-            _        => Color.FromArgb("#F5A623"),
+            "high"   => MColor.FromArgb("#FF5C5C"),
+            "low"    => MColor.FromArgb("#4ECCA3"),
+            _        => MColor.FromArgb("#F5A623"),
         },
     };
 
@@ -69,8 +70,11 @@ public record CalendarEventDto(
 {
     public CalendarEvent ToCalendarEvent()
     {
-        DateTime.TryParse(StartAt, out var start);
-        DateTime? end = EndAt != null && DateTime.TryParse(EndAt, out var e) ? e : null;
+        DateTime.TryParse(StartAt, null, DateTimeStyles.RoundtripKind, out var startUtc);
+        var start = startUtc.Kind == DateTimeKind.Utc ? startUtc.ToLocalTime() : startUtc;
+        DateTime? end = null;
+        if (EndAt != null && DateTime.TryParse(EndAt, null, DateTimeStyles.RoundtripKind, out var endUtc))
+            end = endUtc.Kind == DateTimeKind.Utc ? endUtc.ToLocalTime() : endUtc;
         var source = Source == "google_calendar"
             ? CalendarEventSource.GoogleCalendar
             : CalendarEventSource.OmniTask;

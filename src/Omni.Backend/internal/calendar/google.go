@@ -232,15 +232,20 @@ type googleEventDateTime struct {
 }
 
 // CreateEvent creates a new event in the user's primary Google Calendar.
-func (g *GoogleClient) CreateEvent(ctx context.Context, accessToken, title, description string, start time.Time, isAllDay bool) (*GoogleCalendarEvent, error) {
+// If endTime is nil and isAllDay is false, the event defaults to 1 hour.
+func (g *GoogleClient) CreateEvent(ctx context.Context, accessToken, title, description string, start time.Time, endTime *time.Time, isAllDay bool) (*GoogleCalendarEvent, error) {
 	body := createEventBody{Summary: title, Description: description}
 	if isAllDay {
 		body.Start.Date = start.Format("2006-01-02")
 		body.End.Date = start.AddDate(0, 0, 1).Format("2006-01-02")
 	} else {
+		end := start.Add(time.Hour)
+		if endTime != nil {
+			end = *endTime
+		}
 		body.Start.DateTime = start.UTC().Format(time.RFC3339)
 		body.Start.TimeZone = "UTC"
-		body.End.DateTime = start.Add(time.Hour).UTC().Format(time.RFC3339)
+		body.End.DateTime = end.UTC().Format(time.RFC3339)
 		body.End.TimeZone = "UTC"
 	}
 

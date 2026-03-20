@@ -184,7 +184,7 @@ func (s *Syncer) pushTasksToGoogle(ctx context.Context, userID, accessToken stri
 			}
 		} else {
 			// Create new GCal event
-			evt, err := s.google.CreateEvent(ctx, accessToken, t.Title, "Omni task", t.DueDate, true)
+			evt, err := s.google.CreateEvent(ctx, accessToken, t.Title, "Omni task", t.DueDate, nil, true)
 			if err != nil {
 				s.logger.Warn("failed to create gcal event", "task_id", t.ID, "error", err)
 				continue

@@ -82,6 +82,14 @@ docker compose up -d
 
 - **Gateway**: exposed on host as `http://localhost:9080` by default (`BACKEND_PORT` in `.env`). To use the client’s default `BaseUrl` (`http://localhost:8080`), set `BACKEND_PORT=8080` in `.env` before `docker compose up`. Profile, task, telemetry run on the Docker network and are not exposed.
 
+### Coach / `/api/ai/*` returns 404
+
+The gateway proxies `/api/ai/*` to **omni-ai** via **`AI_URL`** (Compose sets `http://ai:8000` by default). A **404** on `/api/ai/chat/...` or `/api/ai/focus-score/...` almost always means **`AI_URL` points at the wrong process** (e.g. profile `8081` or telemetry) or omni-ai is not running. For a **local** gateway on the host, use `AI_URL=http://127.0.0.1:8000` (see `Makefile` `run-gateway`). The client **`Backend:BaseUrl`** must be the **gateway root only** — not `.../api` — or paths become `/api/api/...` and return 404.
+
+**Do not** put `/api/ai` on `AI_URL` (e.g. not `http://localhost:8000/api/ai`): the reverse proxy joins the base path with the full request path, which would double the prefix and yield 404. The gateway **strips** a trailing `/api/ai` from `AI_URL` at startup and logs a hint if it did.
+
+On startup, when `AI_URL` is set, the gateway **blocks** until `GET {AI_URL}/health` returns 200 with body containing `omni-ai`, so a wrong target fails fast instead of failing at first coach request. Set **`AI_SKIP_HEALTHCHECK=1`** to disable (e.g. unusual deployments). For local coach, run omni-ai with **`make run-ai`** (repo root); **`make run-all-backend`** does not start it.
+
 ## API (via gateway)
 
 - **POST /api/auth/register** — Create account. Body: `{"email":"...","password":"..."}`. Returns user + JWT.

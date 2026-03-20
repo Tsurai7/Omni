@@ -46,13 +46,19 @@ public sealed class CalendarService
         try
         {
             using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode) return null;
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                Debug.WriteLine($"CalendarService.GetAuthUrlAsync: HTTP {(int)response.StatusCode} — {body}");
+                return null;
+            }
             var result = await response.Content.ReadFromJsonAsync<CalendarAuthUrl>(_jsonOptions, cancellationToken).ConfigureAwait(false);
+            Debug.WriteLine($"CalendarService.GetAuthUrlAsync: URL={result?.Url}");
             return result?.Url;
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"CalendarService.GetAuthUrlAsync: {ex.Message}");
+            Debug.WriteLine($"CalendarService.GetAuthUrlAsync: {ex.GetType().Name}: {ex.Message}");
             return null;
         }
     }
@@ -164,6 +170,49 @@ public sealed class CalendarService
         {
             Debug.WriteLine($"CalendarService.GetEventsAsync: {ex.Message}");
             return new List<CalendarEvent>();
+        }
+    }
+
+    /// <summary>Creates a new event directly on Google Calendar.</summary>
+    public async Task<bool> CreateGoogleEventAsync(
+        string title, DateTime start, DateTime? end, bool isAllDay,
+        string? description = null,
+        CancellationToken cancellationToken = default)
+    {
+        var token = await GetTokenOrNullAsync(cancellationToken).ConfigureAwait(false);
+        if (token == null) return false;
+
+        var payload = new
+        {
+            title,
+            description,
+            start_at  = start.ToUniversalTime().ToString("O"),
+            end_at    = end?.ToUniversalTime().ToString("O"),
+            is_all_day = isAllDay,
+        };
+
+        var body    = JsonSerializer.Serialize(payload, _jsonOptions);
+        var request = new HttpRequestMessage(HttpMethod.Post, "api/calendar/events");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
+
+        try
+        {
+            using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (response.IsSuccessStatusCode)
+            {
+                // Refresh events after creation
+                await SyncAsync(cancellationToken).ConfigureAwait(false);
+                return true;
+            }
+            var err = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            Debug.WriteLine($"CalendarService.CreateGoogleEventAsync: HTTP {(int)response.StatusCode} — {err}");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"CalendarService.CreateGoogleEventAsync: {ex.Message}");
+            return false;
         }
     }
 

@@ -52,3 +52,17 @@ type AuthURLResponse struct {
 type ConnectRequest struct {
 	Code string `json:"code"`
 }
+
+// CreateEventRequest is the body for POST /calendar/events.
+type CreateEventRequest struct {
+	Title       string  `json:"title"`
+	Description *string `json:"description,omitempty"`
+	StartAt     string  `json:"start_at"`
+	EndAt       *string `json:"end_at,omitempty"`
+	IsAllDay    bool    `json:"is_all_day"`
+}
+
+// CreateEventResponse is the response for POST /calendar/events.
+type CreateEventResponse struct {
+	GoogleEventID string `json:"google_event_id"`
+}

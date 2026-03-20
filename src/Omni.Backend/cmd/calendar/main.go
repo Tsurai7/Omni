@@ -33,7 +33,7 @@ func main() {
 	googleClientSecret := os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET")
 	googleRedirectURI := os.Getenv("GOOGLE_OAUTH_REDIRECT_URI")
 	if googleRedirectURI == "" {
-		googleRedirectURI = "omni://calendar/connected"
+		googleRedirectURI = "http://localhost:8080/api/calendar/auth/google/callback"
 	}
 
 	ctx := context.Background()
@@ -68,6 +68,9 @@ func main() {
 	}))
 
 	api := router.Group("/api")
+	// Public: OAuth callback (no auth — Google redirects here after consent)
+	api.GET("/calendar/auth/google/callback", h.Callback)
+
 	calGroup := api.Group("/calendar").Use(middleware.AuthRequired(cfg.JWTSecret, log))
 	{
 		calGroup.GET("/auth/google", h.GetAuthURL)
@@ -75,6 +78,7 @@ func main() {
 		calGroup.DELETE("/auth/google", h.Disconnect)
 		calGroup.GET("/status", h.Status)
 		calGroup.GET("/events", h.ListEvents)
+		calGroup.POST("/events", h.CreateEvent)
 		calGroup.POST("/sync", h.Sync)
 	}
 

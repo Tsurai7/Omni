@@ -288,6 +288,123 @@ func (h *Handler) ListEvents(c *gin.Context) {
 	c.JSON(http.StatusOK, EventsResponse{Events: events})
 }
 
+// Callback handles the Google OAuth2 redirect from the browser (no auth middleware).
+// State contains the user ID passed through from GetAuthURL.
+func (h *Handler) Callback(c *gin.Context) {
+	code := c.Query("code")
+	userID := c.Query("state")
+	if code == "" || userID == "" {
+		c.Data(http.StatusBadRequest, "text/html; charset=utf-8", []byte(
+			`<!doctype html><html><body style="font-family:sans-serif;text-align:center;padding:60px">
+<h2>❌ Authorization failed</h2><p>Missing code or state. Please try again in the app.</p></body></html>`))
+		return
+	}
+
+	ctx := c.Request.Context()
+	tr, err := h.google.ExchangeCode(ctx, code)
+	if err != nil {
+		h.logger.Error("google code exchange failed", "user_id", userID, "error", err)
+		c.Data(http.StatusBadRequest, "text/html; charset=utf-8", []byte(
+			`<!doctype html><html><body style="font-family:sans-serif;text-align:center;padding:60px">
+<h2>❌ Authorization failed</h2><p>Could not exchange authorization code. Please try again.</p></body></html>`))
+		return
+	}
+
+	email, _ := h.google.GetUserEmail(ctx, tr.AccessToken)
+	expiresAt := time.Now().Add(time.Duration(tr.ExpiresIn) * time.Second)
+
+	_, err = h.pool.Exec(ctx,
+		`INSERT INTO user_google_tokens (user_id, access_token, refresh_token, expires_at, email)
+		 VALUES ($1, $2, $3, $4, $5)
+		 ON CONFLICT (user_id) DO UPDATE
+		   SET access_token = EXCLUDED.access_token,
+		       refresh_token = CASE WHEN EXCLUDED.refresh_token != '' THEN EXCLUDED.refresh_token
+		                            ELSE user_google_tokens.refresh_token END,
+		       expires_at = EXCLUDED.expires_at,
+		       email = EXCLUDED.email,
+		       connected_at = NOW()`,
+		userID, tr.AccessToken, tr.RefreshToken, expiresAt, email)
+	if err != nil {
+		h.logger.Error("failed to store google token", "user_id", userID, "error", err)
+		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8", []byte(
+			`<!doctype html><html><body style="font-family:sans-serif;text-align:center;padding:60px">
+<h2>❌ Authorization failed</h2><p>Could not save credentials. Please try again.</p></body></html>`))
+		return
+	}
+
+	go func() {
+		if err := h.syncer.SyncForUser(context.Background(), userID); err != nil {
+			h.logger.Warn("initial sync failed", "user_id", userID, "error", err)
+		}
+	}()
+
+	h.logger.Info("google calendar connected via callback", "user_id", userID, "email", email)
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(
+		`<!doctype html><html><body style="font-family:sans-serif;text-align:center;padding:60px;background:#0f0f13;color:#e0e0e0">
+<h2 style="color:#7c6bff">✅ Google Calendar connected!</h2>
+<p>You can close this tab and return to Omni.</p>
+<script>setTimeout(()=>window.close(),2000)</script></body></html>`))
+}
+
+// CreateEvent creates a new event directly on Google Calendar for the authenticated user.
+func (h *Handler) CreateEvent(c *gin.Context) {
+	claims := middleware.GetClaims(c)
+	if claims == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req CreateEventRequest
+	if err := c.ShouldBindJSON(&req); err != nil || req.Title == "" || req.StartAt == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "title and start_at are required"})
+		return
+	}
+
+	start, err := time.Parse(time.RFC3339, req.StartAt)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid start_at format (use RFC3339)"})
+		return
+	}
+
+	var endTime *time.Time
+	if req.EndAt != nil && *req.EndAt != "" {
+		t, err := time.Parse(time.RFC3339, *req.EndAt)
+		if err == nil {
+			endTime = &t
+		}
+	}
+
+	ctx := c.Request.Context()
+	token, err := h.syncer.getValidToken(ctx, claims.UserID)
+	if err != nil {
+		h.logger.Error("failed to get valid google token", "user_id", claims.UserID, "error", err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Google Calendar not connected"})
+		return
+	}
+
+	desc := ""
+	if req.Description != nil {
+		desc = *req.Description
+	}
+
+	evt, err := h.google.CreateEvent(ctx, token, req.Title, desc, start, endTime, req.IsAllDay)
+	if err != nil {
+		h.logger.Error("failed to create google calendar event", "user_id", claims.UserID, "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create event"})
+		return
+	}
+
+	// Trigger a pull sync in the background so the new event appears in calendar_events
+	go func() {
+		if err := h.syncer.SyncForUser(context.Background(), claims.UserID); err != nil {
+			h.logger.Warn("sync after create failed", "user_id", claims.UserID, "error", err)
+		}
+	}()
+
+	h.logger.Info("google calendar event created", "user_id", claims.UserID, "event_id", evt.ID)
+	c.JSON(http.StatusOK, CreateEventResponse{GoogleEventID: evt.ID})
+}
+
 // Sync triggers a manual sync for the authenticated user.
 func (h *Handler) Sync(c *gin.Context) {
 	claims := middleware.GetClaims(c)

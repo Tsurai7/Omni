@@ -12,11 +12,18 @@ public partial class TasksPage : ContentPage, INotifyPropertyChanged
 {
     private ITaskService? _taskService;
     private LocalDatabaseService? _localDb;
-    private TaskDisplayItem? _draggingTask;
 
     private ObservableCollection<TaskDisplayItem> _todoTasks       = new();
     private ObservableCollection<TaskDisplayItem> _inProgressTasks = new();
     private ObservableCollection<TaskDisplayItem> _doneTasks       = new();
+
+    private string _selectedFilter = "All";
+    private bool   _isDoneExpanded = false;
+
+    private static readonly Color PillActiveBg   = Color.FromArgb("#4ECCA3");
+    private static readonly Color PillActiveFg   = Color.FromArgb("#0F1210");
+    private static readonly Color PillInactiveBg = Color.FromArgb("#222228");
+    private static readonly Color PillInactiveFg = Color.FromArgb("#9898A8");
 
     public TasksPage()
     {
@@ -68,27 +75,136 @@ public partial class TasksPage : ContentPage, INotifyPropertyChanged
     public ICommand DeleteTaskCommand    { get; }
     public ICommand CyclePriorityCommand { get; }
 
+    // ── Collections ──────────────────────────────────────────────────────
+
     public ObservableCollection<TaskDisplayItem> TodoTasks
     {
         get => _todoTasks;
-        set { _todoTasks = value; OnPropertyChanged(); OnPropertyChanged(nameof(TodoCount)); }
+        set { _todoTasks = value; OnPropertyChanged(); NotifyCountDependents(); }
     }
 
     public ObservableCollection<TaskDisplayItem> InProgressTasks
     {
         get => _inProgressTasks;
-        set { _inProgressTasks = value; OnPropertyChanged(); OnPropertyChanged(nameof(InProgressCount)); }
+        set { _inProgressTasks = value; OnPropertyChanged(); NotifyCountDependents(); }
     }
 
     public ObservableCollection<TaskDisplayItem> DoneTasks
     {
         get => _doneTasks;
-        set { _doneTasks = value; OnPropertyChanged(); OnPropertyChanged(nameof(DoneCount)); }
+        set { _doneTasks = value; OnPropertyChanged(); NotifyCountDependents(); }
     }
 
     public int TodoCount       => _todoTasks.Count;
     public int InProgressCount => _inProgressTasks.Count;
     public int DoneCount       => _doneTasks.Count;
+    public int TotalCount      => TodoCount + InProgressCount + DoneCount;
+
+    // ── Progress / Empty ─────────────────────────────────────────────────
+
+    public string ProgressSummary => TotalCount == 0
+        ? "No tasks yet"
+        : $"{DoneCount} of {TotalCount} done";
+
+    public bool HasNoTasks => TotalCount == 0;
+
+    // ── Filter ───────────────────────────────────────────────────────────
+
+    public string SelectedFilter
+    {
+        get => _selectedFilter;
+        set
+        {
+            _selectedFilter = value;
+            if (value == "Done") _isDoneExpanded = true;
+            NotifyFilterDependents();
+        }
+    }
+
+    public bool ShowTodoSection       => (SelectedFilter == "All" && TodoCount > 0) || SelectedFilter == "Todo";
+    public bool ShowInProgressSection => (SelectedFilter == "All" && InProgressCount > 0) || SelectedFilter == "Active";
+    public bool ShowDoneSection       => (SelectedFilter == "All" && DoneCount > 0) || SelectedFilter == "Done";
+    public bool ShowDoneToggle        => ShowDoneSection && SelectedFilter == "All";
+    public bool ShowDoneItems         => SelectedFilter == "Done" || (SelectedFilter == "All" && IsDoneExpanded);
+
+    // Filter pill labels
+    public string FilterTodoLabel   => TodoCount > 0       ? $"Todo ({TodoCount})"         : "Todo";
+    public string FilterActiveLabel => InProgressCount > 0 ? $"Active ({InProgressCount})" : "Active";
+    public string FilterDoneLabel   => DoneCount > 0       ? $"Done ({DoneCount})"         : "Done";
+
+    // Filter pill colors
+    public Color FilterAllBg    => SelectedFilter == "All"    ? PillActiveBg : PillInactiveBg;
+    public Color FilterAllFg    => SelectedFilter == "All"    ? PillActiveFg : PillInactiveFg;
+    public Color FilterTodoBg   => SelectedFilter == "Todo"   ? PillActiveBg : PillInactiveBg;
+    public Color FilterTodoFg   => SelectedFilter == "Todo"   ? PillActiveFg : PillInactiveFg;
+    public Color FilterActiveBg => SelectedFilter == "Active" ? PillActiveBg : PillInactiveBg;
+    public Color FilterActiveFg => SelectedFilter == "Active" ? PillActiveFg : PillInactiveFg;
+    public Color FilterDoneBg   => SelectedFilter == "Done"   ? PillActiveBg : PillInactiveBg;
+    public Color FilterDoneFg   => SelectedFilter == "Done"   ? PillActiveFg : PillInactiveFg;
+
+    // ── Done collapse ─────────────────────────────────────────────────────
+
+    public bool IsDoneExpanded
+    {
+        get => _isDoneExpanded;
+        set
+        {
+            _isDoneExpanded = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(DoneToggleLabel));
+            OnPropertyChanged(nameof(ShowDoneItems));
+        }
+    }
+
+    public string DoneToggleLabel => IsDoneExpanded
+        ? $"▴  Hide completed ({DoneCount})"
+        : $"▾  Show completed ({DoneCount})";
+
+    // ── Filter handlers ───────────────────────────────────────────────────
+
+    private void OnFilterAll(object? sender, EventArgs e)    => SelectedFilter = "All";
+    private void OnFilterTodo(object? sender, EventArgs e)   => SelectedFilter = "Todo";
+    private void OnFilterActive(object? sender, EventArgs e) => SelectedFilter = "Active";
+    private void OnFilterDone(object? sender, EventArgs e)   => SelectedFilter = "Done";
+
+    private void OnToggleDoneExpanded(object? sender, EventArgs e) => IsDoneExpanded = !IsDoneExpanded;
+
+    // ── Change notification helpers ───────────────────────────────────────
+
+    private void NotifyCountDependents()
+    {
+        OnPropertyChanged(nameof(TodoCount));
+        OnPropertyChanged(nameof(InProgressCount));
+        OnPropertyChanged(nameof(DoneCount));
+        OnPropertyChanged(nameof(TotalCount));
+        NotifyFilterDependents();
+    }
+
+    private void NotifyFilterDependents()
+    {
+        OnPropertyChanged(nameof(SelectedFilter));
+        OnPropertyChanged(nameof(ProgressSummary));
+        OnPropertyChanged(nameof(HasNoTasks));
+        OnPropertyChanged(nameof(ShowTodoSection));
+        OnPropertyChanged(nameof(ShowInProgressSection));
+        OnPropertyChanged(nameof(ShowDoneSection));
+        OnPropertyChanged(nameof(ShowDoneToggle));
+        OnPropertyChanged(nameof(ShowDoneItems));
+        OnPropertyChanged(nameof(FilterTodoLabel));
+        OnPropertyChanged(nameof(FilterActiveLabel));
+        OnPropertyChanged(nameof(FilterDoneLabel));
+        OnPropertyChanged(nameof(DoneToggleLabel));
+        OnPropertyChanged(nameof(FilterAllBg));
+        OnPropertyChanged(nameof(FilterAllFg));
+        OnPropertyChanged(nameof(FilterTodoBg));
+        OnPropertyChanged(nameof(FilterTodoFg));
+        OnPropertyChanged(nameof(FilterActiveBg));
+        OnPropertyChanged(nameof(FilterActiveFg));
+        OnPropertyChanged(nameof(FilterDoneBg));
+        OnPropertyChanged(nameof(FilterDoneFg));
+    }
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────
 
     protected override async void OnAppearing()
     {
@@ -125,7 +241,6 @@ public partial class TasksPage : ContentPage, INotifyPropertyChanged
                     merged.Add(TaskDisplayItem.FromLocalTask(t));
             }
 
-            // Sort by priority (high first) then newest first
             var priorityOrder = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
                 { ["high"] = 0, ["medium"] = 1, ["low"] = 2 };
             merged = merged
@@ -148,6 +263,7 @@ public partial class TasksPage : ContentPage, INotifyPropertyChanged
     }
 
     // ── Add ──────────────────────────────────────────────────────────────
+
     private async void OnAddTaskClicked(object? sender, EventArgs e)
     {
         var title = await DisplayPromptAsync(
@@ -185,18 +301,17 @@ public partial class TasksPage : ContentPage, INotifyPropertyChanged
 
     private static Task<DateTime?> PickDateAsync()
     {
-        // DatePicker isn't available as async; return a week from now as sensible default
-        // A full date picker sheet would require a custom overlay — deferred to CalendarPage flow
         return Task.FromResult<DateTime?>(DateTime.Today.AddDays(7));
     }
 
     // ── Edit ─────────────────────────────────────────────────────────────
+
     private async Task EditTaskAsync(TaskDisplayItem item)
     {
         var newTitle = await DisplayPromptAsync(
             "Edit task", "Update the task title:", "Save", "Cancel",
             initialValue: item.Title, placeholder: item.Title);
-        if (newTitle == null) return; // user cancelled
+        if (newTitle == null) return;
 
         var priorityChoice = await DisplayActionSheetAsync(
             "Priority", "Keep current", null,
@@ -206,7 +321,7 @@ public partial class TasksPage : ContentPage, INotifyPropertyChanged
             "high"   => "high",
             "medium" => "medium",
             "low"    => "low",
-            _        => item.Priority, // "Keep current" or cancelled
+            _        => item.Priority,
         };
 
         var currentDueLabel = item.HasDueDate ? item.DueDateLabel : "None";
@@ -215,11 +330,11 @@ public partial class TasksPage : ContentPage, INotifyPropertyChanged
             "Today", "Tomorrow", "This week", "Remove due date");
         DateTime? newDueDate = dueDateChoice switch
         {
-            "Today"          => DateTime.Today,
-            "Tomorrow"       => DateTime.Today.AddDays(1),
-            "This week"      => DateTime.Today.AddDays(7 - (int)DateTime.Today.DayOfWeek),
-            "Remove due date" => (DateTime?)null,
-            _                => item.DueDateParsed, // "Keep current"
+            "Today"            => DateTime.Today,
+            "Tomorrow"         => DateTime.Today.AddDays(1),
+            "This week"        => DateTime.Today.AddDays(7 - (int)DateTime.Today.DayOfWeek),
+            "Remove due date"  => (DateTime?)null,
+            _                  => item.DueDateParsed,
         };
 
         var finalTitle = string.IsNullOrWhiteSpace(newTitle) ? item.Title : newTitle.Trim();
@@ -227,47 +342,8 @@ public partial class TasksPage : ContentPage, INotifyPropertyChanged
         await LoadAsync();
     }
 
-    // ── Drag & Drop ───────────────────────────────────────────────────────
-    private void OnDragStarting(object? sender, DragStartingEventArgs e)
-    {
-        if (sender is View view && view.BindingContext is TaskDisplayItem task)
-        {
-            _draggingTask = task;
-            e.Data.Properties["taskId"] = task.Id;
-        }
-    }
-
-    private async void OnDropPending(object? sender, DropEventArgs e)
-    {
-        if (_draggingTask != null && !_draggingTask.IsPending)
-        {
-            await GetTaskService().UpdateStatusAsync(_draggingTask.Id, "pending");
-            await LoadAsync();
-        }
-        _draggingTask = null;
-    }
-
-    private async void OnDropInProgress(object? sender, DropEventArgs e)
-    {
-        if (_draggingTask != null && !_draggingTask.IsInProgress)
-        {
-            await GetTaskService().UpdateStatusAsync(_draggingTask.Id, "in_progress");
-            await LoadAsync();
-        }
-        _draggingTask = null;
-    }
-
-    private async void OnDropDone(object? sender, DropEventArgs e)
-    {
-        if (_draggingTask != null && !_draggingTask.IsDone)
-        {
-            await GetTaskService().UpdateStatusAsync(_draggingTask.Id, "done");
-            await LoadAsync();
-        }
-        _draggingTask = null;
-    }
-
     // ── INotifyPropertyChanged ────────────────────────────────────────────
+
     public new event PropertyChangedEventHandler? PropertyChanged;
     protected new void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

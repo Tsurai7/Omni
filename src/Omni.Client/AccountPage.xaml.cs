@@ -175,7 +175,7 @@ public partial class AccountPage : ContentPage, INotifyPropertyChanged
             return;
         }
 
-        // Get the OAuth URL and open it in the browser
+        // Open Google sign-in in the system browser; backend handles the callback
         GCalConnectButton.IsEnabled = false;
         GCalStatusLabel.Text = "Opening Google sign-in…";
 
@@ -190,31 +190,16 @@ public partial class AccountPage : ContentPage, INotifyPropertyChanged
                 return;
             }
 
-            // Use MAUI WebAuthenticator for OAuth flow
-            var callbackUri = new Uri("omni://calendar/connected");
-            try
-            {
-                var result = await WebAuthenticator.Default.AuthenticateAsync(
-                    new Uri(authUrl), callbackUri);
+            await Browser.Default.OpenAsync(authUrl, BrowserLaunchMode.SystemPreferred);
 
-                var code = result.Properties.TryGetValue("code", out var c) ? c : null;
-                if (!string.IsNullOrEmpty(code))
-                {
-                    GCalStatusLabel.Text = "Connecting…";
-                    var success = await svc.ConnectAsync(code);
-                    if (!success)
-                        await DisplayAlertAsync("Error", "Failed to connect Google Calendar. Please try again.", "OK");
-                }
-            }
-            catch (TaskCanceledException)
-            {
-                // User cancelled the OAuth flow
-            }
+            // Ask user to confirm they've completed sign-in
+            await DisplayAlertAsync("Google Calendar",
+                "Complete sign-in in the browser, then tap OK to refresh status.", "OK");
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"AccountPage.OnGCalConnectClicked: {ex.Message}");
-            await DisplayAlertAsync("Error", "Google sign-in failed. Please try again.", "OK");
+            await DisplayAlertAsync("Error", "Could not open Google sign-in. Please try again.", "OK");
         }
 
         GCalConnectButton.IsEnabled = true;
@@ -229,13 +214,6 @@ public partial class AccountPage : ContentPage, INotifyPropertyChanged
         GCalSyncButton.IsEnabled = true;
         GCalLastSyncLabel.Text = success ? $"Synced {DateTime.Now:HH:mm}" : "Sync failed";
     }
-
-    // ── Helper (thread-safe alert) ────────────────────────────────────────
-    private Task<bool> DisplayAlertAsync(string title, string message, string accept, string cancel) =>
-        MainThread.InvokeOnMainThreadAsync(() => DisplayAlert(title, message, accept, cancel));
-
-    private Task DisplayAlertAsync(string title, string message, string cancel) =>
-        MainThread.InvokeOnMainThreadAsync(() => DisplayAlert(title, message, cancel));
 
     public new event PropertyChangedEventHandler? PropertyChanged;
     protected new void OnPropertyChanged([CallerMemberName] string? name = null) =>

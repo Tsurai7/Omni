@@ -10,7 +10,6 @@ public sealed class NotificationManagerService : INotificationManager
 {
     private int _messageId;
     private bool _hasPermission;
-    private static DateTime _lastHelpShownUtc = DateTime.MinValue;
 
     public NotificationManagerService()
     {
@@ -75,39 +74,20 @@ public sealed class NotificationManagerService : INotificationManager
             _hasPermission = approved;
             if (err != null)
                 System.Diagnostics.Debug.WriteLine($"[NotificationManager] RequestAuthorization error at startup: {err.LocalizedDescription} (code={(long)err.Code})");
-            if (!approved)
-                ShowNotificationHelpOnMainThread();
             tcs.TrySetResult(approved);
         });
         await tcs.Task;
     }
 
-    /// <summary>Show the notification content in an in-app alert when system permission is denied (e.g. running from IDE without code signing).</summary>
+    /// <summary>Show the notification content in an in-app alert when system permission is denied.</summary>
     private static void ShowInAppFallback(string title, string body)
     {
         var window = Application.Current?.Windows?.FirstOrDefault();
         var page = window?.Page;
         if (page == null) return;
-        var hint = " To get these as system notifications, run the app from the built .app (see run-mac-app.sh in the project).";
         MainThread.BeginInvokeOnMainThread(async () =>
         {
-            await page.DisplayAlertAsync(title, body + hint, "OK");
-        });
-    }
-
-    private static void ShowNotificationHelpOnMainThread()
-    {
-        if ((DateTime.UtcNow - _lastHelpShownUtc).TotalMinutes < 2) return;
-        _lastHelpShownUtc = DateTime.UtcNow;
-        var window = Application.Current?.Windows?.FirstOrDefault();
-        var page = window?.Page;
-        if (page == null) return;
-        MainThread.BeginInvokeOnMainThread(async () =>
-        {
-            await page.DisplayAlertAsync(
-                "Notifications",
-                "Omni cannot request notification permission when run from the IDE (UNErrorDomain error 1). Run from the built .app instead:\n\n• From project folder: ./run-mac-app.sh\n• Or: dotnet build Omni.Client.csproj -f net10.0-maccatalyst -c Debug -r maccatalyst-arm64 -p:SkipMacCodesign=true then open the .app in bin/Debug/net10.0-maccatalyst/maccatalyst-arm64/ (or maccatalyst-x64 on Intel)\n\nWith an Apple Development certificate (no -p:SkipMacCodesign), allow notifications when prompted and Omni will appear in System Settings → Notifications. Without a cert you still get distraction alerts in-app.",
-                "OK");
+            await page.DisplayAlertAsync(title, body, "OK");
         });
     }
 }
