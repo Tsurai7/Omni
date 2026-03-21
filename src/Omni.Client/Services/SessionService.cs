@@ -39,27 +39,44 @@ public sealed class SessionService : ISessionService
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         request.Content = JsonContent.Create(syncRequest, options: _jsonOptions);
 
-        using var response = await _http.SendAsync(request, cancellationToken);
-        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        try
         {
-            Debug.WriteLine("SessionService.SyncSessionsAsync: 401 Unauthorized, clearing token.");
-            _authService.Logout();
+            using var response = await _http.SendAsync(request, cancellationToken);
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                Debug.WriteLine("SessionService.SyncSessionsAsync: 401 Unauthorized, clearing token.");
+                _authService.Logout();
+            }
+            if (!response.IsSuccessStatusCode)
+            {
+                Debug.WriteLine($"SessionService.SyncSessionsAsync: sync failed {response.StatusCode}");
+                try
+                {
+                    var payload = JsonSerializer.Serialize(syncRequest, _jsonOptions);
+                    await _localDb.SavePendingSyncAsync("session", payload, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"SessionService.SyncSessionsAsync: failed to save pending sync: {ex.Message}");
+                }
+                return false;
+            }
+            return true;
         }
-        if (!response.IsSuccessStatusCode)
+        catch (HttpRequestException ex)
         {
-            Debug.WriteLine($"SessionService.SyncSessionsAsync: sync failed {response.StatusCode}");
+            Debug.WriteLine($"SessionService.SyncSessionsAsync: network error: {ex.Message}");
             try
             {
                 var payload = JsonSerializer.Serialize(syncRequest, _jsonOptions);
                 await _localDb.SavePendingSyncAsync("session", payload, cancellationToken);
             }
-            catch (Exception ex)
+            catch (Exception dbEx)
             {
-                Debug.WriteLine($"SessionService.SyncSessionsAsync: failed to save pending sync: {ex.Message}");
+                Debug.WriteLine($"SessionService.SyncSessionsAsync: failed to save pending sync: {dbEx.Message}");
             }
             return false;
         }
-        return true;
     }
 
     public async Task<SessionListResponse?> GetSessionsAsync(string? from = null, string? to = null, CancellationToken cancellationToken = default)
@@ -77,21 +94,29 @@ public sealed class SessionService : ISessionService
         var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        using var response = await _http.SendAsync(request, cancellationToken);
-        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-        {
-            Debug.WriteLine("SessionService.GetSessionsAsync: 401 Unauthorized, clearing token.");
-            _authService.Logout();
-        }
-        if (!response.IsSuccessStatusCode)
-            return null;
         try
         {
-            var body = await response.Content.ReadFromJsonAsync<SessionListResponse>(_jsonOptions, cancellationToken);
-            return body;
+            using var response = await _http.SendAsync(request, cancellationToken);
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                Debug.WriteLine("SessionService.GetSessionsAsync: 401 Unauthorized, clearing token.");
+                _authService.Logout();
+            }
+            if (!response.IsSuccessStatusCode)
+                return null;
+            try
+            {
+                var body = await response.Content.ReadFromJsonAsync<SessionListResponse>(_jsonOptions, cancellationToken);
+                return body;
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
         }
-        catch (JsonException)
+        catch (HttpRequestException ex)
         {
+            Debug.WriteLine($"SessionService.GetSessionsAsync: network error: {ex.Message}");
             return null;
         }
     }

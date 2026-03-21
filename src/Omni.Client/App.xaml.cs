@@ -7,6 +7,11 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
+
+        // Global exception handlers: catch anything that escapes task/event handlers
+        // and show a user-friendly popup instead of a silent crash.
+        AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
+        TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
     }
 
     protected override Window CreateWindow(IActivationState? activationState)
@@ -16,6 +21,41 @@ public partial class App : Application
         StartBackgroundServices();
         return window;
     }
+
+    // ── Global exception handlers ──────────────────────────────────────────
+
+    private void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
+    {
+        var message = (e.ExceptionObject as Exception)?.Message ?? e.ExceptionObject?.ToString() ?? "Unknown error";
+        ShowExceptionPopup("Unexpected Error", message);
+    }
+
+    private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    {
+        e.SetObserved(); // prevent process termination
+        var message = e.Exception?.GetBaseException()?.Message ?? e.Exception?.Message ?? "Unknown error";
+        ShowExceptionPopup("Background Error", message);
+    }
+
+    private void ShowExceptionPopup(string title, string message)
+    {
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            try
+            {
+                var page = Windows.Count > 0 ? Windows[0].Page : null;
+                if (page != null)
+                    await page.DisplayAlert(title, message, "OK");
+            }
+            catch
+            {
+                // If we cannot show a dialog, at minimum log – better than crashing the handler
+                System.Diagnostics.Debug.WriteLine($"[App] Unhandled: {title} — {message}");
+            }
+        });
+    }
+
+    // ── Startup ───────────────────────────────────────────────────────────
 
     private static void StartBackgroundServices()
     {

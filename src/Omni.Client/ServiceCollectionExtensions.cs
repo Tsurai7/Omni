@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Omni.Client.Abstractions;
@@ -31,10 +32,12 @@ public static class ServiceCollectionExtensions
                 client.BaseAddress = baseUri;
             client.Timeout = TimeSpan.FromSeconds(30);
         });
+        services.AddSingleton<ITokenStorage, MauiTokenStorage>();
         services.AddSingleton<IAuthService>(sp =>
             new AuthService(
                 sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackend"),
-                sp.GetRequiredService<JsonSerializerOptions>()));
+                sp.GetRequiredService<JsonSerializerOptions>(),
+                sp.GetRequiredService<ITokenStorage>()));
         services.AddSingleton<IUsageService>(sp =>
             new UsageService(
                 sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackend"),
@@ -110,7 +113,8 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredService<DistractionConfig>()));
         services.AddSingleton<IRunningSessionState, RunningSessionStateService>();
 
-        services.AddSingleton<LocalDatabaseService>();
+        services.AddSingleton(_ => new LocalDatabaseService(
+            Path.Combine(FileSystem.AppDataDirectory, "omni_local.db")));
         services.AddSingleton<ISyncService>(sp =>
             new SyncService(
                 sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackend"),

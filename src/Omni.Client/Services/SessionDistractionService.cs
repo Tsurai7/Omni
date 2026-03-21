@@ -88,10 +88,9 @@ public sealed class SessionDistractionService : ISessionDistractionService
                 return;
             }
 
-            var focusedSeconds = totalSeconds - _distractingSeconds;
-            var baseScore = 100.0 * focusedSeconds / totalSeconds;
-            var penalty = _distractionEventCount * _config.ScorePenaltyPerDistractionEvent;
-            var score = (int)Math.Round(Math.Max(0, Math.Min(100, baseScore - penalty)));
+            var score = SessionScoreCalculator.Calculate(
+                totalSeconds, _distractingSeconds, _distractionEventCount,
+                _config.ScorePenaltyPerDistractionEvent);
 
             var summaryParts = new List<string>();
             if (_distractionEventCount > 0)

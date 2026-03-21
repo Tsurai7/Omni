@@ -166,7 +166,7 @@ public sealed class TaskService : ITaskService
 
     public async Task<bool> UpdateTaskAsync(string taskId, string title, string priority, DateTime? dueDate = default, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(taskId) || string.IsNullOrEmpty(title))
+        if (string.IsNullOrWhiteSpace(taskId) || string.IsNullOrWhiteSpace(title))
             return false;
 
         var token = await _authService.GetTokenAsync(cancellationToken).ConfigureAwait(false);

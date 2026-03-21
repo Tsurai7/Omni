@@ -11,16 +11,18 @@ public sealed class AuthService : IAuthService
     private const string TokenKeyPreferences = "omni_jwt_token_prefs"; // fallback when SecureStorage fails (e.g. Mac Catalyst without Keychain)
     private readonly HttpClient _http;
     private readonly JsonSerializerOptions _jsonOptions;
+    private readonly ITokenStorage _tokenStorage;
     private string? _inMemoryToken;
     private UserResponse? _cachedUser;
 
     /// <inheritdoc/>
     public string? LastAuthError { get; private set; }
 
-    public AuthService(HttpClient http, JsonSerializerOptions jsonOptions)
+    public AuthService(HttpClient http, JsonSerializerOptions jsonOptions, ITokenStorage tokenStorage)
     {
         _http = http;
         _jsonOptions = jsonOptions;
+        _tokenStorage = tokenStorage;
     }
 
     public async Task<bool> IsAuthenticatedAsync(CancellationToken cancellationToken = default)
@@ -42,9 +44,9 @@ public sealed class AuthService : IAuthService
         }
 
         // Prefer SecureStorage; fallback to Preferences if Keychain isn't available (e.g. Mac Catalyst without entitlements)
-        var token = await SecureStorage.Default.GetAsync(TokenKey);
+        var token = await _tokenStorage.GetSecureAsync(TokenKey);
         if (string.IsNullOrEmpty(token))
-            token = Preferences.Default.Get(TokenKeyPreferences, "");
+            token = _tokenStorage.GetPreference(TokenKeyPreferences);
 
         if (!string.IsNullOrEmpty(token))
         {
@@ -61,7 +63,7 @@ public sealed class AuthService : IAuthService
     }
 
     /// <summary>Decodes the JWT payload and returns true if the token is expired or malformed.</summary>
-    private static bool IsTokenExpired(string token)
+    internal static bool IsTokenExpired(string token)
     {
         try
         {
@@ -98,55 +100,78 @@ public sealed class AuthService : IAuthService
             return null;
         if (_cachedUser != null)
             return _cachedUser;
-        using var request = new HttpRequestMessage(HttpMethod.Get, "api/auth/me");
-        request.Headers.Add("Authorization", "Bearer " + token);
-        using var response = await _http.SendAsync(request, cancellationToken);
-        if (!response.IsSuccessStatusCode)
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, "api/auth/me");
+            request.Headers.Add("Authorization", "Bearer " + token);
+            using var response = await _http.SendAsync(request, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+                return null;
+            var user = await response.Content.ReadFromJsonAsync<UserResponse>(_jsonOptions, cancellationToken);
+            if (user != null)
+                _cachedUser = user;
+            return user;
+        }
+        catch (HttpRequestException)
+        {
             return null;
-        var user = await response.Content.ReadFromJsonAsync<UserResponse>(_jsonOptions, cancellationToken);
-        if (user != null)
-            _cachedUser = user;
-        return user;
+        }
     }
 
     public async Task<RegisterResponse?> RegisterAsync(string email, string password, CancellationToken cancellationToken = default)
     {
         LastAuthError = null;
-        var request = new RegisterRequest(email.Trim(), password);
-        using var response = await _http.PostAsJsonAsync("api/auth/register", request, _jsonOptions, cancellationToken);
-        if (!response.IsSuccessStatusCode)
+        try
         {
-            LastAuthError = await ReadErrorAsync(response, cancellationToken);
+            var request = new RegisterRequest(email.Trim(), password);
+            using var response = await _http.PostAsJsonAsync("api/auth/register", request, _jsonOptions, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                LastAuthError = await ReadErrorAsync(response, cancellationToken);
+                return null;
+            }
+            var body = await response.Content.ReadFromJsonAsync<RegisterResponse>(_jsonOptions, cancellationToken);
+            if (body?.Token != null)
+            {
+                _inMemoryToken = body.Token;
+                // Persist in background so SecureStorage (e.g. Keychain on Mac Catalyst) does not block the UI
+                _ = PersistTokenAsync(body.Token);
+            }
+            return body;
+        }
+        catch (HttpRequestException ex)
+        {
+            LastAuthError = ex.Message;
             return null;
         }
-        var body = await response.Content.ReadFromJsonAsync<RegisterResponse>(_jsonOptions, cancellationToken);
-        if (body?.Token != null)
-        {
-            _inMemoryToken = body.Token;
-            // Persist in background so SecureStorage (e.g. Keychain on Mac Catalyst) does not block the UI
-            _ = PersistTokenAsync(body.Token);
-        }
-        return body;
     }
 
     public async Task<TokenResponse?> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
     {
         LastAuthError = null;
-        var request = new LoginRequest(email.Trim(), password);
-        using var response = await _http.PostAsJsonAsync("api/auth/login", request, _jsonOptions, cancellationToken);
-        if (!response.IsSuccessStatusCode)
+        try
         {
-            LastAuthError = await ReadErrorAsync(response, cancellationToken);
+            var request = new LoginRequest(email.Trim(), password);
+            using var response = await _http.PostAsJsonAsync("api/auth/login", request, _jsonOptions, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                LastAuthError = await ReadErrorAsync(response, cancellationToken);
+                return null;
+            }
+            var body = await response.Content.ReadFromJsonAsync<TokenResponse>(_jsonOptions, cancellationToken);
+            if (body?.Token != null)
+            {
+                _inMemoryToken = body.Token;
+                // Persist in background so SecureStorage (e.g. Keychain on Mac Catalyst) does not block the UI
+                _ = PersistTokenAsync(body.Token);
+            }
+            return body;
+        }
+        catch (HttpRequestException ex)
+        {
+            LastAuthError = ex.Message;
             return null;
         }
-        var body = await response.Content.ReadFromJsonAsync<TokenResponse>(_jsonOptions, cancellationToken);
-        if (body?.Token != null)
-        {
-            _inMemoryToken = body.Token;
-            // Persist in background so SecureStorage (e.g. Keychain on Mac Catalyst) does not block the UI
-            _ = PersistTokenAsync(body.Token);
-        }
-        return body;
     }
 
     /// <summary>Reads the server's JSON <c>{"error": "..."}</c> body, falling back to the HTTP status phrase.</summary>
@@ -167,20 +192,13 @@ public sealed class AuthService : IAuthService
     {
         _inMemoryToken = null;
         _cachedUser = null;
-        SecureStorage.Default.Remove(TokenKey);
-        Preferences.Default.Remove(TokenKeyPreferences);
+        _tokenStorage.RemoveSecure(TokenKey);
+        _tokenStorage.RemovePreference(TokenKeyPreferences);
     }
 
-    private static async Task PersistTokenAsync(string token)
+    private async Task PersistTokenAsync(string token)
     {
-        try
-        {
-            await SecureStorage.Default.SetAsync(TokenKey, token);
-        }
-        catch
-        {
-            // e.g. Mac Catalyst without Keychain entitlements
-        }
-        Preferences.Default.Set(TokenKeyPreferences, token);
+        await _tokenStorage.SetSecureAsync(TokenKey, token);
+        _tokenStorage.SetPreference(TokenKeyPreferences, token);
     }
 }

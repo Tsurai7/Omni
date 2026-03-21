@@ -9,15 +9,25 @@ namespace Omni.Client.Services;
 public sealed class LocalDatabaseService
 {
     private readonly Lazy<SQLiteAsyncConnection> _connection;
-    private const string FileName = "omni_local.db";
 
-    public LocalDatabaseService()
+    /// <param name="dbPath">Absolute path to the SQLite file, or a URI such as
+    /// <c>file:mydb?mode=memory&amp;cache=shared</c> for named in-memory databases (tests).</param>
+    public LocalDatabaseService(string dbPath)
     {
         _connection = new Lazy<SQLiteAsyncConnection>(() =>
         {
-            var path = Path.Combine(FileSystem.AppDataDirectory, FileName);
-            return new SQLiteAsyncConnection(path);
+            if (dbPath.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+                return new SQLiteAsyncConnection(dbPath,
+                    SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.Uri);
+            return new SQLiteAsyncConnection(dbPath);
         });
+    }
+
+    /// <summary>Closes the underlying connection. Call from test teardown to free in-memory databases.</summary>
+    public async Task CloseAsync()
+    {
+        if (_connection.IsValueCreated)
+            await _connection.Value.CloseAsync().ConfigureAwait(false);
     }
 
     public SQLiteAsyncConnection Connection => _connection.Value;
