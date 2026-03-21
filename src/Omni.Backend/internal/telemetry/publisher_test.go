@@ -1,6 +1,7 @@
 package telemetry
 
 import (
+	"log/slog"
 	"testing"
 	"time"
 
@@ -8,7 +9,7 @@ import (
 )
 
 func TestNewKafkaPublisher_EmptyBrokers_NoOp(t *testing.T) {
-	pub, err := NewKafkaPublisher("", "omni.telemetry.events")
+	pub, err := NewKafkaPublisher("", "omni.telemetry.events", slog.Default())
 	if err != nil {
 		t.Fatalf("NewKafkaPublisher: %v", err)
 	}
