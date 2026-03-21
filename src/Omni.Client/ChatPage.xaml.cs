@@ -346,7 +346,7 @@ public partial class ChatPage : ContentPage, INotifyPropertyChanged
         switch (action.Type)
         {
             case "start_session":
-                await Shell.Current.GoToAsync(nameof(SessionPage));
+                await Shell.Current.GoToAsync("///SessionPage");
                 break;
 
             case "create_task":
@@ -362,7 +362,7 @@ public partial class ChatPage : ContentPage, INotifyPropertyChanged
                 break;
 
             case "view_stats":
-                await Shell.Current.GoToAsync(nameof(UsageStatsPage));
+                await Shell.Current.GoToAsync("///UsageStatsPage");
                 break;
         }
     }

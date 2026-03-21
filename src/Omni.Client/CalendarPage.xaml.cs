@@ -835,7 +835,7 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
         if (!GetCalendarService().IsConnected)
         {
             // Navigate to account page to connect
-            await Shell.Current.GoToAsync(nameof(AccountPage));
+            await Shell.Current.GoToAsync("///AccountPage");
             return;
         }
 

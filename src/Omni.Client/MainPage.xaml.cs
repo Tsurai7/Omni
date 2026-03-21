@@ -245,7 +245,7 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
     {
         if (!string.IsNullOrEmpty(_currentNotificationId))
             _ = _productivityService.MarkAsReadAsync(_currentNotificationId);
-        await Shell.Current.GoToAsync(nameof(SessionPage));
+        await Shell.Current.GoToAsync("///SessionPage");
     });
 
     // ── Remote data loaders ───────────────────────────────────────────────────
@@ -473,10 +473,10 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
     }
 
     private async void OnStartSessionClicked(object? sender, EventArgs e)
-        => await Shell.Current.GoToAsync(nameof(SessionPage));
+        => await Shell.Current.GoToAsync("///SessionPage");
 
     private async void OnAddTaskClicked(object? sender, EventArgs e)
-        => await Shell.Current.GoToAsync(nameof(TasksPage));
+        => await Shell.Current.GoToAsync("///TasksPage");
 
     public new event PropertyChangedEventHandler? PropertyChanged;
     protected new virtual void OnPropertyChanged([System.Runtime.CompilerServices.CallerMemberName] string? propertyName = null)
