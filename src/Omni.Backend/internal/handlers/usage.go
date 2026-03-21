@@ -149,7 +149,6 @@ func (h *UsageHandler) List(c *gin.Context) {
 	if appFilter != "" {
 		query += fmt.Sprintf(" AND app_name = $%d", argNum)
 		args = append(args, appFilter)
-		argNum++
 	}
 	query += fmt.Sprintf(
 		` GROUP BY %s, app_name, category

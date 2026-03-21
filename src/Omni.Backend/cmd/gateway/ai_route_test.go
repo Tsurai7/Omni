@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,7 +18,7 @@ func TestAICatchAllRouteMatchesNestedPath(t *testing.T) {
 		c.String(http.StatusOK, c.Param("path"))
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/api/ai/chat/c6c32e87-05d5-447c-870d-e14a2b302f0b/starters", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/ai/chat/c6c32e87-05d5-447c-870d-e14a2b302f0b/starters", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {

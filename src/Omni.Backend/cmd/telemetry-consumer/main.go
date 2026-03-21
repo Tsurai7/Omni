@@ -14,11 +14,16 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/google/uuid"
 	"github.com/segmentio/kafka-go"
+
 	"omni-backend/internal/logger"
 	"omni-backend/internal/telemetry"
 )
 
-func waitForKafka(log interface{ Info(string, ...any); Warn(string, ...any); Error(string, ...any) }, brokers string, maxWait time.Duration) {
+func waitForKafka(log interface {
+	Info(string, ...any)
+	Warn(string, ...any)
+	Error(string, ...any)
+}, brokers string, maxWait time.Duration) {
 	brokerList := strings.Split(strings.TrimSpace(brokers), ",")
 	if len(brokerList) == 0 {
 		return
@@ -216,15 +221,16 @@ func insertBatch(ctx context.Context, conn driver.Conn, db string, events []tele
 		userID, _ := uuid.Parse(ev.UserID)
 		var at time.Time
 		var recordedAt, startedAt *time.Time
-		if ev.EventType == "usage" && !ev.RecordedAt.IsZero() {
+		switch {
+		case ev.EventType == "usage" && !ev.RecordedAt.IsZero():
 			at = ev.RecordedAt
 			t := ev.RecordedAt
 			recordedAt = &t
-		} else if !ev.StartedAt.IsZero() {
+		case !ev.StartedAt.IsZero():
 			at = ev.StartedAt
 			t := ev.StartedAt
 			startedAt = &t
-		} else {
+		default:
 			at = time.Now().UTC()
 		}
 		var appName, category, name, activityType *string

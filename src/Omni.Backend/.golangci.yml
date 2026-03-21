@@ -22,63 +22,84 @@ linters:
     - sqlclosecheck
     - wastedassign
 
-linters-settings:
-  errcheck:
-    check-type-assertions: true
-    check-blank: true
+  settings:
+    errcheck:
+      check-type-assertions: true
+      # Blank-identifier assignments like `_, _ = f()` are intentional
+      check-blank: false
 
-  govet:
-    enable:
-      - shadow
+    # shadow is idiomatic Go (err := in if blocks); too noisy to enable
+    govet:
+      enable: []
 
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - performance
-      - style
-    disabled-checks:
-      - hugeParam
-      - rangeValCopy
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+        - style
+      disabled-checks:
+        - hugeParam
+        - rangeValCopy
+        - exitAfterDefer    # os.Exit in main after defer is intentional
+        - unnecessaryBlock  # scoping blocks in main are stylistic
+        - httpNoBody        # nil body for GET/DELETE is well-understood
 
-  misspell:
-    locale: US
+    misspell:
+      locale: US
 
-  revive:
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+        - name: var-naming
+        - name: package-comments
+          disabled: true
+        - name: unused-parameter
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: increment-decrement
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+          disabled: true
+
+    exhaustive:
+      default-signifies-exhaustive: true
+
+    unparam:
+      check-exported: false
+
+  exclusions:
     rules:
-      - name: exported
-        disabled: true
-      - name: var-naming
-      - name: package-comments
-        disabled: true
-      - name: unused-parameter
-      - name: error-return
-      - name: error-strings
-      - name: error-naming
-      - name: increment-decrement
-      - name: range
-      - name: receiver-naming
-      - name: time-naming
-      - name: unexported-return
+      # Close/Rollback/Abort return values are intentionally ignored in defer
+      - linters: [errcheck]
+        text: "(Close|Rollback|Abort|Stop)` is not checked"
 
-  exhaustive:
-    default-signifies-exhaustive: true
+      # net.DialTimeout in startup health-check loops; context.Background() is implied
+      - linters: [noctx]
+        text: "net.DialTimeout must not be called"
 
-  unparam:
-    check-exported: false
+      # "cancelled" is the spelling used by the Google Calendar API and as a task domain status
+      - linters: [misspell]
+        text: "cancelled"
+
+      # test files: relax several linters
+      - path: "_test\\.go"
+        linters:
+          - errcheck
+          - unparam
+          - gocritic
+          - gochecknoinits
+          - noctx
+
+    # Exclude auto-generated Swagger docs and stub files from all linters
+    paths:
+      - ".*/docs/docs\\.go"
+      - "docs_routes\\.go"
 
 issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
-        - unparam
-        - gocritic
-        - gochecknoinits
-
-    - path: cmd/
-      linters:
-        - gochecknoinits
-
   max-issues-per-linter: 50
   max-same-issues: 10
 

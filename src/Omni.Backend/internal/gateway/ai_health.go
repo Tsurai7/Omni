@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -40,7 +41,12 @@ func CheckOmniAIAtStartup(aiURL string, log *slog.Logger) error {
 		if attempt > 0 {
 			time.Sleep(400 * time.Millisecond)
 		}
-		resp, err := client.Get(u)
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, u, nil)
+		if err != nil {
+			lastNetErr = err
+			continue
+		}
+		resp, err := client.Do(req)
 		if err != nil {
 			lastNetErr = err
 			continue
@@ -69,7 +75,12 @@ func LogAIReachability(aiURL string, log *slog.Logger) {
 		time.Sleep(800 * time.Millisecond)
 		client := &http.Client{Timeout: 5 * time.Second}
 		u := strings.TrimSuffix(aiURL, "/") + "/health"
-		resp, err := client.Get(u)
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, u, nil)
+		if err != nil {
+			log.Warn("ai health check: failed to create request", "url", u, "error", err)
+			return
+		}
+		resp, err := client.Do(req)
 		if err != nil {
 			log.Warn("ai health check failed (still starting or wrong host/port?)", "url", u, "error", err)
 			return

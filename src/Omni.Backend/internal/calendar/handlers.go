@@ -213,15 +213,15 @@ func (h *Handler) ListEvents(c *gin.Context) {
 		}
 		color := priorityColor(priority)
 		events = append(events, CalendarEvent{
-			ID:       "task-" + id,
-			UserID:   claims.UserID,
-			Title:    title,
-			StartAt:  dueDate,
-			IsAllDay: true,
-			Source:   "omni_task",
-			Priority: &priority,
+			ID:         "task-" + id,
+			UserID:     claims.UserID,
+			Title:      title,
+			StartAt:    dueDate,
+			IsAllDay:   true,
+			Source:     "omni_task",
+			Priority:   &priority,
 			TaskStatus: &status,
-			Color:    &color,
+			Color:      &color,
 			OmniTaskID: &id,
 		})
 	}

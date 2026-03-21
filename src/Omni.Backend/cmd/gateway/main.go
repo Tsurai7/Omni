@@ -69,7 +69,7 @@ func main() {
 		}
 	} else {
 		log.Info("Calendar service not configured, /api/calendar/* will return 503")
-		calendarProxy = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calendarProxy = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			http.Error(w, `{"error":"Calendar service not configured"}`, http.StatusServiceUnavailable)
 		})
 	}
@@ -83,7 +83,7 @@ func main() {
 		}
 	} else {
 		log.Info("AI service not configured, /api/ai/* will return 503")
-		aiProxy = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		aiProxy = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			http.Error(w, `{"error":"AI service not configured"}`, http.StatusServiceUnavailable)
 		})
 	}

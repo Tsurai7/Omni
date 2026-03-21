@@ -223,10 +223,10 @@ func (g *GoogleClient) ListEvents(ctx context.Context, accessToken string, timeM
 }
 
 type createEventBody struct {
-	Summary     string               `json:"summary"`
-	Description string               `json:"description,omitempty"`
-	Start       googleEventDateTime  `json:"start"`
-	End         googleEventDateTime  `json:"end"`
+	Summary     string              `json:"summary"`
+	Description string              `json:"description,omitempty"`
+	Start       googleEventDateTime `json:"start"`
+	End         googleEventDateTime `json:"end"`
 }
 
 type googleEventDateTime struct {
