@@ -4,8 +4,10 @@
              xmlns:controls="clr-namespace:Omni.Client.Controls"
              x:Class="Omni.Client.SessionPage"
              Title="Session"
-             Shell.NavBarIsVisible="False"
-             BackgroundColor="{StaticResource ProductivityPageBackground}">
+             Shell.NavBarIsVisible="False">
+    <ContentPage.Background>
+        <StaticResource Key="ProductivityPageGradient"/>
+    </ContentPage.Background>
 
     <Grid RowDefinitions="Auto,*">
 
@@ -13,7 +15,7 @@
              STEP 1 — INTENTION
              ════════════════════════════════════════════════════════════════ -->
         <Border x:Name="IntentionPanel" Grid.Row="0"
-                Margin="20,52,20,0" Padding="22,20"
+                Margin="20,24,20,0" Padding="22,20"
                 BackgroundColor="{StaticResource ProductivityCardBackground}"
                 Stroke="{StaticResource ProductivityCardStroke}"
                 StrokeThickness="1"
@@ -104,7 +106,7 @@
              STEP 2 — BREATHING RITUAL
              ════════════════════════════════════════════════════════════════ -->
         <Border x:Name="BreathingPanel" Grid.Row="0"
-                Margin="20,52,20,0" Padding="24,28"
+                Margin="20,24,20,0" Padding="24,28"
                 BackgroundColor="{StaticResource ProductivityCardBackground}"
                 Stroke="{StaticResource ProductivityCardStroke}"
                 StrokeThickness="1"
@@ -136,7 +138,7 @@
              STEP 3 — ACTIVE SESSION
              ════════════════════════════════════════════════════════════════ -->
         <Border x:Name="ActivePanel" Grid.Row="0"
-                Margin="20,52,20,0" Padding="24,22"
+                Margin="20,24,20,0" Padding="24,22"
                 BackgroundColor="{StaticResource ProductivityCardBackground}"
                 Stroke="{StaticResource ProductivityCardStroke}"
                 StrokeThickness="1"

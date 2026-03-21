@@ -189,6 +189,10 @@ func (s *Syncer) pushTasksToGoogle(ctx context.Context, userID, accessToken stri
 				s.logger.Warn("failed to create gcal event", "task_id", t.ID, "error", err)
 				continue
 			}
+			if evt.ID == "" {
+				s.logger.Warn("created gcal event returned empty ID, skipping", "task_id", t.ID)
+				continue
+			}
 			// Store the google_event_id on the task
 			_, err = s.pool.Exec(ctx,
 				`UPDATE tasks SET google_event_id = $1 WHERE id = $2`,

@@ -20,10 +20,10 @@ public partial class TasksPage : ContentPage, INotifyPropertyChanged
     private string _selectedFilter = "All";
     private bool   _isDoneExpanded = false;
 
-    private static readonly Color PillActiveBg   = Color.FromArgb("#4ECCA3");
-    private static readonly Color PillActiveFg   = Color.FromArgb("#0F1210");
-    private static readonly Color PillInactiveBg = Color.FromArgb("#222228");
-    private static readonly Color PillInactiveFg = Color.FromArgb("#9898A8");
+    private static readonly Color PillActiveBg   = Color.FromArgb("#2E8B5CF6");  // purple soft
+    private static readonly Color PillActiveFg   = Color.FromArgb("#8B5CF6");    // purple
+    private static readonly Color PillInactiveBg = Color.FromArgb("#16161B");
+    private static readonly Color PillInactiveFg = Color.FromArgb("#8E8EA0");
 
     public TasksPage()
     {

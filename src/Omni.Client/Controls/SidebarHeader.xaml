@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Omni.Client.Controls.SidebarHeader"
+             HeightRequest="{StaticResource SidebarHeaderHeight}">
+
+    <Grid Padding="16,0" VerticalOptions="Center">
+        <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
+
+            <!-- Logo mark: small rounded square with hexagon glyph -->
+            <Border WidthRequest="28" HeightRequest="28"
+                    BackgroundColor="{StaticResource ProductivityUIAccentSoft}"
+                    Stroke="{StaticResource ProductivityUIAccent}"
+                    StrokeThickness="1">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="7"/>
+                </Border.StrokeShape>
+                <Label Text="⬡"
+                       TextColor="{StaticResource ProductivityUIAccent}"
+                       FontSize="13"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center"/>
+            </Border>
+
+            <!-- App wordmark -->
+            <Label Text="Omni"
+                   Style="{StaticResource ProductivityTitle}"
+                   VerticalOptions="Center"/>
+
+        </HorizontalStackLayout>
+    </Grid>
+
+</ContentView>

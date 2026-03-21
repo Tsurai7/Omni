@@ -4,13 +4,15 @@
              xmlns:controls="clr-namespace:Omni.Client.Controls"
              x:Class="Omni.Client.UsageStatsPage"
              Title="Stats"
-             Shell.NavBarIsVisible="False"
-             BackgroundColor="{StaticResource ProductivityPageBackground}">
+             Shell.NavBarIsVisible="False">
+    <ContentPage.Background>
+        <StaticResource Key="ProductivityPageGradient"/>
+    </ContentPage.Background>
 
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
 
         <!-- ═══ Header ═══════════════════════════════════════════════════════ -->
-        <VerticalStackLayout Grid.Row="0" Padding="20,52,20,12" Spacing="3">
+        <VerticalStackLayout Grid.Row="0" Padding="20,24,20,12" Spacing="3">
             <Label Text="Stats" Style="{StaticResource ProductivityHeadline}"/>
             <Label Text="Your productivity patterns" Style="{StaticResource ProductivityCaption}"/>
         </VerticalStackLayout>
@@ -101,8 +103,7 @@
                             <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
                         </Border.StrokeShape>
                         <VerticalStackLayout Spacing="8">
-                            <Label Text="INSIGHTS" Style="{StaticResource ProductivityOverline}"
-                                   TextColor="{StaticResource ProductivityFocus}"/>
+                            <Label Text="INSIGHTS" Style="{StaticResource ProductivityUILabel}"/>
                             <Label Text="{Binding InsightBiggestDistraction}" Style="{StaticResource ProductivityBody}"/>
                             <Label Text="{Binding InsightFocusThisWeek}" Style="{StaticResource ProductivityBody}"/>
                             <Label Text="{Binding InsightTrend}"

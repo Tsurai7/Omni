@@ -4,30 +4,32 @@
              xmlns:controls="clr-namespace:Omni.Client.Controls"
              x:Class="Omni.Client.MainPage"
              Title="Home"
-             Shell.NavBarIsVisible="False"
-             BackgroundColor="{StaticResource ProductivityPageBackground}">
+             Shell.NavBarIsVisible="False">
+    <ContentPage.Background>
+        <StaticResource Key="ProductivityPageGradient"/>
+    </ContentPage.Background>
 
     <Grid RowDefinitions="Auto,*">
         <!-- Network error banner (sits above scroll, animates in/out) -->
         <controls:NetworkErrorBanner x:Name="MainNetworkBanner"
                                      Grid.Row="0"
-                                     Margin="0,52,0,0"/>
+                                     Margin="0,0,0,0"/>
 
     <RefreshView Grid.Row="1" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsRefreshing}">
         <ScrollView>
             <VerticalStackLayout Padding="0,0,0,24" Spacing="0">
 
                 <!-- ═══ Header ═══════════════════════════════════════════════ -->
-                <Grid ColumnDefinitions="*,Auto" Padding="20,52,20,16">
+                <Grid ColumnDefinitions="*,Auto" Padding="20,24,20,16">
                     <VerticalStackLayout Spacing="3">
                         <Label Text="Omni" Style="{StaticResource ProductivityHeadline}"/>
                         <Label Text="{Binding DayLabel}"
                                Style="{StaticResource ProductivityCaption}"/>
                     </VerticalStackLayout>
-                    <!-- Streak badge -->
+                    <!-- Streak badge — purple accent pill matching landing .badge style -->
                     <Border Grid.Column="1"
-                            BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
-                            Stroke="{StaticResource ProductivityCardStroke}"
+                            BackgroundColor="{StaticResource ProductivityUIAccentSoft}"
+                            Stroke="{StaticResource ProductivityUIAccentGlow}"
                             StrokeThickness="1"
                             Padding="12,6"
                             VerticalOptions="Center">
@@ -50,7 +52,7 @@
                         Stroke="{StaticResource ProductivityCardStroke}"
                         StrokeThickness="1" Padding="24,22">
                     <Border.Shadow>
-                        <Shadow Brush="Black" Offset="0,2" Radius="16" Opacity="0.22"/>
+                        <Shadow Brush="#8B5CF6" Offset="0,4" Radius="28" Opacity="0.14"/>
                     </Border.Shadow>
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusLg}"/>
@@ -58,7 +60,7 @@
                     <Grid ColumnDefinitions="*,Auto">
                         <VerticalStackLayout Spacing="10" VerticalOptions="Center">
                             <Label Text="TODAY'S FOCUS SCORE"
-                                   Style="{StaticResource ProductivityOverline}"/>
+                                   Style="{StaticResource ProductivityUILabel}"/>
                             <Label x:Name="ScoreNumberLabel"
                                    Text="{Binding FocusScore}"
                                    FontSize="56"
@@ -167,18 +169,17 @@
                 <!-- ═══ AI Recommendation Card ════════════════════════════════ -->
                 <Border Margin="20,0,20,14"
                         BackgroundColor="{StaticResource ProductivityCardBackground}"
-                        Stroke="{StaticResource ProductivityFocusDim}"
+                        Stroke="{StaticResource ProductivityUIAccentGlow}"
                         StrokeThickness="1" Padding="18,16">
                     <Border.Shadow>
-                        <Shadow Brush="#4ECCA3" Offset="0,0" Radius="18" Opacity="0.07"/>
+                        <Shadow Brush="#8B5CF6" Offset="0,0" Radius="22" Opacity="0.12"/>
                     </Border.Shadow>
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
                     </Border.StrokeShape>
                     <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12">
                         <Label Grid.Row="0" Text="AI INSIGHT"
-                               Style="{StaticResource ProductivityOverline}"
-                               TextColor="{StaticResource ProductivityFocus}"/>
+                               Style="{StaticResource ProductivityUILabel}"/>
                         <Label Grid.Row="1" Text="{Binding NextBestActionText}"
                                Style="{StaticResource ProductivityBody}"
                                Margin="0,6,0,0"
@@ -204,6 +205,7 @@
 
                 <!-- ═══ Top Apps Today ═════════════════════════════════════════ -->
                 <VerticalStackLayout Margin="20,0,20,0" Spacing="0">
+                    <Label Text="ACTIVITY" Style="{StaticResource ProductivityUILabel}" Margin="0,0,0,4"/>
                     <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
                         <Label Text="Active Now" Style="{StaticResource ProductivityTitle}"/>
                         <Label Grid.Column="1" Text="{Binding TotalTrackedTime}"

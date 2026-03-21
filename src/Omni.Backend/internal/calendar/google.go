@@ -211,6 +211,10 @@ func (g *GoogleClient) ListEvents(ctx context.Context, accessToken string, timeM
 		return nil, err
 	}
 
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("google calendar API error %d: %s", resp.StatusCode, string(body))
+	}
+
 	var result eventsListResponse
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, err
@@ -274,6 +278,10 @@ func (g *GoogleClient) CreateEvent(ctx context.Context, accessToken, title, desc
 		return nil, err
 	}
 
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("google calendar API error %d: %s", resp.StatusCode, string(respBody))
+	}
+
 	var evt GoogleCalendarEvent
 	if err := json.Unmarshal(respBody, &evt); err != nil {
 		return nil, err
@@ -312,7 +320,11 @@ func (g *GoogleClient) UpdateEvent(ctx context.Context, accessToken, eventID, ti
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("google calendar API error %d: %s", resp.StatusCode, string(body))
+	}
 	return nil
 }
 
@@ -329,6 +341,10 @@ func (g *GoogleClient) DeleteEvent(ctx context.Context, accessToken, eventID str
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("google calendar API error %d: %s", resp.StatusCode, string(body))
+	}
 	return nil
 }

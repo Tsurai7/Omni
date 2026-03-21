@@ -2,8 +2,10 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Omni.Client.RegisterPage"
-             Title="Create account"
-             BackgroundColor="#0F0F0F">
+             Title="Create account">
+    <ContentPage.Background>
+        <StaticResource Key="ProductivityPageGradient"/>
+    </ContentPage.Background>
     <ScrollView>
         <Frame CornerRadius="15"
                Margin="20"

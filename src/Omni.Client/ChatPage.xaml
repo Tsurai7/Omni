@@ -2,13 +2,15 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Omni.Client.ChatPage"
-             Shell.NavBarIsVisible="False"
-             BackgroundColor="{StaticResource ProductivityPageBackground}">
+             Shell.NavBarIsVisible="False">
+    <ContentPage.Background>
+        <StaticResource Key="ProductivityPageGradient"/>
+    </ContentPage.Background>
 
     <Grid RowDefinitions="Auto,*,Auto" x:Name="RootGrid">
 
         <!-- ── Header ────────────────────────────────────────────────── -->
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="20,52,20,12">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="20,24,20,12">
             <VerticalStackLayout Grid.Column="0" Spacing="2">
                 <Label Text="Omni Coach"
                        Style="{StaticResource ProductivityHeadline}"/>
@@ -42,14 +44,15 @@
 
                     <Border WidthRequest="64" HeightRequest="64"
                             HorizontalOptions="Center"
-                            BackgroundColor="#334ECCA3"
-                            StrokeThickness="0">
+                            BackgroundColor="{StaticResource ProductivityUIAccentSoft}"
+                            Stroke="{StaticResource ProductivityUIAccentGlow}"
+                            StrokeThickness="1">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="32"/>
                         </Border.StrokeShape>
                         <Label Text="✦"
                                FontSize="28"
-                               TextColor="{StaticResource ProductivityFocus}"
+                               TextColor="{StaticResource ProductivityUIAccent}"
                                HorizontalOptions="Center"
                                VerticalOptions="Center"/>
                     </Border>
@@ -67,15 +70,15 @@
                     <!-- Starters: BindableLayout avoids a nested CollectionView -->
                     <VerticalStackLayout IsVisible="{Binding HasStarters}" Spacing="10">
                         <Label Text="Start with..."
-                               Style="{StaticResource ProductivityOverline}"
+                               Style="{StaticResource ProductivityUILabel}"
                                Margin="0,0,0,2"/>
                         <VerticalStackLayout Spacing="8"
                                              BindableLayout.ItemsSource="{Binding Starters}">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate>
                                     <Border Padding="14,12"
-                                            BackgroundColor="#1A1A1F"
-                                            Stroke="#2A2A35"
+                                            BackgroundColor="{StaticResource ProductivityCardBackground}"
+                                            Stroke="{StaticResource ProductivityCardStroke}"
                                             StrokeThickness="1">
                                         <Border.StrokeShape>
                                             <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
@@ -140,7 +143,7 @@
                                 <RoundRectangle CornerRadius="18,18,4,18"/>
                             </Border.StrokeShape>
                             <Label Text="{Binding Content}"
-                                   TextColor="#111113"
+                                   TextColor="{StaticResource ProductivityCtaText}"
                                    FontSize="14"
                                    LineBreakMode="WordWrap"/>
                         </Border>
@@ -197,7 +200,7 @@
 
         <!-- ── Input area ─────────────────────────────────────────────── -->
         <Border Grid.Row="2"
-                BackgroundColor="#16161A"
+                BackgroundColor="{StaticResource ProductivityCardBackground}"
                 StrokeThickness="0"
                 Padding="16,12,16,32">
             <Border.StrokeShape>
@@ -205,8 +208,8 @@
             </Border.StrokeShape>
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                 <Border Grid.Column="0"
-                        BackgroundColor="#1E1E26"
-                        Stroke="#2A2A35"
+                        BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
+                        Stroke="{StaticResource ProductivityCardStroke}"
                         StrokeThickness="1"
                         Padding="14,8">
                     <Border.StrokeShape>
@@ -237,7 +240,7 @@
                         <TapGestureRecognizer Command="{Binding SendCommand}"/>
                     </Border.GestureRecognizers>
                     <Label Text="↑"
-                           TextColor="#111113"
+                           TextColor="{StaticResource ProductivityCtaText}"
                            FontSize="18"
                            FontAttributes="Bold"
                            HorizontalOptions="Center"
@@ -254,7 +257,7 @@
               RowDefinitions="Auto,*,Auto">
 
             <!-- Header -->
-            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Padding="20,52,20,12">
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Padding="20,24,20,12">
                 <Button Grid.Column="0"
                         Text="✕"
                         Style="{StaticResource ProductivitySecondaryButton}"

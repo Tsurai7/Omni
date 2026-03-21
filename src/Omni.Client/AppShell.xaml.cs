@@ -9,31 +9,16 @@ public partial class AppShell : Shell
         InitializeComponent();
         Routing.RegisterRoute(nameof(LoginPage), typeof(LoginPage));
         Routing.RegisterRoute(nameof(RegisterPage), typeof(RegisterPage));
-        Routing.RegisterRoute(nameof(UsageStatsPage), typeof(UsageStatsPage));
-        Routing.RegisterRoute(nameof(SessionPage), typeof(SessionPage));
-        Routing.RegisterRoute(nameof(AccountPage), typeof(AccountPage));
         Routing.RegisterRoute(nameof(DigestPage), typeof(DigestPage));
         WireShellContentToServiceProvider();
     }
 
-    /// <summary>Ensure Shell pages are created via DI so they get IActiveWindowTracker, IUsageService, etc.</summary>
+    /// <summary>Ensure Shell pages are created via DI so they receive injected services.</summary>
     private void WireShellContentToServiceProvider()
     {
         if (MauiProgram.AppServices == null) return;
 
-        // Walk TabBar → Tab → ShellContent
-        foreach (var tabBar in Items.OfType<TabBar>())
-        {
-            foreach (var tab in tabBar.Items.OfType<Tab>())
-            {
-                foreach (var content in tab.Items.OfType<ShellContent>())
-                {
-                    SetContentTemplate(content);
-                }
-            }
-        }
-
-        // Fallback: also walk FlyoutItems for forward-compat
+        // Walk FlyoutItem → ShellSection → ShellContent
         foreach (var item in Items.OfType<FlyoutItem>())
         {
             foreach (var section in item.Items)
@@ -54,8 +39,10 @@ public partial class AppShell : Shell
         {
             "MainPage"       => new DataTemplate(() => MauiProgram.AppServices.GetService<MainPage>()!),
             "UsageStatsPage" => new DataTemplate(() => MauiProgram.AppServices.GetService<UsageStatsPage>()!),
+            "ChatPage"       => new DataTemplate(() => MauiProgram.AppServices.GetService<ChatPage>()!),
             "SessionPage"    => new DataTemplate(() => MauiProgram.AppServices.GetService<SessionPage>()!),
             "TasksPage"      => new DataTemplate(() => MauiProgram.AppServices.GetService<TasksPage>()!),
+            "CalendarPage"   => new DataTemplate(() => MauiProgram.AppServices.GetService<CalendarPage>()!),
             "AccountPage"    => new DataTemplate(() => MauiProgram.AppServices.GetService<AccountPage>()!),
             _                => content.ContentTemplate
         };

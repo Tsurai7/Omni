@@ -4,61 +4,134 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:Omni.Client"
-    Shell.FlyoutBehavior="Disabled"
+    xmlns:controls="clr-namespace:Omni.Client.Controls"
+    Shell.FlyoutBehavior="Locked"
+    Shell.FlyoutHeaderBehavior="Fixed"
+    Shell.FlyoutWidth="220"
+    Shell.FlyoutBackgroundColor="{StaticResource SidebarBackground}"
     Shell.NavBarIsVisible="False"
     BackgroundColor="{StaticResource ProductivityPageBackground}">
 
-    <Shell.Resources>
-        <Style TargetType="TabBar">
-            <Setter Property="Shell.TabBarBackgroundColor" Value="#16161A"/>
-            <Setter Property="Shell.TabBarForegroundColor" Value="{StaticResource ProductivityTextSecondary}"/>
-            <Setter Property="Shell.TabBarTitleColor" Value="{StaticResource ProductivityFocus}"/>
-            <Setter Property="Shell.TabBarUnselectedColor" Value="{StaticResource ProductivityTextMuted}"/>
-        </Style>
-    </Shell.Resources>
+    <!-- ── Sidebar header: logo mark + wordmark ── -->
+    <Shell.FlyoutHeader>
+        <controls:SidebarHeader/>
+    </Shell.FlyoutHeader>
 
-    <TabBar>
-        <Tab Title="Home" Icon="tab_home.png">
-            <ShellContent
-                ContentTemplate="{DataTemplate local:MainPage}"
-                Route="MainPage"/>
-        </Tab>
+    <!-- ── Sidebar footer: avatar + email ── -->
+    <Shell.FlyoutFooter>
+        <controls:SidebarFooter/>
+    </Shell.FlyoutFooter>
 
-        <Tab Title="Stats" Icon="tab_stats.png">
-            <ShellContent
-                ContentTemplate="{DataTemplate local:UsageStatsPage}"
-                Route="UsageStatsPage"/>
-        </Tab>
+    <!-- ── Nav item row template ──
+         Root must be Border (not Grid) to support StrokeShape for rounded corners.
+         DataTrigger on IsChecked controls active pill bg + label color. -->
+    <Shell.ItemTemplate>
+        <DataTemplate>
+            <Border Margin="8,2,8,2"
+                    HeightRequest="44"
+                    BackgroundColor="Transparent"
+                    Stroke="Transparent"
+                    StrokeThickness="0">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8"/>
+                </Border.StrokeShape>
+                <Border.Triggers>
+                    <DataTrigger TargetType="Border"
+                                 Binding="{Binding IsChecked}" Value="True">
+                        <Setter Property="BackgroundColor"
+                                Value="{StaticResource SidebarItemActiveBg}"/>
+                    </DataTrigger>
+                </Border.Triggers>
 
-        <Tab Title="Coach" Icon="tab_coach.png">
-            <ShellContent
-                ContentTemplate="{DataTemplate local:ChatPage}"
-                Route="ChatPage"/>
-        </Tab>
+                <Grid ColumnDefinitions="18,10,*" Padding="12,0" VerticalOptions="Center">
 
-        <Tab Title="Session" Icon="tab_session.png">
-            <ShellContent
-                ContentTemplate="{DataTemplate local:SessionPage}"
-                Route="SessionPage"/>
-        </Tab>
+                    <Image Grid.Column="0"
+                           Source="{Binding FlyoutIcon}"
+                           WidthRequest="18" HeightRequest="18"
+                           VerticalOptions="Center"
+                           Aspect="AspectFit"/>
 
-        <Tab Title="Tasks" Icon="tab_tasks.png">
-            <ShellContent
-                ContentTemplate="{DataTemplate local:TasksPage}"
-                Route="TasksPage"/>
-        </Tab>
+                    <Label Grid.Column="2"
+                           Text="{Binding Title}"
+                           FontFamily="InterMedium"
+                           FontSize="13.5"
+                           TextColor="{StaticResource ProductivityTextSecondary}"
+                           VerticalOptions="Center">
+                        <Label.Triggers>
+                            <DataTrigger TargetType="Label"
+                                         Binding="{Binding IsChecked}" Value="True">
+                                <Setter Property="TextColor"
+                                        Value="{StaticResource ProductivityUIAccent}"/>
+                                <Setter Property="FontFamily" Value="InterSemiBold"/>
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
 
-        <Tab Title="Calendar" Icon="tab_calendar.png">
-            <ShellContent
-                ContentTemplate="{DataTemplate local:CalendarPage}"
-                Route="CalendarPage"/>
-        </Tab>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </Shell.ItemTemplate>
 
-        <Tab Title="Account" Icon="tab_account.png">
-            <ShellContent
-                ContentTemplate="{DataTemplate local:AccountPage}"
-                Route="AccountPage"/>
-        </Tab>
-    </TabBar>
+    <!-- ── MenuItem (divider) template ── -->
+    <Shell.MenuItemTemplate>
+        <DataTemplate>
+            <BoxView HeightRequest="1"
+                     Margin="16,6,16,6"
+                     BackgroundColor="{StaticResource ProductivityCardStroke}"/>
+        </DataTemplate>
+    </Shell.MenuItemTemplate>
+
+    <!-- ════════════════════════════════
+         PRIMARY NAVIGATION
+         ════════════════════════════════ -->
+
+    <FlyoutItem Title="Home" Icon="tab_home.svg">
+        <ShellContent
+            ContentTemplate="{DataTemplate local:MainPage}"
+            Route="MainPage"/>
+    </FlyoutItem>
+
+    <FlyoutItem Title="Stats" Icon="tab_stats.svg">
+        <ShellContent
+            ContentTemplate="{DataTemplate local:UsageStatsPage}"
+            Route="UsageStatsPage"/>
+    </FlyoutItem>
+
+    <FlyoutItem Title="Coach" Icon="tab_coach.svg">
+        <ShellContent
+            ContentTemplate="{DataTemplate local:ChatPage}"
+            Route="ChatPage"/>
+    </FlyoutItem>
+
+    <FlyoutItem Title="Session" Icon="tab_session.svg">
+        <ShellContent
+            ContentTemplate="{DataTemplate local:SessionPage}"
+            Route="SessionPage"/>
+    </FlyoutItem>
+
+    <FlyoutItem Title="Tasks" Icon="tab_tasks.svg">
+        <ShellContent
+            ContentTemplate="{DataTemplate local:TasksPage}"
+            Route="TasksPage"/>
+    </FlyoutItem>
+
+    <!-- Visual divider between primary and secondary groups -->
+    <MenuItem/>
+
+    <!-- ════════════════════════════════
+         SECONDARY NAVIGATION
+         ════════════════════════════════ -->
+
+    <FlyoutItem Title="Calendar" Icon="tab_calendar.svg">
+        <ShellContent
+            ContentTemplate="{DataTemplate local:CalendarPage}"
+            Route="CalendarPage"/>
+    </FlyoutItem>
+
+    <FlyoutItem Title="Account" Icon="tab_account.svg">
+        <ShellContent
+            ContentTemplate="{DataTemplate local:AccountPage}"
+            Route="AccountPage"/>
+    </FlyoutItem>
 
 </Shell>

@@ -2,10 +2,12 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Omni.Client.AccountPage"
-             Shell.NavBarIsVisible="False"
-             BackgroundColor="{StaticResource ProductivityPageBackground}">
+             Shell.NavBarIsVisible="False">
+    <ContentPage.Background>
+        <StaticResource Key="ProductivityPageGradient"/>
+    </ContentPage.Background>
     <ScrollView>
-        <VerticalStackLayout Spacing="0" Padding="20,52,20,40">
+        <VerticalStackLayout Spacing="0" Padding="20,24,20,40">
 
             <!-- Header -->
             <Label Text="Account"
@@ -65,7 +67,7 @@
 
             <!-- Productivity Preferences -->
             <Label Text="PRODUCTIVITY"
-                   Style="{StaticResource ProductivityOverline}"
+                   Style="{StaticResource ProductivityUILabel}"
                    Margin="4,0,0,10"/>
             <Border Margin="0,0,0,24" Padding="0"
                     BackgroundColor="{StaticResource ProductivityCardBackground}"
@@ -136,7 +138,7 @@
 
             <!-- Google Calendar Integration -->
             <Label Text="INTEGRATIONS"
-                   Style="{StaticResource ProductivityOverline}"
+                   Style="{StaticResource ProductivityUILabel}"
                    Margin="4,0,0,10"/>
             <Border Margin="0,0,0,24" Padding="0"
                     BackgroundColor="{StaticResource ProductivityCardBackground}"
@@ -198,7 +200,7 @@
 
             <!-- Security -->
             <Label Text="SECURITY"
-                   Style="{StaticResource ProductivityOverline}"
+                   Style="{StaticResource ProductivityUILabel}"
                    Margin="4,0,0,10"/>
             <Border Margin="0,0,0,32" Padding="0"
                     BackgroundColor="{StaticResource ProductivityCardBackground}"

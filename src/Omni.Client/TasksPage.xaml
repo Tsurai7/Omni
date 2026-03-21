@@ -2,13 +2,15 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Omni.Client.TasksPage"
-             Shell.NavBarIsVisible="False"
-             BackgroundColor="{StaticResource ProductivityPageBackground}">
+             Shell.NavBarIsVisible="False">
+    <ContentPage.Background>
+        <StaticResource Key="ProductivityPageGradient"/>
+    </ContentPage.Background>
 
     <Grid RowDefinitions="Auto,Auto,*">
 
         <!-- Header -->
-        <VerticalStackLayout Grid.Row="0" Padding="20,52,20,0" Spacing="0">
+        <VerticalStackLayout Grid.Row="0" Padding="20,24,20,0" Spacing="0">
             <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
                 <VerticalStackLayout Grid.Column="0" Spacing="4">
                     <Label Text="Tasks" Style="{StaticResource ProductivityHeadline}"/>
@@ -78,14 +80,14 @@
                 <!-- ── TO DO section ─────────────────────────────────────── -->
                 <VerticalStackLayout IsVisible="{Binding ShowTodoSection}" Spacing="0">
 
-                    <Grid ColumnDefinitions="Auto,*,Auto" Padding="2,8,2,10" ColumnSpacing="8">
-                        <BoxView Grid.Column="0" WidthRequest="8" HeightRequest="8"
-                                 CornerRadius="4" Color="#66667A" VerticalOptions="Center"/>
-                        <Label Grid.Column="1" Text="TO DO"
-                               FontAttributes="Bold" FontSize="11" CharacterSpacing="1.2"
-                               TextColor="#66667A" VerticalOptions="Center"/>
-                        <Label Grid.Column="2" Text="{Binding TodoCount}"
-                               FontSize="11" TextColor="#44444F" VerticalOptions="Center"/>
+                    <Grid ColumnDefinitions="*,Auto" Padding="2,8,2,10">
+                        <Label Grid.Column="0" Text="TO DO"
+                               Style="{StaticResource ProductivityUILabel}"
+                               VerticalOptions="Center"/>
+                        <Label Grid.Column="1" Text="{Binding TodoCount}"
+                               FontSize="11" FontFamily="InterMedium"
+                               TextColor="{StaticResource ProductivityTextMuted}"
+                               VerticalOptions="Center"/>
                     </Grid>
 
                     <VerticalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding TodoTasks}">
@@ -156,14 +158,14 @@
                 <!-- ── IN PROGRESS section ───────────────────────────────── -->
                 <VerticalStackLayout IsVisible="{Binding ShowInProgressSection}" Spacing="0">
 
-                    <Grid ColumnDefinitions="Auto,*,Auto" Padding="2,16,2,10" ColumnSpacing="8">
-                        <BoxView Grid.Column="0" WidthRequest="8" HeightRequest="8"
-                                 CornerRadius="4" Color="#F5A623" VerticalOptions="Center"/>
-                        <Label Grid.Column="1" Text="IN PROGRESS"
-                               FontAttributes="Bold" FontSize="11" CharacterSpacing="1.2"
-                               TextColor="#F5A623" VerticalOptions="Center"/>
-                        <Label Grid.Column="2" Text="{Binding InProgressCount}"
-                               FontSize="11" TextColor="#44444F" VerticalOptions="Center"/>
+                    <Grid ColumnDefinitions="*,Auto" Padding="2,16,2,10">
+                        <Label Grid.Column="0" Text="IN PROGRESS"
+                               Style="{StaticResource ProductivityUILabel}"
+                               VerticalOptions="Center"/>
+                        <Label Grid.Column="1" Text="{Binding InProgressCount}"
+                               FontSize="11" FontFamily="InterMedium"
+                               TextColor="{StaticResource ProductivityTextMuted}"
+                               VerticalOptions="Center"/>
                     </Grid>
 
                     <VerticalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding InProgressTasks}">
@@ -233,14 +235,14 @@
                 <!-- ── DONE section ──────────────────────────────────────── -->
                 <VerticalStackLayout IsVisible="{Binding ShowDoneSection}" Spacing="0">
 
-                    <Grid ColumnDefinitions="Auto,*,Auto" Padding="2,16,2,10" ColumnSpacing="8">
-                        <BoxView Grid.Column="0" WidthRequest="8" HeightRequest="8"
-                                 CornerRadius="4" Color="#4ECCA3" VerticalOptions="Center"/>
-                        <Label Grid.Column="1" Text="DONE"
-                               FontAttributes="Bold" FontSize="11" CharacterSpacing="1.2"
-                               TextColor="#4ECCA3" VerticalOptions="Center"/>
-                        <Label Grid.Column="2" Text="{Binding DoneCount}"
-                               FontSize="11" TextColor="#44444F" VerticalOptions="Center"/>
+                    <Grid ColumnDefinitions="*,Auto" Padding="2,16,2,10">
+                        <Label Grid.Column="0" Text="DONE"
+                               Style="{StaticResource ProductivityUILabel}"
+                               VerticalOptions="Center"/>
+                        <Label Grid.Column="1" Text="{Binding DoneCount}"
+                               FontSize="11" FontFamily="InterMedium"
+                               TextColor="{StaticResource ProductivityTextMuted}"
+                               VerticalOptions="Center"/>
                     </Grid>
 
                     <!-- Collapse toggle (only visible in All filter) -->
