@@ -2,6 +2,7 @@
 Database clients for ClickHouse (read) and PostgreSQL (write).
 """
 import os
+import threading
 from contextlib import asynccontextmanager
 import clickhouse_connect
 import sqlalchemy
@@ -27,14 +28,24 @@ def _normalize_pg_url(url: str) -> str:
 _raw_database_url = os.getenv("DATABASE_URL", os.getenv("POSTGRES_URL", ""))
 DATABASE_URL = _normalize_pg_url(_raw_database_url)
 
-# Module-level clients (set at startup, closed at shutdown)
-_clickhouse_client: clickhouse_connect.driver.Client | None = None
+# Thread-local storage for ClickHouse clients (one per thread to avoid concurrent query errors)
+_thread_local = threading.local()
 _pg_engine: Engine | None = None
 
 
 def get_clickhouse_client() -> clickhouse_connect.driver.Client | None:
-    """Return the shared ClickHouse client, or None if not configured."""
-    return _clickhouse_client
+    """Return a thread-local ClickHouse client, or None if not configured."""
+    if not CLICKHOUSE_HOST:
+        return None
+    if not getattr(_thread_local, "clickhouse_client", None):
+        _thread_local.clickhouse_client = clickhouse_connect.get_client(
+            host=CLICKHOUSE_HOST,
+            port=CLICKHOUSE_PORT,
+            username=CLICKHOUSE_USER,
+            password=CLICKHOUSE_PASSWORD or None,
+            database=CLICKHOUSE_DB,
+        )
+    return _thread_local.clickhouse_client
 
 
 def get_pg_engine() -> Engine | None:
@@ -43,26 +54,15 @@ def get_pg_engine() -> Engine | None:
 
 
 def init_clients() -> None:
-    """Create ClickHouse and PostgreSQL clients from env. Idempotent."""
-    global _clickhouse_client, _pg_engine
-    if _clickhouse_client is None and CLICKHOUSE_HOST:
-        _clickhouse_client = clickhouse_connect.get_client(
-            host=CLICKHOUSE_HOST,
-            port=CLICKHOUSE_PORT,
-            username=CLICKHOUSE_USER,
-            password=CLICKHOUSE_PASSWORD or None,
-            database=CLICKHOUSE_DB,
-        )
+    """Create PostgreSQL engine from env. Idempotent. ClickHouse clients are created per-thread on demand."""
+    global _pg_engine
     if _pg_engine is None and DATABASE_URL:
         _pg_engine = sqlalchemy.create_engine(DATABASE_URL, pool_pre_ping=True)
 
 
 def close_clients() -> None:
-    """Close ClickHouse and PostgreSQL connections."""
-    global _clickhouse_client, _pg_engine
-    if _clickhouse_client is not None:
-        _clickhouse_client.close()
-        _clickhouse_client = None
+    """Close PostgreSQL engine. Thread-local ClickHouse clients are closed when threads exit."""
+    global _pg_engine
     if _pg_engine is not None:
         _pg_engine.dispose()
         _pg_engine = None

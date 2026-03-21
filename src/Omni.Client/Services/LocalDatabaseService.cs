@@ -35,6 +35,9 @@ public sealed class LocalDatabaseService
     /// <summary>Creates or updates schema. Call once at startup.</summary>
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
+        // WAL mode allows concurrent reads during writes; ignored silently by in-memory URIs (tests).
+        await Connection.ExecuteAsync("PRAGMA journal_mode=WAL;").ConfigureAwait(false);
+        await Connection.ExecuteAsync("PRAGMA synchronous=NORMAL;").ConfigureAwait(false);
         await Connection.CreateTableAsync<LocalTask>().ConfigureAwait(false);
         await Connection.CreateTableAsync<PendingSyncRow>().ConfigureAwait(false);
     }

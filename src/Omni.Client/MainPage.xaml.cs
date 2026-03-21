@@ -27,6 +27,7 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
     private bool _isRefreshing;
     private string _totalTrackedTime = "0m";
     private ObservableCollection<AppUsageGroup> _groupedApps = new();
+    private Dictionary<string, TimeSpan> _lastUsageSnapshot = new();
     private string _todayFocusMinutes = "0m";
     private int _goalMinutes = 60;
     private double _goalProgress;
@@ -363,6 +364,19 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
         {
             _updateInProgress = true;
             var currentUsage = _tracker.GetAppUsage();
+
+            // Skip full rebuild when usage data hasn't meaningfully changed (>1s tolerance)
+            bool changed = currentUsage.Count != _lastUsageSnapshot.Count ||
+                currentUsage.Any(kv =>
+                    !_lastUsageSnapshot.TryGetValue(kv.Key, out var prev) ||
+                    Math.Abs((kv.Value - prev).TotalSeconds) > 1);
+            if (!changed)
+            {
+                _updateInProgress = false;
+                return;
+            }
+            _lastUsageSnapshot = new Dictionary<string, TimeSpan>(currentUsage);
+
             var newGroups = new Dictionary<string, List<AppUsageInfo>>();
 
             foreach (var kvp in currentUsage)
@@ -406,7 +420,11 @@ public partial class MainPage : ContentPage, INotifyPropertyChanged
                 {
                     var sorted = group.OrderByDescending(x => x.RunningTime).ToList();
                     for (int i = 0; i < sorted.Count; i++)
-                        group.Move(group.IndexOf(sorted[i]), i);
+                    {
+                        var currentIndex = group.IndexOf(sorted[i]);
+                        if (currentIndex != i)
+                            group.Move(currentIndex, i);
+                    }
                 }
 
                 UpdateStatistics();

@@ -85,31 +85,31 @@
          PRIMARY NAVIGATION
          ════════════════════════════════ -->
 
-    <FlyoutItem Title="Home" Icon="tab_home.svg">
+    <FlyoutItem Title="Home" Icon="tab_home.png">
         <ShellContent
             ContentTemplate="{DataTemplate local:MainPage}"
             Route="MainPage"/>
     </FlyoutItem>
 
-    <FlyoutItem Title="Stats" Icon="tab_stats.svg">
+    <FlyoutItem Title="Stats" Icon="tab_stats.png">
         <ShellContent
             ContentTemplate="{DataTemplate local:UsageStatsPage}"
             Route="UsageStatsPage"/>
     </FlyoutItem>
 
-    <FlyoutItem Title="Coach" Icon="tab_coach.svg">
+    <FlyoutItem Title="Coach" Icon="tab_coach.png">
         <ShellContent
             ContentTemplate="{DataTemplate local:ChatPage}"
             Route="ChatPage"/>
     </FlyoutItem>
 
-    <FlyoutItem Title="Session" Icon="tab_session.svg">
+    <FlyoutItem Title="Session" Icon="tab_session.png">
         <ShellContent
             ContentTemplate="{DataTemplate local:SessionPage}"
             Route="SessionPage"/>
     </FlyoutItem>
 
-    <FlyoutItem Title="Tasks" Icon="tab_tasks.svg">
+    <FlyoutItem Title="Tasks" Icon="tab_tasks.png">
         <ShellContent
             ContentTemplate="{DataTemplate local:TasksPage}"
             Route="TasksPage"/>
@@ -122,13 +122,13 @@
          SECONDARY NAVIGATION
          ════════════════════════════════ -->
 
-    <FlyoutItem Title="Calendar" Icon="tab_calendar.svg">
+    <FlyoutItem Title="Calendar" Icon="tab_calendar.png">
         <ShellContent
             ContentTemplate="{DataTemplate local:CalendarPage}"
             Route="CalendarPage"/>
     </FlyoutItem>
 
-    <FlyoutItem Title="Account" Icon="tab_account.svg">
+    <FlyoutItem Title="Account" Icon="tab_account.png">
         <ShellContent
             ContentTemplate="{DataTemplate local:AccountPage}"
             Route="AccountPage"/>

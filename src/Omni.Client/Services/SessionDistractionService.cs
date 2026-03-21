@@ -20,7 +20,7 @@ public sealed class SessionDistractionService : ISessionDistractionService
     private double _distractingSeconds;
     private int _distractionEventCount;
     private DateTime? _lastNotificationUtc;
-    private readonly List<DateTime> _switchTimestamps = new();
+    private readonly Queue<DateTime> _switchTimestamps = new();
 
     public event Action<DistractionEvent>? DistractionDetected;
     public event Action<SessionScoreResult>? SessionEndedWithScore;
@@ -135,7 +135,7 @@ public sealed class SessionDistractionService : ISessionDistractionService
 
             if (isSwitch)
             {
-                _switchTimestamps.Add(nowUtc);
+                _switchTimestamps.Enqueue(nowUtc);
                 TrimSwitchesToWindow(nowUtc);
                 Debug.WriteLine($"[SessionDistraction] App/category switch: {_lastApp} -> {app}, category {_lastCategory} -> {category}, switches in window={_switchTimestamps.Count}");
                 _lastApp = app;
@@ -191,8 +191,8 @@ public sealed class SessionDistractionService : ISessionDistractionService
     private void TrimSwitchesToWindow(DateTime nowUtc)
     {
         var cutoff = nowUtc.AddMinutes(-_config.FrequentSwitchWindowMinutes);
-        while (_switchTimestamps.Count > 0 && _switchTimestamps[0] < cutoff)
-            _switchTimestamps.RemoveAt(0);
+        while (_switchTimestamps.Count > 0 && _switchTimestamps.Peek() < cutoff)
+            _switchTimestamps.Dequeue();
     }
 
     private bool CanSendNotification(DateTime nowUtc)

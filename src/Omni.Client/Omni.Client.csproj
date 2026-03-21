@@ -36,7 +36,8 @@
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
         <!-- Mac Catalyst: entitlements required so notification permission works. Debug code signing so notifications work from IDE (dotnet run / F5).
-             Set SkipMacCodesign=true when building without a cert (e.g. ./run-mac-app.sh); build will skip signing so .app runs (in-app alerts only). -->
+             Default SkipMacCodesign=true for Debug so F5 works without an Apple Development cert; use -p:SkipMacCodesign=false when you have a cert (system notifications). -->
+        <SkipMacCodesign Condition="'$(TargetFramework)' == 'net10.0-maccatalyst' and '$(Configuration)' == 'Debug' and '$(SkipMacCodesign)' == ''">true</SkipMacCodesign>
         <CodesignDisable Condition="'$(TargetFramework)' == 'net10.0-maccatalyst' and '$(SkipMacCodesign)' == 'true'">true</CodesignDisable>
         <CodesignKey Condition="'$(TargetFramework)' == 'net10.0-maccatalyst' and '$(Configuration)' == 'Debug' and '$(SkipMacCodesign)' != 'true'">Apple Development</CodesignKey>
         <CodesignProvision Condition="'$(TargetFramework)' == 'net10.0-maccatalyst' and '$(Configuration)' == 'Debug' and '$(SkipMacCodesign)' != 'true'">Automatic</CodesignProvision>
@@ -97,5 +98,10 @@
         <Compile Remove="Platforms\MacCatalyst\NotificationManagerService.cs" Condition="'$(TargetFramework)' != 'net10.0-maccatalyst'" />
         <Compile Remove="Platforms\Windows\NotificationManagerService.cs" Condition="'$(TargetFramework)' != 'net10.0-windows10.0.19041.0'" />
     </ItemGroup>
+
+    <!-- .NET 10+ names the .app bundle from ApplicationTitle by default; IDE expects the assembly name (Omni.Client.app). -->
+    <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-maccatalyst'">
+        <_AppBundleName>$(AssemblyName)</_AppBundleName>
+    </PropertyGroup>
 
 </Project>

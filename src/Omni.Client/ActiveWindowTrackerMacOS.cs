@@ -13,6 +13,11 @@ public class ActiveWindowTrackerMacOS : IActiveWindowTracker
     private System.Timers.Timer? _timer;
     private bool? _hasAutomationPermission;
 
+    private string _cachedTab = string.Empty;
+    private string _cachedTabForApp = string.Empty;
+    private DateTime _tabCacheTime = DateTime.MinValue;
+    private static readonly TimeSpan TabCacheTtl = TimeSpan.FromSeconds(3);
+
     private const string GetActiveAppScript = 
         """
         tell application "System Events"
@@ -89,17 +94,24 @@ public class ActiveWindowTrackerMacOS : IActiveWindowTracker
             }
 
             string activeTab = string.Empty;
-            if (activeApp == "Google Chrome")
+            string? tabScript = activeApp switch
             {
-                activeTab = GetActiveTabName(GetChromeTabScript);
-            }
-            else if (activeApp == "Safari")
+                "Google Chrome" => GetChromeTabScript,
+                "Safari"        => GetSafariTabScript,
+                "Firefox"       => GetFirefoxTabScript,
+                _               => null
+            };
+            if (tabScript != null)
             {
-                activeTab = GetActiveTabName(GetSafariTabScript);
-            }
-            else if (activeApp == "Firefox")
-            {
-                activeTab = GetActiveTabName(GetFirefoxTabScript);
+                if (activeApp == _cachedTabForApp && DateTime.Now - _tabCacheTime < TabCacheTtl)
+                    activeTab = _cachedTab;
+                else
+                {
+                    activeTab = GetActiveTabName(tabScript);
+                    _cachedTab = activeTab;
+                    _cachedTabForApp = activeApp;
+                    _tabCacheTime = DateTime.Now;
+                }
             }
 
             var appIdentifier = string.IsNullOrEmpty(activeTab) ? activeApp : $"{activeApp} - {activeTab}";
