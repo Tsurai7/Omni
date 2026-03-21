@@ -26,64 +26,34 @@
                 Stroke="{StaticResource ProductivityCardStroke}"
                 StrokeThickness="1" Padding="4">
             <Border.StrokeShape>
-                <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusSm}"/>
+                <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusXl}"/>
             </Border.StrokeShape>
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="4">
                 <Button x:Name="PeriodTodayBtn" Text="Today"
                         Style="{StaticResource ProductivityPillButton}"
                         Clicked="OnPeriodTodayClicked"/>
                 <Button Grid.Column="1" x:Name="PeriodWeekBtn" Text="Week"
-                        Style="{StaticResource ProductivitySecondaryButton}"
+                        Style="{StaticResource ProductivitySegmentButton}"
                         Clicked="OnPeriodWeekClicked"/>
                 <Button Grid.Column="2" x:Name="PeriodMonthBtn" Text="Month"
-                        Style="{StaticResource ProductivitySecondaryButton}"
+                        Style="{StaticResource ProductivitySegmentButton}"
                         Clicked="OnPeriodMonthClicked"/>
             </Grid>
         </Border>
 
         <!-- ═══ Summary Metrics Row ══════════════════════════════════════════ -->
         <Grid Grid.Row="3" ColumnDefinitions="*,*,*" ColumnSpacing="10" Margin="20,0,20,12">
-            <Border BackgroundColor="{StaticResource ProductivityCardBackground}"
-                    Stroke="{StaticResource ProductivityCardStroke}"
-                    StrokeThickness="1" Padding="14,12">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
-                </Border.StrokeShape>
-                <VerticalStackLayout Spacing="3">
-                    <Label Text="{Binding SummaryFocusTime}"
-                           FontSize="18" FontAttributes="Bold"
-                           TextColor="{StaticResource ProductivityFocus}"/>
-                    <Label Text="Focus time" Style="{StaticResource ProductivityCaption}"/>
-                </VerticalStackLayout>
-            </Border>
-            <Border Grid.Column="1"
-                    BackgroundColor="{StaticResource ProductivityCardBackground}"
-                    Stroke="{StaticResource ProductivityCardStroke}"
-                    StrokeThickness="1" Padding="14,12">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
-                </Border.StrokeShape>
-                <VerticalStackLayout Spacing="3">
-                    <Label Text="{Binding SummaryAvgScore}"
-                           FontSize="18" FontAttributes="Bold"
-                           TextColor="{StaticResource ProductivityNeutral}"/>
-                    <Label Text="Avg score" Style="{StaticResource ProductivityCaption}"/>
-                </VerticalStackLayout>
-            </Border>
-            <Border Grid.Column="2"
-                    BackgroundColor="{StaticResource ProductivityCardBackground}"
-                    Stroke="{StaticResource ProductivityCardStroke}"
-                    StrokeThickness="1" Padding="14,12">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
-                </Border.StrokeShape>
-                <VerticalStackLayout Spacing="3">
-                    <Label Text="{Binding SummaryPeakHour}"
-                           FontSize="18" FontAttributes="Bold"
-                           TextColor="{StaticResource ProductivityAmber}"/>
-                    <Label Text="Peak hour" Style="{StaticResource ProductivityCaption}"/>
-                </VerticalStackLayout>
-            </Border>
+            <controls:StatCard Value="{Binding SummaryFocusTime}"
+                               Caption="Focus time"
+                               AccentColor="{StaticResource ProductivityFocus}"/>
+            <controls:StatCard Grid.Column="1"
+                               Value="{Binding SummaryAvgScore}"
+                               Caption="Avg score"
+                               AccentColor="{StaticResource ProductivityNeutral}"/>
+            <controls:StatCard Grid.Column="2"
+                               Value="{Binding SummaryPeakHour}"
+                               Caption="Peak hour"
+                               AccentColor="{StaticResource ProductivityAmber}"/>
         </Grid>
 
         <!-- ═══ Scrollable content ═══════════════════════════════════════════ -->
@@ -138,10 +108,8 @@
                         </Border.StrokeShape>
                         <VerticalStackLayout Spacing="12">
                             <Label Text="Usage breakdown" Style="{StaticResource ProductivityTitle}"/>
-                            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
-                                <GraphicsView x:Name="PieChartView" HeightRequest="200" HorizontalOptions="Fill"/>
-                                <GraphicsView x:Name="BarChartView" HeightRequest="200" Grid.Column="1" HorizontalOptions="Fill"/>
-                            </Grid>
+                            <GraphicsView x:Name="PieChartView" HeightRequest="220" HorizontalOptions="Fill"/>
+                            <GraphicsView x:Name="BarChartView" HeightRequest="220" HorizontalOptions="Fill"/>
                         </VerticalStackLayout>
                     </Border>
 

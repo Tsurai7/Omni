@@ -21,7 +21,7 @@
         <Nullable>enable</Nullable>
 
         <!-- Display name (shown in System Settings > Notifications as "Omni") -->
-        <ApplicationTitle>Omni.Client</ApplicationTitle>
+        <ApplicationTitle>Omni</ApplicationTitle>
 
         <!-- App Identifier -->
         <ApplicationId>com.companyname.omni.client</ApplicationId>

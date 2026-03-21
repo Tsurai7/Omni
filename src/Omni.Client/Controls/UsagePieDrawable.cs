@@ -66,23 +66,34 @@ public sealed class UsagePieDrawable : IDrawable
         canvas.StrokeSize = 1;
         canvas.DrawCircle(cx, cy, radius * 0.5f);
 
-        // Legend
-        float legendX = cx + radius + 16;
-        float legendY = cy - (Segments.Count * 18f) / 2f;
+        // Legend — drawn below the pie in two columns to fit within any width
+        float legendRowH = 18f;
+        float legendDotR = 4f;
+        float colWidth = dirtyRect.Width / 2f;
+        float legendStartY = cy + radius + 14f;
         canvas.FontSize = 11;
         colorIndex = 0;
+        int itemIndex = 0;
         foreach (var seg in Segments)
         {
             if (seg.Value <= 0) continue;
             var color = SegmentColors[colorIndex % SegmentColors.Length];
             colorIndex++;
+
+            int col = itemIndex % 2;
+            int row = itemIndex / 2;
+            float lx = col * colWidth + 8f;
+            float ly = legendStartY + row * legendRowH;
+
             canvas.FillColor = color;
-            canvas.FillCircle(legendX, legendY + 9, 5);
+            canvas.FillCircle(lx + legendDotR, ly + legendRowH / 2f, legendDotR);
+
             canvas.FontColor = Color.FromArgb("#E0E0E0");
             var pct = Total > 0 ? (seg.Value / Total * 100) : 0;
             var text = $"{TruncateLabel(seg.Label)} {pct:F0}%";
-            canvas.DrawString(text, legendX + 14, legendY, dirtyRect.Width - legendX - 10, 18, HorizontalAlignment.Left, VerticalAlignment.Center);
-            legendY += 18;
+            canvas.DrawString(text, lx + legendDotR * 2 + 6, ly, colWidth - legendDotR * 2 - 14, legendRowH, HorizontalAlignment.Left, VerticalAlignment.Center);
+
+            itemIndex++;
         }
     }
 

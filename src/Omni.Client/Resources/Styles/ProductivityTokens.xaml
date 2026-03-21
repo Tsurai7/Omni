@@ -210,6 +210,17 @@
         <Setter Property="Padding" Value="18,0"/>
     </Style>
 
+    <!-- Segment / tab button — inactive state for pill-shaped tab selectors -->
+    <Style TargetType="Button" x:Key="ProductivitySegmentButton">
+        <Setter Property="BackgroundColor" Value="Transparent"/>
+        <Setter Property="TextColor" Value="{StaticResource ProductivityTextSecondary}"/>
+        <Setter Property="FontFamily" Value="InterMedium"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="CornerRadius" Value="{StaticResource ProductivityRadiusPillInt}"/>
+        <Setter Property="HeightRequest" Value="38"/>
+        <Setter Property="Padding" Value="18,0"/>
+    </Style>
+
     <!-- Danger button -->
     <Style TargetType="Button" x:Key="ProductivityDangerButton">
         <Setter Property="BackgroundColor" Value="Transparent"/>

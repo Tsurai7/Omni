@@ -59,10 +59,18 @@ public sealed class UsageBarDrawable : IDrawable
             canvas.FillColor = color;
             canvas.FillRoundedRectangle(barX, y, barW, barHeight, 4);
 
-            // Value at end of bar
+            // Value label — draw inside bar if too wide for label to fit outside
             var timeStr = FormatTime((long)seg.Value);
-            canvas.FontColor = Color.FromArgb("#A0A0A0");
-            canvas.DrawString(timeStr, barX + barW + 6, y, chartWidth - barW - 6, barHeight, HorizontalAlignment.Left, VerticalAlignment.Center);
+            if (barW > chartWidth * 0.75f)
+            {
+                canvas.FontColor = Color.FromArgb("#0F1210");
+                canvas.DrawString(timeStr, barX, y, barW - 8, barHeight, HorizontalAlignment.Right, VerticalAlignment.Center);
+            }
+            else
+            {
+                canvas.FontColor = Color.FromArgb("#A0A0A0");
+                canvas.DrawString(timeStr, barX + barW + 6, y, chartWidth - barW - 6, barHeight, HorizontalAlignment.Left, VerticalAlignment.Center);
+            }
 
             y += barHeight + gap;
         }

@@ -35,6 +35,7 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
     private string _insightTrend = "";
     private string _recommendationChipText = "";
     private string? _recommendationNotificationId;
+    private ICommand? _recommendationChipCommand;
 
     public UsageStatsPage()
     {
@@ -161,7 +162,7 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
         Style? secStyle = null;
         try {
             ctaStyle = (Style)Application.Current!.Resources["ProductivityPillButton"];
-            secStyle = (Style)Application.Current!.Resources["ProductivitySecondaryButton"];
+            secStyle = (Style)Application.Current!.Resources["ProductivitySegmentButton"];
         } catch { }
         if (ctaStyle == null || secStyle == null) return;
         PeriodTodayBtn.Style = _selectedPeriod == "today" ? ctaStyle : secStyle;
@@ -468,7 +469,7 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
         _recommendationNotificationId = null;
     }
 
-    public ICommand RecommendationChipCommand => new Command(async () =>
+    public ICommand RecommendationChipCommand => _recommendationChipCommand ??= new Command(async () =>
     {
         if (!string.IsNullOrEmpty(_recommendationNotificationId))
         {
@@ -476,7 +477,7 @@ public partial class UsageStatsPage : ContentPage, INotifyPropertyChanged
             if (svc != null)
                 _ = svc.MarkAsReadAsync(_recommendationNotificationId);
         }
-        await Shell.Current.GoToAsync(nameof(SessionPage));
+        await Shell.Current.GoToAsync("//SessionPage");
     });
 
     private void UpdateSummaryMetrics(List<UsageListEntry> entries)
