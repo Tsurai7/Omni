@@ -2,7 +2,10 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controls="clr-namespace:Omni.Client.Controls"
+             xmlns:usageModels="clr-namespace:Omni.Client.Models.Usage"
+             xmlns:vm="clr-namespace:Omni.Client.Presentation.ViewModels"
              x:Class="Omni.Client.UsageStatsPage"
+             x:DataType="vm:UsageStatsViewModel"
              Title="Stats"
              Shell.NavBarIsVisible="False">
     <ContentPage.Background>
@@ -192,7 +195,7 @@
                                     EmptyView="{Binding EmptyView}"
                                     Margin="20,0">
                         <CollectionView.GroupHeaderTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="usageModels:UsageDateGroup">
                                 <Grid Padding="0,12,0,6" BackgroundColor="Transparent">
                                     <HorizontalStackLayout Spacing="10">
                                         <BoxView Color="{StaticResource ProductivityFocus}"
@@ -205,7 +208,7 @@
                             </DataTemplate>
                         </CollectionView.GroupHeaderTemplate>
                         <CollectionView.ItemTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="usageModels:UsageStatsItem">
                                 <Border Padding="14,12" Margin="0,0,0,8"
                                         BackgroundColor="{StaticResource ProductivityCardBackground}"
                                         Stroke="{StaticResource ProductivityCardStroke}"

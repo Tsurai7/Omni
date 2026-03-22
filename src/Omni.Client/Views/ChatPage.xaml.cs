@@ -122,10 +122,22 @@ public partial class ChatPage : ContentPage
     private async void OnNewConversationClicked(object? sender, EventArgs e)
         => _vm.NewConversation();
 
+    private async void OnStarterTapped(object? sender, TappedEventArgs e)
+    {
+        if (sender is BindableObject bo && bo.BindingContext is StarterViewModel starter)
+            await _vm.StarterTappedAsync(starter);
+    }
+
     private async void OnActionTapped(object? sender, EventArgs e)
     {
         if (sender is BindableObject bo && bo.BindingContext is ChatAction action)
             await HandleActionAsync(action);
+    }
+
+    private async void OnConversationTapped(object? sender, TappedEventArgs e)
+    {
+        if (sender is BindableObject bo && bo.BindingContext is ConversationViewModel conv)
+            await _vm.OpenConversationAsync(conv);
     }
 
     private async Task HandleActionAsync(ChatAction action)

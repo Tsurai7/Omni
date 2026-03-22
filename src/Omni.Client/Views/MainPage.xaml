@@ -2,7 +2,10 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controls="clr-namespace:Omni.Client.Controls"
+             xmlns:models="clr-namespace:Omni.Client.Models"
+             xmlns:vm="clr-namespace:Omni.Client.Presentation.ViewModels"
              x:Class="Omni.Client.MainPage"
+             x:DataType="vm:MainViewModel"
              Title="Home"
              Shell.NavBarIsVisible="False">
     <ContentPage.Background>
@@ -187,7 +190,7 @@
                         <Button Grid.Column="1" Grid.RowSpan="2"
                                 Text="Go →"
                                 Style="{StaticResource ProductivityPillButton}"
-                                Command="{Binding NextBestActionCommand}"
+                                Command="{Binding MarkNotificationReadCommand}"
                                 VerticalOptions="Center"/>
                     </Grid>
                 </Border>
@@ -217,7 +220,7 @@
                                     IsGrouped="True"
                                     ItemsSource="{Binding GroupedApps}">
                         <CollectionView.GroupHeaderTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="models:AppUsageGroup">
                                 <Grid Padding="0,12,0,6" BackgroundColor="Transparent">
                                     <HorizontalStackLayout Spacing="10">
                                         <BoxView Color="{Binding CategoryColor}"
@@ -231,7 +234,7 @@
                             </DataTemplate>
                         </CollectionView.GroupHeaderTemplate>
                         <CollectionView.ItemTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="models:AppUsageInfo">
                                 <Border Padding="14,12" Margin="0,0,0,8"
                                         BackgroundColor="{StaticResource ProductivityCardBackground}"
                                         Stroke="{StaticResource ProductivityCardStroke}"

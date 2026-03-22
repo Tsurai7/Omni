@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Omni.Client.Presentation.ViewModels"
+             xmlns:local="clr-namespace:Omni.Client"
+             xmlns:taskModels="clr-namespace:Omni.Client.Models.Task"
              x:Class="Omni.Client.TasksPage"
+             x:DataType="vm:TasksViewModel"
              Shell.NavBarIsVisible="False">
     <ContentPage.Background>
         <StaticResource Key="ProductivityPageGradient"/>
@@ -98,13 +102,12 @@
                             </VerticalStackLayout>
                         </BindableLayout.EmptyView>
                         <BindableLayout.ItemTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="taskModels:TaskDisplayItem">
                                 <SwipeView>
                                     <SwipeView.RightItems>
                                         <SwipeItems>
                                             <SwipeItem Text="Delete" BackgroundColor="#E05C5C"
-                                                       Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeleteTaskCommand}"
-                                                       CommandParameter="{Binding .}"/>
+                                                       Invoked="OnDeleteTaskRequested"/>
                                         </SwipeItems>
                                     </SwipeView.RightItems>
                                     <Border BackgroundColor="{StaticResource ProductivityCardBackground}"
@@ -114,9 +117,7 @@
                                             <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
                                         </Border.StrokeShape>
                                         <Border.GestureRecognizers>
-                                            <TapGestureRecognizer
-                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.EditTaskCommand}"
-                                                CommandParameter="{Binding .}"/>
+                                            <TapGestureRecognizer Tapped="OnEditTaskRequested"/>
                                         </Border.GestureRecognizers>
                                         <Grid ColumnDefinitions="4,*,Auto" ColumnSpacing="0">
                                             <BoxView Grid.Column="0" Color="{Binding PriorityColor}" VerticalOptions="Fill"/>
@@ -145,8 +146,7 @@
                                                     Margin="0,10,12,0"
                                                     HeightRequest="24"
                                                     VerticalOptions="Start"
-                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.CyclePriorityCommand}"
-                                                    CommandParameter="{Binding .}"/>
+                                                    Clicked="OnCyclePriorityRequested"/>
                                         </Grid>
                                     </Border>
                                 </SwipeView>
@@ -176,13 +176,12 @@
                             </VerticalStackLayout>
                         </BindableLayout.EmptyView>
                         <BindableLayout.ItemTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="taskModels:TaskDisplayItem">
                                 <SwipeView>
                                     <SwipeView.RightItems>
                                         <SwipeItems>
                                             <SwipeItem Text="Delete" BackgroundColor="#E05C5C"
-                                                       Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeleteTaskCommand}"
-                                                       CommandParameter="{Binding .}"/>
+                                                       Invoked="OnDeleteTaskRequested"/>
                                         </SwipeItems>
                                     </SwipeView.RightItems>
                                     <Border BackgroundColor="{StaticResource ProductivityCardBackground}"
@@ -192,9 +191,7 @@
                                             <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
                                         </Border.StrokeShape>
                                         <Border.GestureRecognizers>
-                                            <TapGestureRecognizer
-                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.EditTaskCommand}"
-                                                CommandParameter="{Binding .}"/>
+                                            <TapGestureRecognizer Tapped="OnEditTaskRequested"/>
                                         </Border.GestureRecognizers>
                                         <Grid ColumnDefinitions="4,*,Auto" ColumnSpacing="0">
                                             <BoxView Grid.Column="0" Color="{Binding PriorityColor}" VerticalOptions="Fill"/>
@@ -222,8 +219,7 @@
                                                     Margin="0,10,12,0"
                                                     HeightRequest="24"
                                                     VerticalOptions="Start"
-                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.CyclePriorityCommand}"
-                                                    CommandParameter="{Binding .}"/>
+                                                    Clicked="OnCyclePriorityRequested"/>
                                         </Grid>
                                     </Border>
                                 </SwipeView>
@@ -269,13 +265,12 @@
                             </VerticalStackLayout>
                         </BindableLayout.EmptyView>
                         <BindableLayout.ItemTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="taskModels:TaskDisplayItem">
                                 <SwipeView>
                                     <SwipeView.RightItems>
                                         <SwipeItems>
                                             <SwipeItem Text="Delete" BackgroundColor="#E05C5C"
-                                                       Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DeleteTaskCommand}"
-                                                       CommandParameter="{Binding .}"/>
+                                                       Invoked="OnDeleteTaskRequested"/>
                                         </SwipeItems>
                                     </SwipeView.RightItems>
                                     <Border BackgroundColor="{StaticResource ProductivityCardBackground}"
@@ -286,9 +281,7 @@
                                             <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
                                         </Border.StrokeShape>
                                         <Border.GestureRecognizers>
-                                            <TapGestureRecognizer
-                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.EditTaskCommand}"
-                                                CommandParameter="{Binding .}"/>
+                                            <TapGestureRecognizer Tapped="OnEditTaskRequested"/>
                                         </Border.GestureRecognizers>
                                         <Grid ColumnDefinitions="4,*,Auto" ColumnSpacing="0">
                                             <BoxView Grid.Column="0" Color="#4ECCA3" VerticalOptions="Fill"/>

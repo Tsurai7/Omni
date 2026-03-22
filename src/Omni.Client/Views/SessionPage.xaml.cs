@@ -364,6 +364,7 @@ public partial class SessionPage : ContentPage
 
     private void OnPostSessionDoneClicked(object? sender, EventArgs e)
     {
+        PostSessionOverlay.IsVisible = false;
         _subjectiveRating = 0;
         ReflectionEntry.Text = "";
         foreach (var child in EmojiRatingRow.Children.OfType<Button>())

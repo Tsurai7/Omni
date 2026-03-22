@@ -2,7 +2,10 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controls="clr-namespace:Omni.Client.Controls"
+             xmlns:sessionModels="clr-namespace:Omni.Client.Models.Session"
+             xmlns:vm="clr-namespace:Omni.Client.Presentation.ViewModels"
              x:Class="Omni.Client.SessionPage"
+             x:DataType="vm:SessionViewModel"
              Title="Session"
              Shell.NavBarIsVisible="False">
     <ContentPage.Background>
@@ -205,7 +208,7 @@
              SESSION HISTORY (shown below panel at all times)
              ════════════════════════════════════════════════════════════════ -->
         <RefreshView x:Name="RefreshView" Grid.Row="1"
-                     Command="{Binding RefreshCommand}"
+                     Command="{Binding LoadCommand}"
                      IsRefreshing="{Binding IsRefreshing}"
                      Margin="0,14,0,0">
             <ScrollView>
@@ -216,7 +219,7 @@
                                     EmptyView="{Binding EmptyView}"
                                     Margin="20,0">
                         <CollectionView.GroupHeaderTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="sessionModels:SessionDateGroup">
                                 <Grid Padding="0,14,0,6" BackgroundColor="Transparent">
                                     <HorizontalStackLayout Spacing="10">
                                         <BoxView Color="{StaticResource ProductivityFocus}"
@@ -229,7 +232,7 @@
                             </DataTemplate>
                         </CollectionView.GroupHeaderTemplate>
                         <CollectionView.ItemTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="sessionModels:SessionDisplayItem">
                                 <Border Padding="16,13" Margin="0,0,0,8"
                                         BackgroundColor="{StaticResource ProductivityCardBackground}"
                                         Stroke="{StaticResource ProductivityCardStroke}"
@@ -263,7 +266,7 @@
              POST-SESSION REFLECTION OVERLAY
              ════════════════════════════════════════════════════════════════ -->
         <Grid Grid.RowSpan="2" x:Name="PostSessionOverlay"
-              IsVisible="{Binding IsPostSessionSheetVisible}"
+              IsVisible="False"
               BackgroundColor="#B0111113"
               VerticalOptions="Fill"
               HorizontalOptions="Fill">
@@ -282,12 +285,13 @@
 
                     <!-- Score count-up -->
                     <Label x:Name="PostScoreLabel"
-                           Text="{Binding ScoreLabel}"
+                           Text="—"
                            FontSize="52" FontAttributes="Bold"
                            TextColor="{StaticResource ProductivityFocus}"
                            HorizontalOptions="Center"/>
 
-                    <Label Text="{Binding ScoreSummaryLabel}"
+                    <Label x:Name="PostSummaryLabel"
+                           Text=""
                            Style="{StaticResource ProductivityBody}"
                            HorizontalOptions="Center"
                            HorizontalTextAlignment="Center"/>

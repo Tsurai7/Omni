@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Omni.Client.Presentation.ViewModels"
+             xmlns:local="clr-namespace:Omni.Client"
+             xmlns:chatModels="clr-namespace:Omni.Client.Models.Chat"
              x:Class="Omni.Client.ChatPage"
+             x:DataType="vm:ChatViewModel"
              Shell.NavBarIsVisible="False">
     <ContentPage.Background>
         <StaticResource Key="ProductivityPageGradient"/>
@@ -38,7 +42,7 @@
 
             <!-- Welcome screen / starters — shown when conversation is empty -->
             <CollectionView.Header>
-                <VerticalStackLayout IsVisible="{Binding ShowWelcome}"
+                <VerticalStackLayout IsVisible="{Binding ShowStarters}"
                                      Spacing="20"
                                      Padding="24,32,24,24">
 
@@ -68,14 +72,14 @@
                     </VerticalStackLayout>
 
                     <!-- Starters: BindableLayout avoids a nested CollectionView -->
-                    <VerticalStackLayout IsVisible="{Binding HasStarters}" Spacing="10">
+                    <VerticalStackLayout IsVisible="{Binding ShowStarters}" Spacing="10">
                         <Label Text="Start with..."
                                Style="{StaticResource ProductivityUILabel}"
                                Margin="0,0,0,2"/>
                         <VerticalStackLayout Spacing="8"
                                              BindableLayout.ItemsSource="{Binding Starters}">
                             <BindableLayout.ItemTemplate>
-                                <DataTemplate>
+                                <DataTemplate x:DataType="local:StarterViewModel">
                                     <Border Padding="14,12"
                                             BackgroundColor="{StaticResource ProductivityCardBackground}"
                                             Stroke="{StaticResource ProductivityCardStroke}"
@@ -84,9 +88,7 @@
                                             <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
                                         </Border.StrokeShape>
                                         <Border.GestureRecognizers>
-                                            <TapGestureRecognizer
-                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.StarterTappedCommand}"
-                                                CommandParameter="{Binding Text}"/>
+                                            <TapGestureRecognizer Tapped="OnStarterTapped"/>
                                         </Border.GestureRecognizers>
                                         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
                                             <Label Grid.Column="0"
@@ -129,7 +131,7 @@
             </CollectionView.Footer>
 
             <CollectionView.ItemTemplate>
-                <DataTemplate>
+                <DataTemplate x:DataType="local:ChatMessageViewModel">
                     <Grid Padding="16,0,16,12">
 
                         <!-- User bubble — right aligned -->
@@ -170,7 +172,7 @@
                                                    IsVisible="{Binding HasActions}"
                                                    BindableLayout.ItemsSource="{Binding Actions}">
                                 <BindableLayout.ItemTemplate>
-                                    <DataTemplate>
+                                    <DataTemplate x:DataType="chatModels:ChatAction">
                                         <Border Padding="12,7"
                                                 BackgroundColor="Transparent"
                                                 Stroke="{StaticResource ProductivityFocus}"
@@ -179,9 +181,7 @@
                                                 <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusPill}"/>
                                             </Border.StrokeShape>
                                             <Border.GestureRecognizers>
-                                                <TapGestureRecognizer
-                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ActionTappedCommand}"
-                                                    CommandParameter="{Binding .}"/>
+                                                <TapGestureRecognizer Tapped="OnActionTapped"/>
                                             </Border.GestureRecognizers>
                                             <Label Text="{Binding Label}"
                                                    TextColor="{StaticResource ProductivityFocus}"
@@ -292,7 +292,7 @@
                            Margin="0,40"/>
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
-                    <DataTemplate>
+                    <DataTemplate x:DataType="local:ConversationViewModel">
                         <Border Margin="16,0,16,8"
                                 Padding="16,14"
                                 BackgroundColor="{StaticResource ProductivityCardBackground}"
@@ -302,9 +302,7 @@
                                 <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
                             </Border.StrokeShape>
                             <Border.GestureRecognizers>
-                                <TapGestureRecognizer
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.SelectConversationCommand}"
-                                    CommandParameter="{Binding .}"/>
+                                <TapGestureRecognizer Tapped="OnConversationTapped"/>
                             </Border.GestureRecognizers>
                             <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="3">
                                 <Label Grid.Row="0" Grid.Column="0"
