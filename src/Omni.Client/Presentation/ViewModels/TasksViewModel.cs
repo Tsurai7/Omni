@@ -78,11 +78,16 @@ public partial class TasksViewModel : ObservableObject
         ? $"▴  Hide completed ({DoneCount})"
         : $"▾  Show completed ({DoneCount})";
 
+    public TaskDisplayItem? DraggedTask { get; set; }
+
     public TasksViewModel(ITaskService taskService, LocalDatabaseService localDb)
     {
         _taskService = taskService;
         _localDb = localDb;
     }
+
+    [RelayCommand]
+    private void DragStart(TaskDisplayItem? item) => DraggedTask = item;
 
     [RelayCommand]
     private void FilterAll()    => SelectedFilter = "All";
@@ -167,6 +172,47 @@ public partial class TasksViewModel : ObservableObject
         await _taskService.DeleteTaskAsync(item.Id);
         await LoadAsync();
     }
+
+    public async Task MoveTaskAsync(TaskDisplayItem item, string newStatus)
+    {
+        var oldStatus = item.Status;
+        if (string.Equals(oldStatus, newStatus, StringComparison.OrdinalIgnoreCase)) return;
+
+        // Optimistic UI: move item between collections immediately
+        RemoveFromCollection(item, oldStatus);
+        item = item with { Status = newStatus };
+        AddToCollection(item, newStatus);
+
+        var success = await _taskService.UpdateStatusAsync(item.Id, newStatus);
+        if (!success)
+        {
+            // Rollback
+            RemoveFromCollection(item, newStatus);
+            item = item with { Status = oldStatus };
+            AddToCollection(item, oldStatus);
+        }
+    }
+
+    private void RemoveFromCollection(TaskDisplayItem item, string status)
+    {
+        var col = StatusToCollection(status);
+        var existing = col.FirstOrDefault(t => t.Id == item.Id);
+        if (existing != null) col.Remove(existing);
+    }
+
+    private void AddToCollection(TaskDisplayItem item, string status)
+    {
+        var col = StatusToCollection(status);
+        col.Insert(0, item);
+    }
+
+    private ObservableCollection<TaskDisplayItem> StatusToCollection(string status) =>
+        status?.ToLowerInvariant() switch
+        {
+            "in_progress" => InProgressTasks,
+            "done"        => DoneTasks,
+            _             => TodoTasks,
+        };
 
     public async Task CreateTaskAsync(string title, string priority = "medium", DateTime? dueDate = null)
     {

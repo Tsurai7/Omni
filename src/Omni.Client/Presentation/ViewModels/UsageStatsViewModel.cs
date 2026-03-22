@@ -173,6 +173,12 @@ public partial class UsageStatsViewModel : ObservableObject
             SummaryPeakHour = ComputePeakHour(entries);
             InsightText = $"You spent {TotalFocusTime} in focused work.";
 
+            var totalSeconds = entries.Sum(e => e.TotalSeconds);
+            var avgScore = totalSeconds > 0
+                ? Math.Min(100, (int)((double)focusSeconds / totalSeconds * 100))
+                : 0;
+            SummaryAvgScore = $"{avgScore}";
+
             var groups = entries
                 .GroupBy(e => e.Date)
                 .OrderByDescending(g => g.Key)

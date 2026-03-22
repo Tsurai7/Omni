@@ -20,6 +20,16 @@ public partial class AccountPage : ContentPage
 
         DailyGoalPicker.ItemsSource = DailyGoalOptions.Select(i => i.ToString()).ToList();
         NotificationIntensityPicker.ItemsSource = NotificationIntensityOptions;
+
+        _vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(AccountViewModel.IsGoogleConnected)
+                               or nameof(AccountViewModel.GCalStatusText)
+                               or nameof(AccountViewModel.GCalConnectButtonText)
+                               or nameof(AccountViewModel.GCalLastSyncText)
+                               or nameof(AccountViewModel.GCalSyncRowVisible))
+                MainThread.BeginInvokeOnMainThread(UpdateGCalUI);
+        };
     }
 
     protected override void OnAppearing()
