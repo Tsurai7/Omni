@@ -160,7 +160,11 @@ public partial class ChatViewModel : ObservableObject
                     assistantMsg.Content += delta.Delta;
 
                 if (delta.Done == true)
+                {
+                    if (delta.Actions?.Count > 0)
+                        assistantMsg.Actions = delta.Actions;
                     break;
+                }
             }
         }
         catch (OperationCanceledException) { }

@@ -135,8 +135,8 @@ public class ChatService : IChatService
             var msg = status == HttpStatusCode.ServiceUnavailable
                 ? "Coach isn't available: the gateway needs AI_URL pointing at the omni-ai service (e.g. http://ai:8000 in Docker)."
                 : $"Couldn't reach the coach ({(int)status}). Try again.";
-            yield return new ChatStreamDelta(msg, null, false, true);
-            yield return new ChatStreamDelta(null, null, true, null);
+            yield return new ChatStreamDelta(msg, null, false, true, null);
+            yield return new ChatStreamDelta(null, null, true, null, null);
             yield break;
         }
 

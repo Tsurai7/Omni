@@ -215,18 +215,18 @@
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusLg}"/>
                     </Border.StrokeShape>
-                    <Editor x:Name="MessageEditor"
-                            Text="{Binding InputText, Mode=TwoWay}"
-                            TextChanged="OnMessageEditorTextChanged"
-                            Completed="OnMessageEditorCompleted"
-                            Placeholder="Ask your coach anything..."
-                            PlaceholderColor="{StaticResource ProductivityTextMuted}"
-                            TextColor="{StaticResource ProductivityTextPrimary}"
-                            BackgroundColor="Transparent"
-                            FontSize="14"
-                            AutoSize="TextChanges"
-                            MaximumHeightRequest="100"
-                            />
+                    <Entry x:Name="MessageEditor"
+                           Text="{Binding InputText, Mode=TwoWay}"
+                           TextChanged="OnMessageEditorTextChanged"
+                           Completed="OnMessageEditorCompleted"
+                           Placeholder="Ask your coach anything..."
+                           PlaceholderColor="{StaticResource ProductivityTextMuted}"
+                           TextColor="{StaticResource ProductivityTextPrimary}"
+                           BackgroundColor="Transparent"
+                           FontSize="14"
+                           ReturnType="Send"
+                           VerticalOptions="Center"
+                           />
                 </Border>
 
                 <Border Grid.Column="1"

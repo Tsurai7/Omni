@@ -48,6 +48,7 @@ public sealed class UsageBarDrawable : IDrawable
             if (barW < 2 && seg.Value > 0) barW = 2;
 
             // Label
+            canvas.FontColor = Color.FromArgb("#E0E0E0");
             canvas.DrawString(TruncateLabel(seg.Label, 16), paddingLeft, y, labelWidth, barHeight, HorizontalAlignment.Left, VerticalAlignment.Center);
 
             // Bar background

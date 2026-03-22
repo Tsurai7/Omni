@@ -40,21 +40,9 @@ public sealed class UsagePieDrawable : IDrawable
             var color = SegmentColors[colorIndex % SegmentColors.Length];
             colorIndex++;
 
-            float startRad = startAngle * (float)Math.PI / 180f;
-            float x1 = cx + radius * (float)Math.Cos(startRad);
-            float y1 = cy + radius * (float)Math.Sin(startRad);
-
-            using var path = new PathF();
-            path.MoveTo(cx, cy);
-            path.LineTo(x1, y1);
-            path.AddArc(cx - radius, cy - radius, cx + radius, cy + radius, startAngle, startAngle + sweep, clockwise: true);
-            path.LineTo(cx, cy);
-            path.Close();
+            using var path = BuildPieSlicePath(cx, cy, radius, startAngle, sweep);
             canvas.FillColor = color;
             canvas.FillPath(path);
-            canvas.StrokeColor = Color.FromArgb("#2D2D2D");
-            canvas.StrokeSize = 1;
-            canvas.DrawPath(path);
 
             startAngle += sweep;
         }
@@ -95,6 +83,49 @@ public sealed class UsagePieDrawable : IDrawable
 
             itemIndex++;
         }
+    }
+
+    /// <summary>
+    /// Builds a pie-slice path using cubic Bezier arc approximation.
+    /// Avoids MAUI's platform-inconsistent arc APIs entirely.
+    /// </summary>
+    private static PathF BuildPieSlicePath(float cx, float cy, float radius, float startDeg, float sweepDeg)
+    {
+        var path = new PathF();
+
+        float startRad = startDeg * MathF.PI / 180f;
+        path.MoveTo(cx, cy);
+        path.LineTo(cx + radius * MathF.Cos(startRad), cy + radius * MathF.Sin(startRad));
+
+        // Approximate arc in up-to-90° cubic Bezier steps
+        float remaining = sweepDeg;
+        float angle = startRad;
+        while (remaining > 0f)
+        {
+            float stepDeg = MathF.Min(remaining, 90f);
+            float stepRad = stepDeg * MathF.PI / 180f;
+            float endAngle = angle + stepRad;
+
+            // k: Bezier control-point scalar for circular arcs
+            float k = (4f / 3f) * MathF.Tan(stepRad / 4f) * radius;
+
+            float cos0 = MathF.Cos(angle), sin0 = MathF.Sin(angle);
+            float cos1 = MathF.Cos(endAngle), sin1 = MathF.Sin(endAngle);
+
+            // Tangent direction (clockwise in Y-down screen coords): (-sin, cos)
+            path.CurveTo(
+                cx + radius * cos0 + k * (-sin0), cy + radius * sin0 + k * cos0,  // CP1
+                cx + radius * cos1 - k * (-sin1), cy + radius * sin1 - k * cos1,  // CP2
+                cx + radius * cos1,               cy + radius * sin1              // end
+            );
+
+            angle = endAngle;
+            remaining -= stepDeg;
+        }
+
+        path.LineTo(cx, cy);
+        path.Close();
+        return path;
     }
 
     private static string TruncateLabel(string label, int maxLen = 14) =>

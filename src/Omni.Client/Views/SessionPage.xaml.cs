@@ -157,9 +157,10 @@ public partial class SessionPage : ContentPage
 
     private void TransitionTo(SessionFlowState state)
     {
-        IntentionPanel.IsVisible = state == SessionFlowState.Intention;
-        BreathingPanel.IsVisible = state == SessionFlowState.Breathing;
-        ActivePanel.IsVisible    = state == SessionFlowState.Active;
+        IntentionPanel.IsVisible   = state == SessionFlowState.Intention;
+        BreathingPanel.IsVisible   = state == SessionFlowState.Breathing;
+        ActivePanel.IsVisible      = state == SessionFlowState.Active;
+        PostSessionOverlay.IsVisible = state == SessionFlowState.PostSession;
     }
 
     private void OnBeginBreathingClicked(object? sender, EventArgs e)
@@ -332,7 +333,12 @@ public partial class SessionPage : ContentPage
 
     private void OnSessionEndedWithScore(SessionScoreResult result)
     {
-        MainThread.BeginInvokeOnMainThread(() => { });
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            PostScoreLabel.Text   = result.Score.ToString();
+            PostSummaryLabel.Text = result.Summary;
+            TransitionTo(SessionFlowState.PostSession);
+        });
     }
 
     private void OnDistractionDetected(DistractionEvent evt)
@@ -364,11 +370,11 @@ public partial class SessionPage : ContentPage
 
     private void OnPostSessionDoneClicked(object? sender, EventArgs e)
     {
-        PostSessionOverlay.IsVisible = false;
         _subjectiveRating = 0;
         ReflectionEntry.Text = "";
         foreach (var child in EmojiRatingRow.Children.OfType<Button>())
             child.Opacity = 1.0;
+        TransitionTo(SessionFlowState.Intention);
     }
 
     private int GetSelectedDurationSeconds()

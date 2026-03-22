@@ -9,10 +9,21 @@ namespace Omni.Client;
 public class ChatMessageViewModel : INotifyPropertyChanged
 {
     private string _content = string.Empty;
+    private List<ChatAction> _actions = [];
 
     public string Id { get; init; } = Guid.NewGuid().ToString();
     public string Role { get; init; } = "user";
-    public List<ChatAction> Actions { get; init; } = [];
+
+    public List<ChatAction> Actions
+    {
+        get => _actions;
+        set
+        {
+            _actions = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasActions));
+        }
+    }
 
     public string Content
     {
@@ -22,7 +33,7 @@ public class ChatMessageViewModel : INotifyPropertyChanged
 
     public bool IsUser => Role == "user";
     public bool IsAssistant => Role == "assistant";
-    public bool HasActions => Actions.Count > 0;
+    public bool HasActions => _actions.Count > 0;
 
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void OnPropertyChanged([CallerMemberName] string? n = null) =>
@@ -99,7 +110,7 @@ public partial class ChatPage : ContentPage
 
     private void OnMessageEditorTextChanged(object? sender, TextChangedEventArgs e)
     {
-        var live = MessageEditor?.Text ?? string.Empty;
+        var live = e.NewTextValue ?? string.Empty;
         if (_vm.InputText != live)
             _vm.InputText = live;
     }

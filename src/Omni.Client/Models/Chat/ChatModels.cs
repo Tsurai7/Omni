@@ -37,4 +37,5 @@ public record ChatStreamDelta(
     string? Delta,
     string? ConversationId,
     bool? Done,
-    bool? Error);
+    bool? Error,
+    [property: JsonPropertyName("actions")] List<ChatAction>? Actions);

@@ -281,8 +281,11 @@ def send_message(user_id: str, req: SendMessageRequest):
                 action = extract_action_from_response(full_text)
                 metadata = {"actions": [action]} if action else None
                 insert_message(conv_id, uid, "assistant", visible_text, metadata)
-                # Send final event with conversation_id
-                yield f'data: {{"done": true, "conversation_id": "{conv_id}"}}\n\n'
+                # Send final event with conversation_id and any actions
+                final_event: dict = {"done": True, "conversation_id": conv_id}
+                if action:
+                    final_event["actions"] = [action]
+                yield f"data: {_json.dumps(final_event)}\n\n"
             elif sse_line.startswith("data: "):
                 try:
                     data = _json.loads(sse_line[6:])
