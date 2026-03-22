@@ -13,6 +13,7 @@ public partial class CalendarPage : ContentPage
 
     private List<CalendarEvent> _events = new();
     private DateTime _sheetDay;
+    private bool _googleConnected;
 
     private DateTime DisplayedMonth =>
         new DateTime(_vm.CurrentDate.Year, _vm.CurrentDate.Month, 1);
@@ -37,6 +38,18 @@ public partial class CalendarPage : ContentPage
             _events = _vm.Events.ToList();
             RenderCurrentView();
         });
+
+        // When a sync completes (from any page), invalidate the event cache so
+        // the next OnAppearing unconditionally reloads the calendar.
+        _calendarService.StatusChanged += OnCalendarStatusChanged;
+    }
+
+    private void OnCalendarStatusChanged(object? sender, EventArgs e)
+    {
+        _vm.Invalidate();
+        // If this page is already visible, reload immediately.
+        if (this.IsVisible)
+            MainThread.BeginInvokeOnMainThread(() => _ = RefreshAsync());
     }
 
     protected override void OnAppearing()
@@ -717,7 +730,8 @@ public partial class CalendarPage : ContentPage
         try
         {
             var status = await _calendarService.RefreshStatusAsync();
-            if (status == null || !status.Connected)
+            _googleConnected = status?.Connected == true;
+            if (!_googleConnected)
             {
                 SyncDotLabel.TextColor = Color.FromArgb("#44444F");
                 SyncTextLabel.Text = "Connect Cal";
@@ -726,7 +740,7 @@ public partial class CalendarPage : ContentPage
             else
             {
                 SyncDotLabel.TextColor = Color.FromArgb("#4ECCA3");
-                var email = status.Email?.Split('@')[0] ?? "Google";
+                var email = status!.Email?.Split('@')[0] ?? "Google";
                 SyncTextLabel.Text = email.Length > 10 ? email[..10] + "…" : email;
                 SyncTextLabel.TextColor = Color.FromArgb("#9898A8");
             }
@@ -736,7 +750,7 @@ public partial class CalendarPage : ContentPage
 
     private async void OnSyncStatusTapped(object? sender, TappedEventArgs e)
     {
-        if (!_calendarService.IsConnected)
+        if (!_googleConnected)
         {
             await Shell.Current.GoToAsync("///AccountPage");
             return;

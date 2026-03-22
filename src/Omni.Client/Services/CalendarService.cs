@@ -177,7 +177,15 @@ public sealed class CalendarService
     {
         try
         {
-            await _api.SyncAsync(cancellationToken).ConfigureAwait(false);
+            var response = await _api.SyncAsync(cancellationToken).ConfigureAwait(false);
+            if (!response.Synced)
+            {
+                Debug.WriteLine($"CalendarService.SyncAsync: server reported failure: {response.Error}");
+                // Refresh status — if the token was revoked the server will now report disconnected.
+                await RefreshStatusAsync(cancellationToken).ConfigureAwait(false);
+                StatusChanged?.Invoke(this, EventArgs.Empty);
+                return false;
+            }
             _lastSyncedAt = DateTime.Now;
             StatusChanged?.Invoke(this, EventArgs.Empty);
             return true;

@@ -2,11 +2,46 @@ package calendar
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// isScopeError returns true only when the Google API explicitly rejects the request
+// because the OAuth token was issued without the required calendar scope.
+// We do NOT match the generic "PERMISSION_DENIED" status — that appears in every 403
+// (including "API not enabled") and would incorrectly revoke valid tokens.
+func isScopeError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "insufficientPermissions") ||
+		strings.Contains(msg, "ACCESS_TOKEN_SCOPE_INSUFFICIENT")
+}
+
+// isApiNotEnabledError returns true when the Google Calendar API has not been
+// enabled in the Google Cloud project (distinct from a scope/auth problem).
+func isApiNotEnabledError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "accessNotConfigured") ||
+		strings.Contains(msg, "has not been used in project") ||
+		strings.Contains(msg, "disabled")
+}
+
+// revokeInvalidToken deletes the stored Google token so the user is prompted to reconnect.
+func (s *Syncer) revokeInvalidToken(ctx context.Context, userID string) {
+	if _, err := s.pool.Exec(ctx,
+		`DELETE FROM user_google_tokens WHERE user_id = $1`, userID); err != nil {
+		s.logger.Warn("failed to revoke invalid google token", "user_id", userID, "error", err)
+	}
+}
 
 // Syncer handles two-way Google Calendar synchronization for a user.
 type Syncer struct {
@@ -28,10 +63,27 @@ func (s *Syncer) SyncForUser(ctx context.Context, userID string) error {
 	}
 
 	if err := s.pullFromGoogle(ctx, userID, token); err != nil {
+		if isScopeError(err) {
+			s.logger.Warn("google token has insufficient scope, revoking", "user_id", userID)
+			s.revokeInvalidToken(ctx, userID)
+			return fmt.Errorf("google calendar access revoked: please reconnect your account")
+		}
+		if isApiNotEnabledError(err) {
+			s.logger.Error("Google Calendar API is not enabled in this project — enable it at https://console.cloud.google.com/apis/library/calendar-json.googleapis.com", "user_id", userID)
+			return fmt.Errorf("google calendar API not enabled: enable it in Google Cloud Console")
+		}
 		s.logger.Warn("calendar pull failed", "user_id", userID, "error", err)
 	}
 
 	if err := s.pushTasksToGoogle(ctx, userID, token); err != nil {
+		if isScopeError(err) {
+			s.logger.Warn("google token has insufficient scope (push), revoking", "user_id", userID)
+			s.revokeInvalidToken(ctx, userID)
+			return fmt.Errorf("google calendar access revoked: please reconnect your account")
+		}
+		if isApiNotEnabledError(err) {
+			return fmt.Errorf("google calendar API not enabled: enable it in Google Cloud Console")
+		}
 		s.logger.Warn("calendar push failed", "user_id", userID, "error", err)
 	}
 
@@ -180,12 +232,18 @@ func (s *Syncer) pushTasksToGoogle(ctx context.Context, userID, accessToken stri
 			err = s.google.UpdateEvent(ctx, accessToken, *t.GoogleEventID,
 				t.Title, "Omni task", t.DueDate, true)
 			if err != nil {
+				if isScopeError(err) {
+					return err
+				}
 				s.logger.Warn("failed to update gcal event", "task_id", t.ID, "error", err)
 			}
 		} else {
 			// Create new GCal event
 			evt, err := s.google.CreateEvent(ctx, accessToken, t.Title, "Omni task", t.DueDate, nil, true)
 			if err != nil {
+				if isScopeError(err) {
+					return err
+				}
 				s.logger.Warn("failed to create gcal event", "task_id", t.ID, "error", err)
 				continue
 			}

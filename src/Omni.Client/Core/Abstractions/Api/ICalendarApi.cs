@@ -30,4 +30,4 @@ public interface ICalendarApi
     Task<CalendarSyncOkResponse> SyncAsync(CancellationToken ct = default);
 }
 
-public record CalendarSyncOkResponse(bool Synced = true);
+public record CalendarSyncOkResponse(bool Synced = true, string? Error = null);

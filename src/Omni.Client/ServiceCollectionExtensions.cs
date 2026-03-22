@@ -331,7 +331,7 @@ public static class ServiceCollectionExtensions
 #if WINDOWS
         services.AddSingleton<IActiveWindowTracker, ActiveWindowTrackerWindows>();
 #elif MACCATALYST
-        services.AddSingleton<IActiveWindowTracker, ActiveWindowTrackerMacOS>();
+        services.AddSingleton<IActiveWindowTracker, ActiveWindowTrackerMacOs>();
 #else
         services.AddSingleton<IActiveWindowTracker, ActiveWindowTrackerStub>();
 #endif

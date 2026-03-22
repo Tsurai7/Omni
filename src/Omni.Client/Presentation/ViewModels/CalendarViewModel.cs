@@ -110,20 +110,22 @@ public partial class CalendarViewModel : ObservableObject
         await LoadEventsAsync();
     }
 
+    public void Invalidate() => _lastLoaded = DateTime.MinValue;
+
     private (DateTime start, DateTime end) GetDateRange()
     {
         return ViewMode switch
         {
             CalendarViewMode.Month =>
                 (new DateTime(CurrentDate.Year, CurrentDate.Month, 1),
-                 new DateTime(CurrentDate.Year, CurrentDate.Month, 1).AddMonths(1).AddDays(-1)),
+                 new DateTime(CurrentDate.Year, CurrentDate.Month, 1).AddMonths(1)),
             CalendarViewMode.Week =>
-                (GetWeekStart(), GetWeekStart().AddDays(6)),
+                (GetWeekStart(), GetWeekStart().AddDays(7)),
             CalendarViewMode.Day =>
-                (CurrentDate.Date, CurrentDate.Date.AddDays(1).AddSeconds(-1)),
+                (CurrentDate.Date, CurrentDate.Date.AddDays(1)),
             _ =>
                 (new DateTime(CurrentDate.Year, CurrentDate.Month, 1),
-                 new DateTime(CurrentDate.Year, CurrentDate.Month, 1).AddMonths(1).AddDays(-1))
+                 new DateTime(CurrentDate.Year, CurrentDate.Month, 1).AddMonths(1))
         };
     }
 

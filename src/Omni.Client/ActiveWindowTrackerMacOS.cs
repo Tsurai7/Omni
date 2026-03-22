@@ -3,7 +3,7 @@ using Omni.Client.Abstractions;
 
 namespace Omni.Client;
 
-public class ActiveWindowTrackerMacOS : IActiveWindowTracker
+public class ActiveWindowTrackerMacOs : IActiveWindowTracker
 {
     private readonly Dictionary<string, DateTime> _startTimes = new();
     private readonly Dictionary<string, TimeSpan> _usage = new();
@@ -93,8 +93,8 @@ public class ActiveWindowTrackerMacOS : IActiveWindowTracker
                 return;
             }
 
-            string activeTab = string.Empty;
-            string? tabScript = activeApp switch
+            var activeTab = string.Empty;
+            var tabScript = activeApp switch
             {
                 "Google Chrome" => GetChromeTabScript,
                 "Safari"        => GetSafariTabScript,
@@ -138,7 +138,7 @@ public class ActiveWindowTrackerMacOS : IActiveWindowTracker
         }
     }
 
-    public string GetActiveTabName(string script)
+    private static string GetActiveTabName(string script)
     {
         try
         {
@@ -279,8 +279,8 @@ public class ActiveWindowTrackerMacOS : IActiveWindowTracker
             };
 
             process.Start();
-            string output = process.StandardOutput.ReadToEnd().Trim();
-            string error = process.StandardError.ReadToEnd().Trim();
+            var output = process.StandardOutput.ReadToEnd().Trim();
+            var error = process.StandardError.ReadToEnd().Trim();
             process.WaitForExit();
 
             if (string.IsNullOrEmpty(error))

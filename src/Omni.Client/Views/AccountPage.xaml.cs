@@ -76,7 +76,7 @@ public partial class AccountPage : ContentPage
 
     private async void OnGCalConnectClicked(object? sender, EventArgs e)
     {
-        if (_calendarService.IsConnected)
+        if (_vm.IsGoogleConnected)
         {
             var confirm = await DisplayAlertAsync("Disconnect Google Calendar",
                 "This will remove calendar sync. Your tasks will remain intact.", "Disconnect", "Cancel");
