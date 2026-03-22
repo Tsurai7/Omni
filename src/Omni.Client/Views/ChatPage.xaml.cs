@@ -1,13 +1,10 @@
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using System.Windows.Input;
 using Omni.Client.Abstractions;
 using Omni.Client.Models.Chat;
+using Omni.Client.Presentation.ViewModels;
 
 namespace Omni.Client;
-
-// ── View model for a single chat message ─────────────────────────────────────
 
 public class ChatMessageViewModel : INotifyPropertyChanged
 {
@@ -32,8 +29,6 @@ public class ChatMessageViewModel : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
 }
 
-// ── Conversation view model ───────────────────────────────────────────────────
-
 public class ConversationViewModel
 {
     public string Id { get; init; } = string.Empty;
@@ -44,8 +39,6 @@ public class ConversationViewModel
         ? dt.LocalDateTime.ToString("MMM d, h:mm tt")
         : string.Empty;
 }
-
-// ── Starter view model ────────────────────────────────────────────────────────
 
 public class StarterViewModel
 {
@@ -61,289 +54,79 @@ public class StarterViewModel
     };
 }
 
-// ── ChatPage ──────────────────────────────────────────────────────────────────
-
-public partial class ChatPage : ContentPage, INotifyPropertyChanged
+public partial class ChatPage : ContentPage
 {
-    private IChatService? _chatService;
-    private ITaskService? _taskService;
-    private IAuthService? _authService;
-
-    private ObservableCollection<ChatMessageViewModel> _messages = [];
-    private ObservableCollection<StarterViewModel> _starters = [];
-    private ObservableCollection<ConversationViewModel> _conversations = [];
-    private string _inputText = string.Empty;
-    private bool _isStreaming;
-    private bool _showHistory;
-    private string? _currentConversationId;
-    private CancellationTokenSource? _streamCts;
-
-    // Typing indicator animation
+    private readonly Presentation.ViewModels.ChatViewModel _vm;
     private bool _dotAnimRunning;
 
-    public ChatPage()
+    public ChatPage(Presentation.ViewModels.ChatViewModel vm)
     {
         InitializeComponent();
-        BindingContext = this;
+        _vm = vm;
+        BindingContext = vm;
 
-        SendCommand = new Command(
-            async () => await SendMessageAsync(),
-            () => CanSendFromEditor);
-
-        StarterTappedCommand = new Command<string>(async text =>
+        vm.MessageAdded += async msg => await ScrollToBottomAsync();
+        vm.StreamingFinished += async () =>
         {
-            if (!string.IsNullOrEmpty(text))
-            {
-                InputText = text;
-                await SendMessageAsync();
-            }
-        });
+            await ScrollToBottomAsync();
+        };
 
-        ActionTappedCommand = new Command<ChatAction?>(async action =>
+        vm.PropertyChanged += (s, e) =>
         {
-            if (action == null) return;
-            await HandleActionAsync(action);
-        });
-
-        SelectConversationCommand = new Command<ConversationViewModel?>(async conv =>
-        {
-            if (conv == null) return;
-            await LoadConversationAsync(conv.Id);
-        });
+            if (e.PropertyName == nameof(vm.IsStreaming) && vm.IsStreaming)
+                StartDotAnimation();
+        };
     }
-
-    // ── Commands ──────────────────────────────────────────────────────────────
-
-    public ICommand SendCommand { get; }
-    public ICommand StarterTappedCommand { get; }
-    public ICommand ActionTappedCommand { get; }
-    public ICommand SelectConversationCommand { get; }
-
-    // ── Bindable properties ───────────────────────────────────────────────────
-
-    public ObservableCollection<ChatMessageViewModel> Messages
-    {
-        get => _messages;
-        set { _messages = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowWelcome)); }
-    }
-
-    public ObservableCollection<StarterViewModel> Starters
-    {
-        get => _starters;
-        set { _starters = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasStarters)); }
-    }
-
-    public ObservableCollection<ConversationViewModel> Conversations
-    {
-        get => _conversations;
-        set { _conversations = value; OnPropertyChanged(); }
-    }
-
-    public bool ShowHistory
-    {
-        get => _showHistory;
-        set { if (_showHistory != value) { _showHistory = value; OnPropertyChanged(); } }
-    }
-
-    public string InputText
-    {
-        get => _inputText;
-        set
-        {
-            if (_inputText != value)
-            {
-                _inputText = value;
-                OnPropertyChanged();
-                ((Command)SendCommand).ChangeCanExecute();
-            }
-        }
-    }
-
-    private void OnMessageEditorTextChanged(object? sender, TextChangedEventArgs e)
-    {
-        // Keep view model in sync when platform binding doesn’t push each character (common on Mac).
-        var live = MessageEditor?.Text ?? string.Empty;
-        if (_inputText == live) return;
-        _inputText = live;
-        OnPropertyChanged(nameof(InputText));
-        OnPropertyChanged(nameof(CanSend));
-        ((Command)SendCommand).ChangeCanExecute();
-    }
-
-    private async void OnMessageEditorCompleted(object? sender, EventArgs e)
-    {
-        if (CanSendFromEditor)
-            await SendMessageAsync();
-    }
-
-    public bool IsStreaming
-    {
-        get => _isStreaming;
-        set
-        {
-            if (_isStreaming != value)
-            {
-                _isStreaming = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(CanSend));
-                OnPropertyChanged(nameof(IsNotStreaming));
-                ((Command)SendCommand).ChangeCanExecute();
-                if (value) StartDotAnimation();
-            }
-        }
-    }
-
-    public bool CanSend => !IsStreaming && !string.IsNullOrWhiteSpace(InputText);
-
-    // Mac Catalyst: Editor often doesn’t update bound InputText each keystroke; gate send on live editor text.
-    private bool CanSendFromEditor =>
-        !IsStreaming && !string.IsNullOrWhiteSpace(MessageEditor?.Text ?? InputText);
-
-    public bool ShowWelcome => Messages.Count == 0;
-    public bool HasStarters => Starters.Count > 0;
-    // Bound to Editor.IsEnabled — user can type but not send while streaming
-    public bool IsNotStreaming => !IsStreaming;
-
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-
-        var auth = GetAuthService();
+        var auth = MauiProgram.AppServices?.GetService<IAuthService>();
         if (auth != null && !await auth.IsAuthenticatedAsync())
         {
             await Shell.Current.GoToAsync(nameof(LoginPage));
             return;
         }
-
-        // Load starters only when starting fresh
-        if (Messages.Count == 0)
-            await LoadStartersAsync();
+        if (_vm.Messages.Count == 0)
+            await _vm.LoadStartersAsync();
     }
 
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
-        _streamCts?.Cancel();
+        _vm.CancelStream();
     }
 
-    // ── Service helpers ───────────────────────────────────────────────────────
-
-    private IChatService GetChatService() =>
-        _chatService ??= MauiProgram.AppServices!.GetRequiredService<IChatService>();
-
-    private ITaskService GetTaskService() =>
-        _taskService ??= MauiProgram.AppServices!.GetRequiredService<ITaskService>();
-
-    private IAuthService? GetAuthService() =>
-        _authService ??= MauiProgram.AppServices?.GetService<IAuthService>();
-
-    // ── Load starters ─────────────────────────────────────────────────────────
-
-    private async Task LoadStartersAsync()
+    private void OnMessageEditorTextChanged(object? sender, TextChangedEventArgs e)
     {
-        try
-        {
-            var starters = await GetChatService().GetStartersAsync();
-            Starters = new ObservableCollection<StarterViewModel>(
-                starters.Select(s => new StarterViewModel { Text = s.Text, Icon = s.Icon }));
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"ChatPage.LoadStartersAsync: {ex.Message}");
-        }
+        var live = MessageEditor?.Text ?? string.Empty;
+        if (_vm.InputText != live)
+            _vm.InputText = live;
     }
 
-    // ── Send message ──────────────────────────────────────────────────────────
-
-    private async Task SendMessageAsync()
+    private async void OnMessageEditorCompleted(object? sender, EventArgs e)
     {
-        var text = (MessageEditor?.Text ?? InputText).Trim();
-        if (string.IsNullOrEmpty(text) || IsStreaming) return;
-
-        InputText = string.Empty;
-        IsStreaming = true;
-
-        // Hide welcome panel by adding user message
-        var userVm = new ChatMessageViewModel { Role = "user", Content = text };
-        Messages.Add(userVm);
-        OnPropertyChanged(nameof(ShowWelcome));
-        await ScrollToBottomAsync();
-
-        // Placeholder for streaming assistant response
-        var assistantVm = new ChatMessageViewModel { Role = "assistant", Content = "" };
-        Messages.Add(assistantVm);
-        await ScrollToBottomAsync();
-
-        _streamCts = new CancellationTokenSource();
-        string? resolvedConvId = _currentConversationId;
-
-        try
-        {
-            await foreach (var delta in GetChatService()
-                .SendMessageAsync(_currentConversationId, text, _streamCts.Token))
-            {
-                if (delta.ConversationId != null)
-                    resolvedConvId = delta.ConversationId;
-
-                if (delta.Done == true) break;
-
-                if (!string.IsNullOrEmpty(delta.Delta))
-                {
-                    assistantVm.Content += delta.Delta;
-                    await ScrollToBottomAsync();
-                }
-            }
-        }
-        catch (OperationCanceledException) { /* user navigated away */ }
-        catch (Exception ex)
-        {
-            assistantVm.Content = "Sorry, something went wrong. Try again.";
-            System.Diagnostics.Debug.WriteLine($"ChatPage stream error: {ex.Message}");
-        }
-        finally
-        {
-            _currentConversationId = resolvedConvId;
-            IsStreaming = false;
-            _streamCts?.Dispose();
-            _streamCts = null;
-        }
-
-        // Reload message from API to get metadata/actions
-        if (_currentConversationId != null)
-            await RefreshLastAssistantMessageAsync(assistantVm);
+        if (!_vm.IsStreaming && !string.IsNullOrWhiteSpace(MessageEditor?.Text ?? _vm.InputText))
+            await _vm.SendAsync();
     }
 
-    // ── Refresh last message to pick up metadata (actions etc) ───────────────
-
-    private async Task RefreshLastAssistantMessageAsync(ChatMessageViewModel vm)
+    private async void OnHistoryClicked(object? sender, EventArgs e)
     {
-        try
-        {
-            if (_currentConversationId == null) return;
-            var msgs = await GetChatService().GetMessagesAsync(_currentConversationId, limit: 2);
-            var last = msgs.LastOrDefault(m => m.Role == "assistant");
-            if (last == null) return;
-
-            var idx = Messages.IndexOf(vm);
-            if (idx < 0) return;
-
-            // Always replace with server content (ACTION: lines already stripped server-side)
-            Messages[idx] = new ChatMessageViewModel
-            {
-                Role = "assistant",
-                Content = last.Content,
-                Actions = last.Metadata?.Actions ?? [],
-            };
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"ChatPage.RefreshLastAssistantMessage: {ex.Message}");
-        }
+        await _vm.LoadConversationsAsync();
+        _vm.ToggleHistory();
     }
 
-    // ── Action handler ────────────────────────────────────────────────────────
+    private void OnHistoryCloseClicked(object? sender, EventArgs e)
+        => _vm.ShowHistory = false;
+
+    private async void OnNewConversationClicked(object? sender, EventArgs e)
+        => _vm.NewConversation();
+
+    private async void OnActionTapped(object? sender, EventArgs e)
+    {
+        if (sender is BindableObject bo && bo.BindingContext is ChatAction action)
+            await HandleActionAsync(action);
+    }
 
     private async Task HandleActionAsync(ChatAction action)
     {
@@ -352,101 +135,32 @@ public partial class ChatPage : ContentPage, INotifyPropertyChanged
             case "start_session":
                 await Shell.Current.GoToAsync("///SessionPage");
                 break;
-
             case "create_task":
                 if (!string.IsNullOrEmpty(action.Title))
                 {
-                    await GetTaskService().CreateTaskAsync(action.Title);
+                    await _vm.HandleActionAsync(action);
                     await DisplayAlertAsync("Task created", $"\"{action.Title}\" added to your tasks.", "OK");
                 }
                 break;
-
             case "take_break":
                 await DisplayAlertAsync("Take a break", "Step away for 5 minutes. Come back refreshed.", "Got it");
                 break;
-
             case "view_stats":
                 await Shell.Current.GoToAsync("///UsageStatsPage");
                 break;
         }
     }
 
-    // ── History ───────────────────────────────────────────────────────────────
-
-    private async void OnHistoryClicked(object? sender, EventArgs e)
-    {
-        try
-        {
-            var conversations = await GetChatService().GetConversationsAsync();
-            Conversations = new ObservableCollection<ConversationViewModel>(
-                conversations.Select(c => new ConversationViewModel
-                {
-                    Id = c.Id,
-                    Title = c.Title,
-                    LastMessageAtRaw = c.LastMessageAt,
-                }));
-            ShowHistory = true;
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"ChatPage.OnHistoryClicked: {ex.Message}");
-        }
-    }
-
-    private void OnHistoryCloseClicked(object? sender, EventArgs e)
-    {
-        ShowHistory = false;
-    }
-
-    private async void OnNewConversationClicked(object? sender, EventArgs e)
-    {
-        ShowHistory = false;
-        Messages.Clear();
-        _currentConversationId = null;
-        OnPropertyChanged(nameof(ShowWelcome));
-        await LoadStartersAsync();
-    }
-
-    private async Task LoadConversationAsync(string conversationId)
-    {
-        try
-        {
-            ShowHistory = false;
-            var msgs = await GetChatService().GetMessagesAsync(conversationId, limit: 20);
-            _currentConversationId = conversationId;
-            Messages.Clear();
-            foreach (var m in msgs)
-            {
-                Messages.Add(new ChatMessageViewModel
-                {
-                    Role = m.Role,
-                    Content = m.Content,
-                    Actions = m.Metadata?.Actions ?? [],
-                });
-            }
-            OnPropertyChanged(nameof(ShowWelcome));
-            await ScrollToBottomAsync();
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"ChatPage.LoadConversationAsync: {ex.Message}");
-        }
-    }
-
-    // ── Scroll helper ─────────────────────────────────────────────────────────
-
     private async Task ScrollToBottomAsync()
     {
         try
         {
             await Task.Delay(50);
-            if (Messages.Count > 0)
-                MessageList.ScrollTo(Messages[^1], position: ScrollToPosition.End, animate: false);
+            if (_vm.Messages.Count > 0)
+                MessageList.ScrollTo(_vm.Messages[^1], position: ScrollToPosition.End, animate: false);
         }
-        catch { /* ignore scroll errors */ }
+        catch { }
     }
-
-    // ── Typing indicator animation ────────────────────────────────────────────
 
     private void StartDotAnimation()
     {
@@ -454,7 +168,7 @@ public partial class ChatPage : ContentPage, INotifyPropertyChanged
         _dotAnimRunning = true;
         MainThread.BeginInvokeOnMainThread(async () =>
         {
-            while (IsStreaming)
+            while (_vm.IsStreaming)
             {
                 await Dot1.FadeToAsync(1, 200);
                 await Dot2.FadeToAsync(1, 200);
@@ -469,10 +183,4 @@ public partial class ChatPage : ContentPage, INotifyPropertyChanged
             _dotAnimRunning = false;
         });
     }
-
-    // ── INotifyPropertyChanged ────────────────────────────────────────────────
-
-    public new event PropertyChangedEventHandler? PropertyChanged;
-    protected new void OnPropertyChanged([CallerMemberName] string? n = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
 }

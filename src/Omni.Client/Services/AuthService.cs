@@ -8,17 +8,19 @@ namespace Omni.Client.Services;
 public sealed class AuthService : IAuthService
 {
     private const string TokenKey = "omni_jwt_token";
-    private const string TokenKeyPreferences = "omni_jwt_token_prefs"; // fallback when SecureStorage fails (e.g. Mac Catalyst without Keychain)
+    private const string TokenKeyPreferences = "omni_jwt_token_prefs";
     private readonly HttpClient _http;
     private readonly JsonSerializerOptions _jsonOptions;
     private readonly ITokenStorage _tokenStorage;
     private string? _inMemoryToken;
     private UserResponse? _cachedUser;
 
-    /// <inheritdoc/>
     public string? LastAuthError { get; private set; }
 
-    public AuthService(HttpClient http, JsonSerializerOptions jsonOptions, ITokenStorage tokenStorage)
+    public AuthService(
+        HttpClient http,
+        JsonSerializerOptions jsonOptions,
+        ITokenStorage tokenStorage)
     {
         _http = http;
         _jsonOptions = jsonOptions;
@@ -43,7 +45,6 @@ public sealed class AuthService : IAuthService
             return _inMemoryToken;
         }
 
-        // Prefer SecureStorage; fallback to Preferences if Keychain isn't available (e.g. Mac Catalyst without entitlements)
         var token = await _tokenStorage.GetSecureAsync(TokenKey);
         if (string.IsNullOrEmpty(token))
             token = _tokenStorage.GetPreference(TokenKeyPreferences);
@@ -52,7 +53,6 @@ public sealed class AuthService : IAuthService
         {
             if (IsTokenExpired(token))
             {
-                // Clear the persisted expired token so the user is redirected to LoginPage on next start
                 Logout();
                 return null;
             }
@@ -62,7 +62,6 @@ public sealed class AuthService : IAuthService
         return string.IsNullOrEmpty(token) ? null : token;
     }
 
-    /// <summary>Decodes the JWT payload and returns true if the token is expired or malformed.</summary>
     internal static bool IsTokenExpired(string token)
     {
         try
@@ -71,7 +70,6 @@ public sealed class AuthService : IAuthService
             if (parts.Length != 3) return true;
 
             var payload = parts[1];
-            // Base64Url → Base64: replace URL-safe chars then restore padding
             payload = payload.Replace('-', '+').Replace('_', '/');
             payload = (payload.Length % 4) switch
             {
@@ -85,11 +83,11 @@ public sealed class AuthService : IAuthService
             if (doc.RootElement.TryGetProperty("exp", out var expEl))
                 return DateTimeOffset.UtcNow.ToUnixTimeSeconds() >= expEl.GetInt64();
 
-            return false; // No exp claim — treat as valid
+            return false;
         }
         catch
         {
-            return true; // Malformed token → treat as expired
+            return true;
         }
     }
 
@@ -134,7 +132,6 @@ public sealed class AuthService : IAuthService
             if (body?.Token != null)
             {
                 _inMemoryToken = body.Token;
-                // Persist in background so SecureStorage (e.g. Keychain on Mac Catalyst) does not block the UI
                 _ = PersistTokenAsync(body.Token);
             }
             return body;
@@ -162,7 +159,6 @@ public sealed class AuthService : IAuthService
             if (body?.Token != null)
             {
                 _inMemoryToken = body.Token;
-                // Persist in background so SecureStorage (e.g. Keychain on Mac Catalyst) does not block the UI
                 _ = PersistTokenAsync(body.Token);
             }
             return body;
@@ -174,7 +170,6 @@ public sealed class AuthService : IAuthService
         }
     }
 
-    /// <summary>Reads the server's JSON <c>{"error": "..."}</c> body, falling back to the HTTP status phrase.</summary>
     private static async Task<string> ReadErrorAsync(HttpResponseMessage response, CancellationToken ct)
     {
         try
@@ -184,7 +179,7 @@ public sealed class AuthService : IAuthService
             if (doc.RootElement.TryGetProperty("error", out var err))
                 return err.GetString() ?? response.ReasonPhrase ?? response.StatusCode.ToString();
         }
-        catch { /* ignore parse errors */ }
+        catch { }
         return response.ReasonPhrase ?? response.StatusCode.ToString();
     }
 

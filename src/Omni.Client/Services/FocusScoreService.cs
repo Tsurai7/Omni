@@ -1,22 +1,22 @@
 using System.Diagnostics;
-using System.Net.Http.Json;
-using System.Text.Json;
 using Omni.Client.Abstractions;
+using Omni.Client.Core.Abstractions.Api;
 using Omni.Client.Models.FocusScore;
+using Refit;
 
 namespace Omni.Client.Services;
 
 public class FocusScoreService : IFocusScoreService
 {
-    private readonly HttpClient _http;
+    private readonly IAiApi _api;
     private readonly IAuthService _auth;
-    private readonly JsonSerializerOptions _json;
 
-    public FocusScoreService(HttpClient http, IAuthService auth, JsonSerializerOptions json)
+    public FocusScoreService(
+        IAiApi api,
+        IAuthService auth)
     {
-        _http = http;
+        _api = api;
         _auth = auth;
-        _json = json;
     }
 
     public async Task<FocusScoreResponse?> GetFocusScoreAsync()
@@ -26,15 +26,12 @@ public class FocusScoreService : IFocusScoreService
             var user = await _auth.GetCurrentUserAsync();
             if (user == null) return null;
 
-            var token = await _auth.GetTokenAsync();
-            using var request = new HttpRequestMessage(HttpMethod.Get, $"api/ai/focus-score/{user.Id}");
-            if (!string.IsNullOrEmpty(token))
-                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-
-            using var response = await _http.SendAsync(request);
-            if (!response.IsSuccessStatusCode) return null;
-
-            return await response.Content.ReadFromJsonAsync<FocusScoreResponse>(_json);
+            return await _api.GetFocusScoreAsync(user.Id);
+        }
+        catch (ApiException ex)
+        {
+            Debug.WriteLine($"FocusScoreService.GetFocusScoreAsync: {ex.StatusCode}");
+            return null;
         }
         catch (Exception ex)
         {

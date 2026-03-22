@@ -13,12 +13,10 @@ public partial class AppShell : Shell
         WireShellContentToServiceProvider();
     }
 
-    /// <summary>Ensure Shell pages are created via DI so they receive injected services.</summary>
     private void WireShellContentToServiceProvider()
     {
         if (MauiProgram.AppServices == null) return;
 
-        // Walk FlyoutItem → ShellSection → ShellContent
         foreach (var item in Items.OfType<FlyoutItem>())
         {
             foreach (var section in item.Items)

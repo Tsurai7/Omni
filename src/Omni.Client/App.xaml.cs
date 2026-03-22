@@ -8,8 +8,6 @@ public partial class App : Application
     {
         InitializeComponent();
 
-        // Global exception handlers: catch anything that escapes task/event handlers
-        // and show a user-friendly popup instead of a silent crash.
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
     }
@@ -22,8 +20,6 @@ public partial class App : Application
         return window;
     }
 
-    // ── Global exception handlers ──────────────────────────────────────────
-
     private void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
     {
         var message = (e.ExceptionObject as Exception)?.Message ?? e.ExceptionObject?.ToString() ?? "Unknown error";
@@ -32,7 +28,7 @@ public partial class App : Application
 
     private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
     {
-        e.SetObserved(); // prevent process termination
+        e.SetObserved();
         var message = e.Exception?.GetBaseException()?.Message ?? e.Exception?.Message ?? "Unknown error";
         ShowExceptionPopup("Background Error", message);
     }
@@ -45,17 +41,14 @@ public partial class App : Application
             {
                 var page = Windows.Count > 0 ? Windows[0].Page : null;
                 if (page != null)
-                    await page.DisplayAlert(title, message, "OK");
+                    await page.DisplayAlertAsync(title, message, "OK");
             }
             catch
             {
-                // If we cannot show a dialog, at minimum log – better than crashing the handler
                 System.Diagnostics.Debug.WriteLine($"[App] Unhandled: {title} — {message}");
             }
         });
     }
-
-    // ── Startup ───────────────────────────────────────────────────────────
 
     private static void StartBackgroundServices()
     {
@@ -68,7 +61,6 @@ public partial class App : Application
             var tracker = MauiProgram.AppServices?.GetService<IActiveWindowTracker>();
             tracker?.StartTracking();
 
-            // Request notification permission at startup so distraction alerts can show without delay.
             var notificationManager = MauiProgram.AppServices?.GetService<INotificationManager>();
             if (notificationManager != null)
                 _ = notificationManager.RequestPermissionAsync();
@@ -79,10 +71,7 @@ public partial class App : Application
             var sync = MauiProgram.AppServices?.GetService<ISyncService>();
             sync?.StartPeriodicSync();
         }
-        catch
-        {
-            // Non-fatal; tracking/sync can start when MainPage appears as fallback
-        }
+        catch { }
     }
 
     private static async Task PreloadStoredTokenAsync()
@@ -93,9 +82,6 @@ public partial class App : Application
             if (auth != null)
                 await auth.GetTokenAsync();
         }
-        catch
-        {
-            // Non-fatal; auth check will run again when MainPage appears
-        }
+        catch { }
     }
 }

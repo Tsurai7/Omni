@@ -43,7 +43,7 @@
 
         <!-- ═══ Summary Metrics Row ══════════════════════════════════════════ -->
         <Grid Grid.Row="3" ColumnDefinitions="*,*,*" ColumnSpacing="10" Margin="20,0,20,12">
-            <controls:StatCard Value="{Binding SummaryFocusTime}"
+            <controls:StatCard Value="{Binding TotalFocusTime}"
                                Caption="Focus time"
                                AccentColor="{StaticResource ProductivityFocus}"/>
             <controls:StatCard Grid.Column="1"
@@ -58,8 +58,8 @@
 
         <!-- ═══ Scrollable content ═══════════════════════════════════════════ -->
         <RefreshView x:Name="RefreshView" Grid.Row="4"
-                     Command="{Binding RefreshCommand}"
-                     IsRefreshing="{Binding IsRefreshing}">
+                     Command="{Binding LoadCommand}"
+                     IsRefreshing="{Binding IsLoading}">
             <ScrollView>
                 <VerticalStackLayout Spacing="0">
 
@@ -95,6 +95,7 @@
                                     Style="{StaticResource ProductivityPillButton}"
                                     Command="{Binding RecommendationChipCommand}"
                                     VerticalOptions="Center"/>
+
                         </HorizontalStackLayout>
                     </Border>
 

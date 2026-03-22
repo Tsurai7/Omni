@@ -1,7 +1,16 @@
+using System.Diagnostics;
+using System.Net;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Http.Resilience;
 using Omni.Client.Abstractions;
+using Omni.Client.Core.Abstractions.Api;
+using Omni.Client.Infrastructure.Http;
+using Omni.Client.Presentation.ViewModels;
 using Omni.Client.Services;
+using Polly;
+using Polly.Timeout;
+using Refit;
 
 namespace Omni.Client;
 
@@ -17,10 +26,29 @@ public static class ServiceCollectionExtensions
             return opts;
         });
 
-        services.AddSingleton(_ => new JsonSerializerOptions
+        var jsonOptions = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
             PropertyNameCaseInsensitive = true
+        };
+        services.AddSingleton(jsonOptions);
+
+        var refitSettings = new RefitSettings
+        {
+            ContentSerializer = new SystemTextJsonContentSerializer(jsonOptions)
+        };
+
+        services.AddSingleton<ITokenStorage, MauiTokenStorage>();
+        services.AddTransient<AuthenticatedHttpHandler>();
+        services.AddTransient<UnauthorizedHttpHandler>();
+
+        services.AddHttpClient("OmniAuth", (sp, client) =>
+        {
+            var opts = sp.GetRequiredService<BackendOptions>();
+            var baseUri = BuildGatewayBaseUri(opts.BaseUrl);
+            if (baseUri != null)
+                client.BaseAddress = baseUri;
+            client.Timeout = TimeSpan.FromSeconds(30);
         });
 
         services.AddHttpClient("OmniBackend", (sp, client) =>
@@ -29,51 +57,44 @@ public static class ServiceCollectionExtensions
             var baseUri = BuildGatewayBaseUri(opts.BaseUrl);
             if (baseUri != null)
                 client.BaseAddress = baseUri;
-            client.Timeout = TimeSpan.FromSeconds(30);
         })
-        .AddStandardResilienceHandler();
-        services.AddSingleton<ITokenStorage, MauiTokenStorage>();
-        services.AddSingleton<IAuthService>(sp =>
-            new AuthService(
-                sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackend"),
-                sp.GetRequiredService<JsonSerializerOptions>(),
-                sp.GetRequiredService<ITokenStorage>()));
-        services.AddSingleton<IUsageService>(sp =>
-            new UsageService(
-                sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackend"),
-                sp.GetRequiredService<IAuthService>(),
-                sp.GetRequiredService<IActiveWindowTracker>(),
-                sp.GetRequiredService<JsonSerializerOptions>(),
-                sp.GetRequiredService<LocalDatabaseService>()));
+        .AddHttpMessageHandler<AuthenticatedHttpHandler>()
+        .AddHttpMessageHandler<UnauthorizedHttpHandler>()
+        .AddResilienceHandler("omni-pipeline", pipeline =>
+        {
+            pipeline.AddTimeout(TimeSpan.FromSeconds(25));
 
-        services.AddSingleton<ISessionService>(sp =>
-            new SessionService(
-                sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackend"),
-                sp.GetRequiredService<IAuthService>(),
-                sp.GetRequiredService<JsonSerializerOptions>(),
-                sp.GetRequiredService<LocalDatabaseService>()));
+            pipeline.AddRetry(new HttpRetryStrategyOptions
+            {
+                MaxRetryAttempts = 3,
+                Delay = TimeSpan.FromMilliseconds(500),
+                BackoffType = DelayBackoffType.Exponential,
+                UseJitter = true,
+                ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
+                    .Handle<HttpRequestException>()
+                    .Handle<TimeoutRejectedException>()
+                    .HandleResult(r => r.StatusCode is
+                        HttpStatusCode.RequestTimeout or
+                        HttpStatusCode.TooManyRequests or
+                        >= HttpStatusCode.InternalServerError)
+            });
 
-        services.AddSingleton<ITaskService>(sp =>
-            new TaskService(
-                sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackend"),
-                sp.GetRequiredService<IAuthService>(),
-                sp.GetRequiredService<JsonSerializerOptions>(),
-                sp.GetRequiredService<LocalDatabaseService>()));
+            pipeline.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
+            {
+                SamplingDuration = TimeSpan.FromSeconds(30),
+                MinimumThroughput = 5,
+                FailureRatio = 0.5,
+                BreakDuration = TimeSpan.FromSeconds(15),
+                OnOpened = args =>
+                {
+                    Debug.WriteLine($"[Circuit] Opened for {args.BreakDuration.TotalSeconds}s");
+                    return ValueTask.CompletedTask;
+                }
+            });
 
-        services.AddSingleton<IProductivityService>(sp =>
-            new ProductivityService(
-                sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackend"),
-                sp.GetRequiredService<IAuthService>(),
-                sp.GetRequiredService<JsonSerializerOptions>()));
+            pipeline.AddTimeout(TimeSpan.FromSeconds(30));
+        });
 
-        services.AddSingleton<IFocusScoreService>(sp =>
-            new FocusScoreService(
-                sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackend"),
-                sp.GetRequiredService<IAuthService>(),
-                sp.GetRequiredService<JsonSerializerOptions>()));
-
-        // Chat service uses a dedicated HttpClient with no timeout so SSE streams
-        // are not cut off by the 30s default.
         services.AddHttpClient("OmniBackendStream", (sp, client) =>
         {
             var opts = sp.GetRequiredService<BackendOptions>();
@@ -81,27 +102,128 @@ public static class ServiceCollectionExtensions
             if (baseUri != null)
                 client.BaseAddress = baseUri;
             client.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
-        });
+        })
+        .AddHttpMessageHandler<AuthenticatedHttpHandler>()
+        .AddHttpMessageHandler<UnauthorizedHttpHandler>();
+
+        services.AddRefitClient<ITaskApi>(refitSettings)
+            .ConfigureHttpClient((sp, c) =>
+            {
+                var opts = sp.GetRequiredService<BackendOptions>();
+                var baseUri = BuildGatewayBaseUri(opts.BaseUrl);
+                if (baseUri != null) c.BaseAddress = baseUri;
+            })
+            .AddHttpMessageHandler<AuthenticatedHttpHandler>()
+            .AddHttpMessageHandler<UnauthorizedHttpHandler>()
+            .AddResilienceHandler("omni-pipeline", ConfigureDefaultPipeline);
+
+        services.AddRefitClient<ISessionApi>(refitSettings)
+            .ConfigureHttpClient((sp, c) =>
+            {
+                var opts = sp.GetRequiredService<BackendOptions>();
+                var baseUri = BuildGatewayBaseUri(opts.BaseUrl);
+                if (baseUri != null) c.BaseAddress = baseUri;
+            })
+            .AddHttpMessageHandler<AuthenticatedHttpHandler>()
+            .AddHttpMessageHandler<UnauthorizedHttpHandler>()
+            .AddResilienceHandler("omni-pipeline", ConfigureDefaultPipeline);
+
+        services.AddRefitClient<IUsageApi>(refitSettings)
+            .ConfigureHttpClient((sp, c) =>
+            {
+                var opts = sp.GetRequiredService<BackendOptions>();
+                var baseUri = BuildGatewayBaseUri(opts.BaseUrl);
+                if (baseUri != null) c.BaseAddress = baseUri;
+            })
+            .AddHttpMessageHandler<AuthenticatedHttpHandler>()
+            .AddHttpMessageHandler<UnauthorizedHttpHandler>()
+            .AddResilienceHandler("omni-pipeline", ConfigureDefaultPipeline);
+
+        services.AddRefitClient<IProductivityApi>(refitSettings)
+            .ConfigureHttpClient((sp, c) =>
+            {
+                var opts = sp.GetRequiredService<BackendOptions>();
+                var baseUri = BuildGatewayBaseUri(opts.BaseUrl);
+                if (baseUri != null) c.BaseAddress = baseUri;
+            })
+            .AddHttpMessageHandler<AuthenticatedHttpHandler>()
+            .AddHttpMessageHandler<UnauthorizedHttpHandler>()
+            .AddResilienceHandler("omni-pipeline", ConfigureDefaultPipeline);
+
+        services.AddRefitClient<ICalendarApi>(refitSettings)
+            .ConfigureHttpClient((sp, c) =>
+            {
+                var opts = sp.GetRequiredService<BackendOptions>();
+                var baseUri = BuildGatewayBaseUri(opts.BaseUrl);
+                if (baseUri != null) c.BaseAddress = baseUri;
+            })
+            .AddHttpMessageHandler<AuthenticatedHttpHandler>()
+            .AddHttpMessageHandler<UnauthorizedHttpHandler>()
+            .AddResilienceHandler("omni-pipeline", ConfigureDefaultPipeline);
+
+        services.AddRefitClient<IAiApi>(refitSettings)
+            .ConfigureHttpClient((sp, c) =>
+            {
+                var opts = sp.GetRequiredService<BackendOptions>();
+                var baseUri = BuildGatewayBaseUri(opts.BaseUrl);
+                if (baseUri != null) c.BaseAddress = baseUri;
+            })
+            .AddHttpMessageHandler<AuthenticatedHttpHandler>()
+            .AddHttpMessageHandler<UnauthorizedHttpHandler>()
+            .AddResilienceHandler("omni-pipeline", ConfigureDefaultPipeline);
+
+        services.AddSingleton<IAuthService>(sp =>
+            new AuthService(
+                sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniAuth"),
+                sp.GetRequiredService<JsonSerializerOptions>(),
+                sp.GetRequiredService<ITokenStorage>()));
+
+        services.AddSingleton<IUsageService>(sp =>
+            new UsageService(
+                sp.GetRequiredService<IUsageApi>(),
+                sp.GetRequiredService<IActiveWindowTracker>(),
+                sp.GetRequiredService<LocalDatabaseService>()));
+
+        services.AddSingleton<ISessionService>(sp =>
+            new SessionService(
+                sp.GetRequiredService<ISessionApi>(),
+                sp.GetRequiredService<LocalDatabaseService>()));
+
+        services.AddSingleton<ITaskService>(sp =>
+            new TaskService(
+                sp.GetRequiredService<ITaskApi>(),
+                sp.GetRequiredService<LocalDatabaseService>()));
+
+        services.AddSingleton<IProductivityService>(sp =>
+            new ProductivityService(
+                sp.GetRequiredService<IProductivityApi>()));
+
+        services.AddSingleton<IFocusScoreService>(sp =>
+            new FocusScoreService(
+                sp.GetRequiredService<IAiApi>(),
+                sp.GetRequiredService<IAuthService>()));
+
         services.AddSingleton<IChatService>(sp =>
             new ChatService(
                 sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackendStream"),
+                sp.GetRequiredService<IAiApi>(),
                 sp.GetRequiredService<IAuthService>(),
                 sp.GetRequiredService<JsonSerializerOptions>()));
 
         services.AddSingleton<CalendarService>(sp =>
             new CalendarService(
-                sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackend"),
-                sp.GetRequiredService<IAuthService>(),
-                sp.GetRequiredService<JsonSerializerOptions>()));
+                sp.GetRequiredService<ICalendarApi>()));
 
-        services.AddTransient<MainPage>();
-        services.AddTransient<UsageStatsPage>();
-        services.AddTransient<SessionPage>();
-        services.AddTransient<TasksPage>();
-        services.AddTransient<AccountPage>();
-        services.AddTransient<DigestPage>();
-        services.AddTransient<ChatPage>();
-        services.AddTransient<CalendarPage>();
+        services.AddSingleton(_ => new LocalDatabaseService(
+            Path.Combine(FileSystem.AppDataDirectory, "omni_local.db")));
+
+        services.AddSingleton<ISyncService>(sp =>
+            new SyncService(
+                sp.GetRequiredService<ITaskApi>(),
+                sp.GetRequiredService<IUsageApi>(),
+                sp.GetRequiredService<ISessionApi>(),
+                sp.GetRequiredService<LocalDatabaseService>(),
+                sp.GetRequiredService<JsonSerializerOptions>()));
 
         services.AddActiveWindowTracker();
         services.AddNotificationManager();
@@ -113,19 +235,63 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredService<DistractionConfig>()));
         services.AddSingleton<IRunningSessionState, RunningSessionStateService>();
 
-        services.AddSingleton(_ => new LocalDatabaseService(
-            Path.Combine(FileSystem.AppDataDirectory, "omni_local.db")));
-        services.AddSingleton<ISyncService>(sp =>
-            new SyncService(
-                sp.GetRequiredService<IHttpClientFactory>().CreateClient("OmniBackend"),
-                sp.GetRequiredService<IAuthService>(),
-                sp.GetRequiredService<LocalDatabaseService>(),
-                sp.GetRequiredService<JsonSerializerOptions>()));
+        services.AddTransient<LoginViewModel>();
+        services.AddTransient<RegisterViewModel>();
+        services.AddTransient<MainViewModel>();
+        services.AddTransient<ChatViewModel>();
+        services.AddTransient<SessionViewModel>();
+        services.AddTransient<TasksViewModel>();
+        services.AddTransient<UsageStatsViewModel>();
+        services.AddTransient<CalendarViewModel>();
+        services.AddTransient<AccountViewModel>();
+
+        services.AddTransient<MainPage>();
+        services.AddTransient<UsageStatsPage>();
+        services.AddTransient<SessionPage>();
+        services.AddTransient<TasksPage>();
+        services.AddTransient<AccountPage>();
+        services.AddTransient<DigestPage>();
+        services.AddTransient<ChatPage>();
+        services.AddTransient<CalendarPage>();
 
         return services;
     }
 
-    // Gateway root only (e.g. http://127.0.0.1:8080); strip trailing /api so requests are not /api/api/...
+    private static void ConfigureDefaultPipeline(ResiliencePipelineBuilder<HttpResponseMessage> pipeline)
+    {
+        pipeline.AddTimeout(TimeSpan.FromSeconds(25));
+
+        pipeline.AddRetry(new HttpRetryStrategyOptions
+        {
+            MaxRetryAttempts = 3,
+            Delay = TimeSpan.FromMilliseconds(500),
+            BackoffType = DelayBackoffType.Exponential,
+            UseJitter = true,
+            ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
+                .Handle<HttpRequestException>()
+                .Handle<TimeoutRejectedException>()
+                .HandleResult(r => r.StatusCode is
+                    HttpStatusCode.RequestTimeout or
+                    HttpStatusCode.TooManyRequests or
+                    >= HttpStatusCode.InternalServerError)
+        });
+
+        pipeline.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
+        {
+            SamplingDuration = TimeSpan.FromSeconds(30),
+            MinimumThroughput = 5,
+            FailureRatio = 0.5,
+            BreakDuration = TimeSpan.FromSeconds(15),
+            OnOpened = args =>
+            {
+                Debug.WriteLine($"[Circuit] Opened for {args.BreakDuration.TotalSeconds}s");
+                return ValueTask.CompletedTask;
+            }
+        });
+
+        pipeline.AddTimeout(TimeSpan.FromSeconds(30));
+    }
+
     private static Uri? BuildGatewayBaseUri(string? rawBaseUrl)
     {
         if (string.IsNullOrWhiteSpace(rawBaseUrl))

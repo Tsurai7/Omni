@@ -21,7 +21,9 @@ public sealed class RunningSessionStateService : IRunningSessionState
     public string ActivityName { get { lock (_lock) return _activityName; } }
     public string ActivityType { get { lock (_lock) return _activityType; } }
 
-    public RunningSessionStateService(ISessionDistractionService distraction, INotificationManager notificationManager)
+    public RunningSessionStateService(
+        ISessionDistractionService distraction,
+        INotificationManager notificationManager)
     {
         _distraction = distraction ?? throw new ArgumentNullException(nameof(distraction));
         _notificationManager = notificationManager ?? throw new ArgumentNullException(nameof(notificationManager));

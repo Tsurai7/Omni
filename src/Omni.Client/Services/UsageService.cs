@@ -1,9 +1,9 @@
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
-using System.Text.Json;
 using System.Diagnostics;
+using System.Text.Json;
 using Omni.Client.Abstractions;
+using Omni.Client.Core.Abstractions.Api;
 using Omni.Client.Models.Usage;
+using Refit;
 
 namespace Omni.Client.Services;
 
@@ -11,33 +11,25 @@ public sealed class UsageService : IUsageService
 {
     private const int SyncIntervalSeconds = 45;
     private const int FirstSyncDelaySeconds = 15;
-    private readonly HttpClient _http;
-    private readonly IAuthService _authService;
+    private readonly IUsageApi _api;
     private readonly IActiveWindowTracker _tracker;
-    private readonly JsonSerializerOptions _jsonOptions;
     private readonly LocalDatabaseService _localDb;
     private Dictionary<string, long> _lastSyncedSeconds = new();
     private CancellationTokenSource? _syncCts;
     private readonly object _lock = new();
 
-    public UsageService(HttpClient http, IAuthService authService, IActiveWindowTracker tracker, JsonSerializerOptions jsonOptions, LocalDatabaseService localDb)
+    public UsageService(
+        IUsageApi api,
+        IActiveWindowTracker tracker,
+        LocalDatabaseService localDb)
     {
-        _http = http;
-        _authService = authService;
+        _api = api;
         _tracker = tracker;
-        _jsonOptions = jsonOptions;
         _localDb = localDb;
     }
 
     public async Task<bool> SyncAsync(CancellationToken cancellationToken = default)
     {
-        var token = await _authService.GetTokenAsync(cancellationToken);
-        if (string.IsNullOrEmpty(token))
-        {
-            Debug.WriteLine("UsageService.SyncAsync: no token, skip sync.");
-            return false;
-        }
-
         var usage = _tracker.GetAppUsage();
         var entries = new List<UsageSyncEntry>();
         lock (_lock)
@@ -61,69 +53,60 @@ public sealed class UsageService : IUsageService
         if (entries.Count == 0)
             return true;
 
-        var request = new HttpRequestMessage(HttpMethod.Post, "api/usage/sync");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        request.Content = JsonContent.Create(new UsageSyncRequest(entries), options: _jsonOptions);
-
-        using var response = await _http.SendAsync(request, cancellationToken);
-        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        var syncRequest = new UsageSyncRequest(entries);
+        try
         {
-            Debug.WriteLine("UsageService.SyncAsync: 401 Unauthorized, clearing token.");
-            _authService.Logout();
+            await _api.SyncAsync(syncRequest, cancellationToken);
+            return true;
         }
-        if (!response.IsSuccessStatusCode)
+        catch (ApiException ex)
         {
-            Debug.WriteLine($"UsageService.SyncAsync: sync failed {response.StatusCode}");
-            try
-            {
-                var payload = JsonSerializer.Serialize(new UsageSyncRequest(entries), _jsonOptions);
-                await _localDb.SavePendingSyncAsync("usage", payload, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"UsageService.SyncAsync: failed to save pending sync: {ex.Message}");
-            }
-            // Do not roll back _lastSyncedSeconds so the same batch is not sent again by SyncAsync; SyncService will drain pending_sync.
+            Debug.WriteLine($"UsageService.SyncAsync: {ex.StatusCode}");
+            await SavePendingAsync(syncRequest, cancellationToken);
             return false;
         }
-        return true;
+        catch (HttpRequestException ex)
+        {
+            Debug.WriteLine($"UsageService.SyncAsync: network error: {ex.Message}");
+            await SavePendingAsync(syncRequest, cancellationToken);
+            return false;
+        }
+    }
+
+    private async Task SavePendingAsync(UsageSyncRequest syncRequest, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var payload = JsonSerializer.Serialize(syncRequest);
+            await _localDb.SavePendingSyncAsync("usage", payload, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"UsageService.SavePendingAsync: {ex.Message}");
+        }
     }
 
     public async Task<UsageListResponse?> GetUsageAsync(string? from = null, string? to = null, string? groupBy = null, string? category = null, string? appName = null, CancellationToken cancellationToken = default)
     {
-        var token = await _authService.GetTokenAsync(cancellationToken);
-        if (string.IsNullOrEmpty(token))
-            return null;
-
-        var url = "api/usage";
-        var q = new List<string>();
-        if (!string.IsNullOrEmpty(from)) q.Add($"from={Uri.EscapeDataString(from)}");
-        if (!string.IsNullOrEmpty(to)) q.Add($"to={Uri.EscapeDataString(to)}");
-        if (!string.IsNullOrEmpty(groupBy)) q.Add($"group_by={Uri.EscapeDataString(groupBy)}");
-        if (!string.IsNullOrEmpty(category)) q.Add($"category={Uri.EscapeDataString(category)}");
-        if (!string.IsNullOrEmpty(appName)) q.Add($"app_name={Uri.EscapeDataString(appName)}");
-        if (q.Count > 0) url += "?" + string.Join("&", q);
-
-        var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        using var response = await _http.SendAsync(request, cancellationToken);
-        if (!response.IsSuccessStatusCode)
-            return null;
         try
         {
-            var body = await response.Content.ReadFromJsonAsync<UsageListResponse>(_jsonOptions, cancellationToken);
-            return body;
+            return await _api.GetUsageAsync(from, to, groupBy, category, appName, cancellationToken);
         }
-        catch (JsonException)
+        catch (ApiException ex)
         {
+            Debug.WriteLine($"UsageService.GetUsageAsync: {ex.StatusCode}");
+            return null;
+        }
+        catch (HttpRequestException ex)
+        {
+            Debug.WriteLine($"UsageService.GetUsageAsync: network error: {ex.Message}");
             return null;
         }
     }
 
     public void StartPeriodicSync()
     {
-        _tracker.StartTracking(); // ensure tracking runs even if user never opened Home
+        _tracker.StartTracking();
         StopPeriodicSync();
         _syncCts = new CancellationTokenSource();
         var token = _syncCts.Token;
@@ -138,10 +121,9 @@ public sealed class UsageService : IUsageService
 
     private async Task RunSyncLoopAsync(CancellationToken cancellationToken)
     {
-        // First sync after a short delay so the tracker has time to accumulate usage
         await Task.Delay(TimeSpan.FromSeconds(FirstSyncDelaySeconds), cancellationToken);
         if (cancellationToken.IsCancellationRequested) return;
-        try { await SyncAsync(cancellationToken); } catch (OperationCanceledException) { return; } catch { /* ignore */ }
+        try { await SyncAsync(cancellationToken); } catch (OperationCanceledException) { return; } catch { }
 
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -149,7 +131,7 @@ public sealed class UsageService : IUsageService
             if (cancellationToken.IsCancellationRequested) break;
             try { await SyncAsync(cancellationToken); }
             catch (OperationCanceledException) { break; }
-            catch { /* ignore */ }
+            catch { }
         }
     }
 }

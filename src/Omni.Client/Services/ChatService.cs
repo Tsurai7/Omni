@@ -1,37 +1,32 @@
 using System.Diagnostics;
 using System.Net;
-using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using Omni.Client.Abstractions;
-using Omni.Client.Models.Auth;
+using Omni.Client.Core.Abstractions.Api;
 using Omni.Client.Models.Chat;
+using Refit;
 
 namespace Omni.Client.Services;
 
 public class ChatService : IChatService
 {
-    private readonly HttpClient _http;
+    private readonly HttpClient _streamHttp;
+    private readonly IAiApi _api;
     private readonly IAuthService _auth;
     private readonly JsonSerializerOptions _json;
 
-    public ChatService(HttpClient http, IAuthService auth, JsonSerializerOptions json)
+    public ChatService(
+        HttpClient streamHttp,
+        IAiApi api,
+        IAuthService auth,
+        JsonSerializerOptions json)
     {
-        _http = http;
+        _streamHttp = streamHttp;
+        _api = api;
         _auth = auth;
         _json = json;
-    }
-
-    private async Task<HttpRequestMessage> BuildRequestAsync(HttpMethod method, string path, object? body = null)
-    {
-        var req = new HttpRequestMessage(method, path);
-        var token = await _auth.GetTokenAsync();
-        if (!string.IsNullOrEmpty(token))
-            req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-        if (body != null)
-            req.Content = new StringContent(JsonSerializer.Serialize(body, _json), Encoding.UTF8, "application/json");
-        return req;
     }
 
     public async Task<List<ConversationStarter>> GetStartersAsync(CancellationToken ct = default)
@@ -41,12 +36,13 @@ public class ChatService : IChatService
             var user = await _auth.GetCurrentUserAsync();
             if (user == null) return [];
 
-            using var req = await BuildRequestAsync(HttpMethod.Get, $"api/ai/chat/{user.Id}/starters");
-            using var resp = await _http.SendAsync(req, ct);
-            if (!resp.IsSuccessStatusCode) return [];
-
-            var result = await resp.Content.ReadFromJsonAsync<StartersResponse>(_json, ct);
+            var result = await _api.GetStartersAsync(user.Id, ct);
             return result?.Starters ?? [];
+        }
+        catch (ApiException ex)
+        {
+            Debug.WriteLine($"ChatService.GetStartersAsync: {ex.StatusCode}");
+            return [];
         }
         catch (Exception ex)
         {
@@ -62,12 +58,13 @@ public class ChatService : IChatService
             var user = await _auth.GetCurrentUserAsync();
             if (user == null) return [];
 
-            using var req = await BuildRequestAsync(HttpMethod.Get, $"api/ai/chat/{user.Id}/conversations");
-            using var resp = await _http.SendAsync(req, ct);
-            if (!resp.IsSuccessStatusCode) return [];
-
-            var result = await resp.Content.ReadFromJsonAsync<ChatConversationsResponse>(_json, ct);
+            var result = await _api.GetConversationsAsync(user.Id, ct);
             return result?.Conversations ?? [];
+        }
+        catch (ApiException ex)
+        {
+            Debug.WriteLine($"ChatService.GetConversationsAsync: {ex.StatusCode}");
+            return [];
         }
         catch (Exception ex)
         {
@@ -83,13 +80,13 @@ public class ChatService : IChatService
             var user = await _auth.GetCurrentUserAsync();
             if (user == null) return [];
 
-            using var req = await BuildRequestAsync(HttpMethod.Get,
-                $"api/ai/chat/{user.Id}/conversations/{conversationId}/messages?limit={limit}");
-            using var resp = await _http.SendAsync(req, ct);
-            if (!resp.IsSuccessStatusCode) return [];
-
-            var result = await resp.Content.ReadFromJsonAsync<ChatMessagesResponse>(_json, ct);
+            var result = await _api.GetMessagesAsync(user.Id, conversationId, limit, ct);
             return result?.Messages ?? [];
+        }
+        catch (ApiException ex)
+        {
+            Debug.WriteLine($"ChatService.GetMessagesAsync: {ex.StatusCode}");
+            return [];
         }
         catch (Exception ex)
         {
@@ -103,17 +100,10 @@ public class ChatService : IChatService
         string content,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        UserResponse? user = null;
-        try
-        {
-            user = await _auth.GetCurrentUserAsync();
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"ChatService.SendMessageAsync auth: {ex.Message}");
-        }
-
+        var user = await _auth.GetCurrentUserAsync();
         if (user == null) yield break;
+
+        var token = await _auth.GetTokenAsync();
 
         var body = new SendMessageRequest(conversationId, content);
         HttpRequestMessage? req = null;
@@ -121,8 +111,11 @@ public class ChatService : IChatService
 
         try
         {
-            req = await BuildRequestAsync(HttpMethod.Post, $"api/ai/chat/{user.Id}/messages", body);
-            resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+            req = new HttpRequestMessage(HttpMethod.Post, $"api/ai/chat/{user.Id}/messages");
+            if (!string.IsNullOrEmpty(token))
+                req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            req.Content = new StringContent(JsonSerializer.Serialize(body, _json), Encoding.UTF8, "application/json");
+            resp = await _streamHttp.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
         }
         catch (Exception ex)
         {
@@ -140,8 +133,8 @@ public class ChatService : IChatService
             resp.Dispose();
             req.Dispose();
             var msg = status == HttpStatusCode.ServiceUnavailable
-                ? "Coach isn’t available: the gateway needs AI_URL pointing at the omni-ai service (e.g. http://ai:8000 in Docker)."
-                : $"Couldn’t reach the coach ({(int)status}). Try again.";
+                ? "Coach isn't available: the gateway needs AI_URL pointing at the omni-ai service (e.g. http://ai:8000 in Docker)."
+                : $"Couldn't reach the coach ({(int)status}). Try again.";
             yield return new ChatStreamDelta(msg, null, false, true);
             yield return new ChatStreamDelta(null, null, true, null);
             yield break;
@@ -196,11 +189,11 @@ public class ChatService : IChatService
             var user = await _auth.GetCurrentUserAsync();
             if (user == null) return;
 
-            using var req = await BuildRequestAsync(HttpMethod.Delete,
-                $"api/ai/chat/{user.Id}/conversations/{conversationId}");
-            using var resp = await _http.SendAsync(req, ct);
-            if (!resp.IsSuccessStatusCode)
-                Debug.WriteLine($"ChatService.DeleteConversationAsync: status {resp.StatusCode}");
+            await _api.DeleteConversationAsync(user.Id, conversationId, ct);
+        }
+        catch (ApiException ex)
+        {
+            Debug.WriteLine($"ChatService.DeleteConversationAsync: {ex.StatusCode}");
         }
         catch (Exception ex)
         {

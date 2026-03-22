@@ -1,196 +1,134 @@
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using Omni.Client.Abstractions;
 using Omni.Client.Models.Calendar;
+using Omni.Client.Presentation.ViewModels;
 using Omni.Client.Services;
 
 namespace Omni.Client;
 
-public partial class CalendarPage : ContentPage, INotifyPropertyChanged
+public partial class CalendarPage : ContentPage
 {
-    private CalendarService? _calendarService;
-    private ITaskService? _taskService;
+    private readonly CalendarViewModel _vm;
+    private readonly CalendarService _calendarService;
+    private readonly ITaskService _taskService;
 
-    private DateTime _displayedMonth;
-    private DateTime _selectedDay;
     private List<CalendarEvent> _events = new();
+    private DateTime _sheetDay;
 
-    private enum ViewMode { Month, Week, Day }
-    private ViewMode _viewMode = ViewMode.Month;
+    private DateTime DisplayedMonth =>
+        new DateTime(_vm.CurrentDate.Year, _vm.CurrentDate.Month, 1);
 
-    // ── App resource helpers ───────────────────────────────────────────────
     private static Style AppStyle(string key) =>
         (Style)Application.Current!.Resources[key];
 
-    public CalendarPage()
+    public CalendarPage(CalendarViewModel vm, CalendarService calendarService, ITaskService taskService)
     {
         InitializeComponent();
-        _displayedMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
-        _selectedDay = DateTime.Today;
+        _vm = vm;
+        _calendarService = calendarService;
+        _taskService = taskService;
+        BindingContext = vm;
 
-        // Seed create-event form defaults
         EventDatePicker.Date = DateTime.Today;
         EventStartTime.Time = new TimeSpan(DateTime.Now.Hour + 1, 0, 0);
-        EventEndTime.Time   = new TimeSpan(DateTime.Now.Hour + 2, 0, 0);
+        EventEndTime.Time = new TimeSpan(DateTime.Now.Hour + 2, 0, 0);
+
+        _vm.EventsLoaded += () => MainThread.BeginInvokeOnMainThread(() =>
+        {
+            _events = _vm.Events.ToList();
+            RenderCurrentView();
+        });
     }
-
-    private CalendarService GetCalendarService() =>
-        _calendarService ??= MauiProgram.AppServices?.GetService<CalendarService>()!;
-
-    private ITaskService GetTaskService() =>
-        _taskService ??= MauiProgram.AppServices?.GetService<ITaskService>()!;
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-
-        var auth = MauiProgram.AppServices?.GetService<IAuthService>();
-        if (auth != null && !await auth.IsAuthenticatedAsync())
-        {
-            await Shell.Current.GoToAsync(nameof(LoginPage));
-            return;
-        }
-
         await RefreshAsync();
     }
 
     private async Task RefreshAsync()
     {
-        UpdateHeader();
-        await LoadEventsAsync();
-        RenderCurrentView();
+        await _vm.LoadEventsAsync();
         await UpdateSyncStatusAsync();
     }
 
-    // ── Header / navigation ───────────────────────────────────────────────
-
     private void UpdateHeader()
     {
-        MonthYearLabel.Text = _viewMode switch
+        MonthYearLabel.Text = _vm.ViewMode switch
         {
-            ViewMode.Week => $"Week of {GetWeekStart(_selectedDay):MMM d, yyyy}",
-            ViewMode.Day  => _selectedDay.ToString("MMMM d, yyyy"),
-            _             => _displayedMonth.ToString("MMMM yyyy"),
+            CalendarViewMode.Week => $"Week of {GetWeekStart(_vm.CurrentDate):MMM d, yyyy}",
+            CalendarViewMode.Day  => _vm.CurrentDate.ToString("MMMM d, yyyy"),
+            _                     => DisplayedMonth.ToString("MMMM yyyy"),
         };
-        WeekdayHeader.IsVisible = _viewMode == ViewMode.Month;
+        WeekdayHeader.IsVisible = _vm.ViewMode == CalendarViewMode.Month;
     }
 
     private async void OnPrevClicked(object? sender, EventArgs e)
     {
-        switch (_viewMode)
-        {
-            case ViewMode.Month: _displayedMonth = _displayedMonth.AddMonths(-1); break;
-            case ViewMode.Week:  _selectedDay = _selectedDay.AddDays(-7);         break;
-            case ViewMode.Day:   _selectedDay = _selectedDay.AddDays(-1);         break;
-        }
-        await RefreshAsync();
+        _vm.Navigate(-1);
+        await _vm.LoadEventsAsync();
     }
 
     private async void OnNextClicked(object? sender, EventArgs e)
     {
-        switch (_viewMode)
-        {
-            case ViewMode.Month: _displayedMonth = _displayedMonth.AddMonths(1); break;
-            case ViewMode.Week:  _selectedDay = _selectedDay.AddDays(7);         break;
-            case ViewMode.Day:   _selectedDay = _selectedDay.AddDays(1);         break;
-        }
-        await RefreshAsync();
+        _vm.Navigate(1);
+        await _vm.LoadEventsAsync();
     }
 
     private async void OnTodayClicked(object? sender, EventArgs e)
     {
-        _selectedDay = DateTime.Today;
-        _displayedMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
-        await RefreshAsync();
+        _vm.CurrentDate = DateTime.Today;
+        await _vm.LoadEventsAsync();
     }
-
-    // ── View mode switches ────────────────────────────────────────────────
 
     private async void OnMonthViewClicked(object? sender, EventArgs e)
     {
-        _viewMode = ViewMode.Month;
+        await _vm.SetViewModeAsync(CalendarViewMode.Month);
         SetViewButtons();
-        await RefreshAsync();
     }
 
     private async void OnWeekViewClicked(object? sender, EventArgs e)
     {
-        _viewMode = ViewMode.Week;
+        await _vm.SetViewModeAsync(CalendarViewMode.Week);
         SetViewButtons();
-        await RefreshAsync();
     }
 
     private async void OnDayViewClicked(object? sender, EventArgs e)
     {
-        _viewMode = ViewMode.Day;
+        await _vm.SetViewModeAsync(CalendarViewMode.Day);
         SetViewButtons();
-        await RefreshAsync();
     }
 
     private void SetViewButtons()
     {
-        MonthViewBtn.Style = _viewMode == ViewMode.Month ? AppStyle("ProductivityPillButton") : AppStyle("ProductivitySecondaryButton");
-        WeekViewBtn.Style  = _viewMode == ViewMode.Week  ? AppStyle("ProductivityPillButton") : AppStyle("ProductivitySecondaryButton");
-        DayViewBtn.Style   = _viewMode == ViewMode.Day   ? AppStyle("ProductivityPillButton") : AppStyle("ProductivitySecondaryButton");
+        MonthViewBtn.Style = _vm.ViewMode == CalendarViewMode.Month
+            ? AppStyle("ProductivityPillButton") : AppStyle("ProductivitySecondaryButton");
+        WeekViewBtn.Style = _vm.ViewMode == CalendarViewMode.Week
+            ? AppStyle("ProductivityPillButton") : AppStyle("ProductivitySecondaryButton");
+        DayViewBtn.Style = _vm.ViewMode == CalendarViewMode.Day
+            ? AppStyle("ProductivityPillButton") : AppStyle("ProductivitySecondaryButton");
 
-        MonthView.IsVisible = _viewMode == ViewMode.Month;
-        WeekView.IsVisible  = _viewMode == ViewMode.Week;
-        DayView.IsVisible   = _viewMode == ViewMode.Day;
+        MonthView.IsVisible = _vm.ViewMode == CalendarViewMode.Month;
+        WeekView.IsVisible = _vm.ViewMode == CalendarViewMode.Week;
+        DayView.IsVisible = _vm.ViewMode == CalendarViewMode.Day;
     }
-
-    // ── Data loading ──────────────────────────────────────────────────────
-
-    private async Task LoadEventsAsync()
-    {
-        var (start, end) = GetCurrentDateRange();
-        try
-        {
-            _events = await GetCalendarService().GetEventsAsync(start, end);
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"CalendarPage.LoadEventsAsync: {ex.Message}");
-            _events = new List<CalendarEvent>();
-        }
-    }
-
-    private (DateTime start, DateTime end) GetCurrentDateRange()
-    {
-        switch (_viewMode)
-        {
-            case ViewMode.Week:
-                return (GetWeekStart(_selectedDay), GetWeekStart(_selectedDay).AddDays(7));
-            case ViewMode.Day:
-                return (_selectedDay.Date, _selectedDay.Date.AddDays(1));
-            default:
-                // Expand range to cover the full 6-week grid (days from prev/next month)
-                var gridStart = _displayedMonth.AddDays(-(int)_displayedMonth.DayOfWeek);
-                var gridEnd   = gridStart.AddDays(42);
-                return (gridStart, gridEnd);
-        }
-    }
-
-    // ── Rendering ─────────────────────────────────────────────────────────
 
     private void RenderCurrentView()
     {
         UpdateHeader();
-        switch (_viewMode)
+        switch (_vm.ViewMode)
         {
-            case ViewMode.Month: RenderMonthView(); break;
-            case ViewMode.Week:  RenderWeekView();  break;
-            case ViewMode.Day:   RenderDayView();   break;
+            case CalendarViewMode.Month: RenderMonthView(); break;
+            case CalendarViewMode.Week:  RenderWeekView();  break;
+            case CalendarViewMode.Day:   RenderDayView();   break;
         }
     }
-
-    // ── Month View ────────────────────────────────────────────────────────
 
     private void RenderMonthView()
     {
         MonthGridContainer.Children.Clear();
 
-        var firstDay     = _displayedMonth;
-        var startOfGrid  = firstDay.AddDays(-(int)firstDay.DayOfWeek);
+        var firstDay = DisplayedMonth;
+        var startOfGrid = firstDay.AddDays(-(int)firstDay.DayOfWeek);
 
         for (int week = 0; week < 6; week++)
         {
@@ -204,10 +142,9 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
             for (int dow = 0; dow < 7; dow++)
             {
                 var date = startOfGrid.AddDays(week * 7 + dow);
-                var isCurrentMonth = date.Month == _displayedMonth.Month;
+                var isCurrentMonth = date.Month == DisplayedMonth.Month;
                 var isToday = date.Date == DateTime.Today;
                 var dayEvents = _events.Where(e => e.StartAt.Date == date.Date).ToList();
-
                 weekRow.Add(BuildDayCell(date, isCurrentMonth, isToday, dayEvents), dow, 0);
             }
 
@@ -231,7 +168,6 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
 
         var content = new VerticalStackLayout { Spacing = 3 };
 
-        // Day number — Apple-style filled circle for today
         var dayNumContainer = new Grid
         {
             WidthRequest = 24, HeightRequest = 24,
@@ -256,11 +192,10 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
                 ? Colors.White
                 : isCurrentMonth ? Color.FromArgb("#E0E0F0") : Color.FromArgb("#44444F"),
             HorizontalOptions = LayoutOptions.Center,
-            VerticalOptions   = LayoutOptions.Center,
+            VerticalOptions = LayoutOptions.Center,
         });
         content.Children.Add(dayNumContainer);
 
-        // Event pills (up to 2, then "+N more")
         int shown = 0;
         foreach (var evt in dayEvents)
         {
@@ -306,13 +241,10 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
         };
     }
 
-    // ── Week View ─────────────────────────────────────────────────────────
-
     private void RenderWeekView()
     {
-        var weekStart = GetWeekStart(_selectedDay);
+        var weekStart = GetWeekStart(_vm.CurrentDate);
 
-        // ── Day headers ──────────────────────────────────────────────────
         WeekDayHeaders.Children.Clear();
         WeekDayHeaders.ColumnDefinitions.Clear();
         WeekDayHeaders.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(44)));
@@ -323,7 +255,7 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
 
         for (int d = 0; d < 7; d++)
         {
-            var day     = weekStart.AddDays(d);
+            var day = weekStart.AddDays(d);
             var isToday = day.Date == DateTime.Today;
 
             var stack = new VerticalStackLayout { Spacing = 1, HorizontalOptions = LayoutOptions.Center };
@@ -348,14 +280,13 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
                     FontAttributes = isToday ? FontAttributes.Bold : FontAttributes.None,
                     TextColor = isToday ? Colors.White : Color.FromArgb("#E0E0F0"),
                     HorizontalOptions = LayoutOptions.Center,
-                    VerticalOptions   = LayoutOptions.Center,
+                    VerticalOptions = LayoutOptions.Center,
                 },
             };
             stack.Children.Add(numBorder);
             WeekDayHeaders.Add(stack, d + 1, 0);
         }
 
-        // ── All-day events strip ─────────────────────────────────────────
         WeekAllDayStrip.Children.Clear();
         WeekAllDayStrip.ColumnDefinitions.Clear();
         WeekAllDayStrip.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(44)));
@@ -375,7 +306,6 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
         }
         WeekAllDayStrip.IsVisible = hasAllDay;
 
-        // ── Time grid ────────────────────────────────────────────────────
         WeekTimeGrid.Children.Clear();
         WeekTimeGrid.RowDefinitions.Clear();
         WeekTimeGrid.ColumnDefinitions.Clear();
@@ -383,9 +313,9 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
         for (int i = 0; i < 7; i++)
             WeekTimeGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
 
-        const int startHour  = 6;
-        const int endHour    = 23;
-        const double hourH   = 54;
+        const int startHour = 6;
+        const int endHour = 23;
+        const double hourH = 54;
 
         for (int h = startHour; h <= endHour; h++)
             WeekTimeGrid.RowDefinitions.Add(new RowDefinition(new GridLength(hourH)));
@@ -400,7 +330,7 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
                 FontSize = 10,
                 TextColor = Color.FromArgb("#44444F"),
                 HorizontalOptions = LayoutOptions.End,
-                VerticalOptions   = LayoutOptions.Start,
+                VerticalOptions = LayoutOptions.Start,
                 Margin = new Thickness(0, 2, 6, 0),
             }, 0, row);
 
@@ -415,7 +345,6 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
             }
         }
 
-        // Place timed events with duration-aware height
         for (int d = 0; d < 7; d++)
         {
             var day = weekStart.AddDays(d);
@@ -431,7 +360,6 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
 
                 int row = hour - startHour;
                 double topOffset = (evt.StartAt.Minute / 60.0) * hourH;
-
                 double durationMins = evt.EndAt.HasValue
                     ? (evt.EndAt.Value - evt.StartAt).TotalMinutes
                     : 60;
@@ -452,34 +380,30 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
         });
     }
 
-    // ── Day View ──────────────────────────────────────────────────────────
-
     private void RenderDayView()
     {
-        DayViewTitle.Text = _selectedDay.ToString("dddd, d MMMM");
+        DayViewTitle.Text = _vm.CurrentDate.ToString("dddd, d MMMM");
 
-        // ── All-day events strip ──────────────────────────────────────────
         DayAllDayStrip.Children.Clear();
-        var allDayEvents = _events.Where(e => e.IsAllDay && e.StartAt.Date == _selectedDay.Date).ToList();
+        var allDayEvents = _events.Where(e => e.IsAllDay && e.StartAt.Date == _vm.CurrentDate.Date).ToList();
         foreach (var evt in allDayEvents)
             DayAllDayStrip.Children.Add(BuildAllDayChip(evt));
         DayAllDayStrip.IsVisible = allDayEvents.Count > 0;
 
-        // ── Time grid ────────────────────────────────────────────────────
         DayTimeGrid.Children.Clear();
         DayTimeGrid.RowDefinitions.Clear();
         DayTimeGrid.ColumnDefinitions.Clear();
         DayTimeGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(52)));
         DayTimeGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
 
-        const int startHour  = 6;
-        const int endHour    = 23;
-        const double hourH   = 64;
+        const int startHour = 6;
+        const int endHour = 23;
+        const double hourH = 64;
 
         for (int h = startHour; h <= endHour; h++)
             DayTimeGrid.RowDefinitions.Add(new RowDefinition(new GridLength(hourH)));
 
-        bool isToday = _selectedDay.Date == DateTime.Today;
+        bool isToday = _vm.CurrentDate.Date == DateTime.Today;
         var now = DateTime.Now;
 
         for (int h = startHour; h <= endHour; h++)
@@ -492,7 +416,7 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
                 FontSize = 11,
                 TextColor = Color.FromArgb("#44444F"),
                 HorizontalOptions = LayoutOptions.End,
-                VerticalOptions   = LayoutOptions.Start,
+                VerticalOptions = LayoutOptions.Start,
                 Margin = new Thickness(0, 2, 10, 0),
             }, 0, row);
 
@@ -503,7 +427,6 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
                 VerticalOptions = LayoutOptions.Start,
             }, 1, row);
 
-            // Current time indicator
             if (isToday && now.Hour == h)
             {
                 double minuteFrac = now.Minute / 60.0;
@@ -517,9 +440,8 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
             }
         }
 
-        // Place timed events
         var timedEvents = _events
-            .Where(e => e.StartAt.Date == _selectedDay.Date && !e.IsAllDay)
+            .Where(e => e.StartAt.Date == _vm.CurrentDate.Date && !e.IsAllDay)
             .OrderBy(e => e.StartAt)
             .ToList();
 
@@ -530,7 +452,6 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
 
             int row = hour - startHour;
             double topOffset = (evt.StartAt.Minute / 60.0) * hourH;
-
             double durationMins = evt.EndAt.HasValue
                 ? (evt.EndAt.Value - evt.StartAt).TotalMinutes
                 : 60;
@@ -549,8 +470,6 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
             await DayScrollView.ScrollToAsync(0, (8 - startHour) * hourH, false);
         });
     }
-
-    // ── Event block builders ──────────────────────────────────────────────
 
     private View BuildEventBlock(CalendarEvent evt, double height, bool compact)
     {
@@ -585,7 +504,6 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
         }
         border.Content = content;
 
-        // Tap → show detail sheet for this single event
         border.GestureRecognizers.Add(new TapGestureRecognizer
         {
             Command = new Command(() =>
@@ -618,10 +536,6 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
             },
         };
     }
-
-    // ── Day detail sheet ──────────────────────────────────────────────────
-
-    private DateTime _sheetDay;
 
     private void ShowDayDetail(DateTime date, List<CalendarEvent> events)
     {
@@ -711,10 +625,8 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
         await Task.CompletedTask;
     }
 
-    // ── FAB / Create event sheet ──────────────────────────────────────────
-
     private void OnFabTapped(object? sender, TappedEventArgs e) =>
-        OpenCreateEventSheet(_selectedDay);
+        OpenCreateEventSheet(_vm.CurrentDate);
 
     private void OpenCreateEventSheet(DateTime forDate)
     {
@@ -722,25 +634,21 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
         EventDatePicker.Date = forDate;
         AllDaySwitch.IsToggled = false;
         EventStartTime.Time = new TimeSpan(9, 0, 0);
-        EventEndTime.Time   = new TimeSpan(10, 0, 0);
+        EventEndTime.Time = new TimeSpan(10, 0, 0);
         EventNotesEditor.Text = string.Empty;
         TimePickerRow.IsVisible = true;
 
-        // Populate calendar type picker
         CalendarTypePicker.Items.Clear();
         CalendarTypePicker.Items.Add("Omni Task");
-        if (GetCalendarService().IsConnected)
+        if (_calendarService.IsConnected)
             CalendarTypePicker.Items.Add("Google Calendar");
         CalendarTypePicker.SelectedIndex = 0;
 
         CreateEventOverlay.IsVisible = true;
     }
 
-    private void OnCreateEventOverlayTapped(object? sender, TappedEventArgs e)
-    {
-        // Only dismiss if tapping the backdrop, not the sheet
+    private void OnCreateEventOverlayTapped(object? sender, TappedEventArgs e) =>
         CreateEventOverlay.IsVisible = false;
-    }
 
     private void OnCreateEventCancel(object? sender, EventArgs e) =>
         CreateEventOverlay.IsVisible = false;
@@ -759,7 +667,7 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
 
         CreateEventOverlay.IsVisible = false;
 
-        var date     = (EventDatePicker.Date ?? DateTime.Today).Date;
+        var date = (EventDatePicker.Date ?? DateTime.Today).Date;
         var isAllDay = AllDaySwitch.IsToggled;
         var useGoogle = CalendarTypePicker.SelectedItem?.ToString() == "Google Calendar";
 
@@ -768,19 +676,19 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
         if (isAllDay)
         {
             start = date;
-            end   = null;
+            end = null;
         }
         else
         {
             start = date + (EventStartTime.Time ?? TimeSpan.FromHours(9));
-            end   = date + (EventEndTime.Time   ?? TimeSpan.FromHours(10));
+            end = date + (EventEndTime.Time ?? TimeSpan.FromHours(10));
             if (end <= start) end = start.AddHours(1);
         }
 
         bool success;
         if (useGoogle)
         {
-            success = await GetCalendarService().CreateGoogleEventAsync(
+            success = await _calendarService.CreateGoogleEventAsync(
                 title, start, end, isAllDay,
                 EventNotesEditor.Text?.Trim());
         }
@@ -788,7 +696,7 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
         {
             try
             {
-                await GetTaskService().CreateTaskAsync(title, "medium", start);
+                await _taskService.CreateTaskAsync(title, "medium", start);
                 success = true;
             }
             catch
@@ -803,45 +711,38 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
         await RefreshAsync();
     }
 
-    // ── Sync status ───────────────────────────────────────────────────────
-
     private async Task UpdateSyncStatusAsync()
     {
         try
         {
-            var status = await GetCalendarService().RefreshStatusAsync();
+            var status = await _calendarService.RefreshStatusAsync();
             if (status == null || !status.Connected)
             {
-                SyncDotLabel.TextColor  = Color.FromArgb("#44444F");
-                SyncTextLabel.Text      = "Connect Cal";
+                SyncDotLabel.TextColor = Color.FromArgb("#44444F");
+                SyncTextLabel.Text = "Connect Cal";
                 SyncTextLabel.TextColor = Color.FromArgb("#66667A");
             }
             else
             {
-                SyncDotLabel.TextColor  = Color.FromArgb("#4ECCA3");
+                SyncDotLabel.TextColor = Color.FromArgb("#4ECCA3");
                 var email = status.Email?.Split('@')[0] ?? "Google";
-                SyncTextLabel.Text      = email.Length > 10 ? email[..10] + "…" : email;
+                SyncTextLabel.Text = email.Length > 10 ? email[..10] + "…" : email;
                 SyncTextLabel.TextColor = Color.FromArgb("#9898A8");
             }
         }
-        catch
-        {
-            // ignore
-        }
+        catch { }
     }
 
     private async void OnSyncStatusTapped(object? sender, TappedEventArgs e)
     {
-        if (!GetCalendarService().IsConnected)
+        if (!_calendarService.IsConnected)
         {
-            // Navigate to account page to connect
             await Shell.Current.GoToAsync("///AccountPage");
             return;
         }
 
-        // Trigger manual sync
         SyncTextLabel.Text = "Syncing…";
-        var ok = await GetCalendarService().SyncAsync();
+        var ok = await _calendarService.SyncAsync();
         if (ok)
         {
             await RefreshAsync();
@@ -854,11 +755,5 @@ public partial class CalendarPage : ContentPage, INotifyPropertyChanged
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────
-
     private static DateTime GetWeekStart(DateTime d) => d.AddDays(-(int)d.DayOfWeek);
-
-    public new event PropertyChangedEventHandler? PropertyChanged;
-    protected new void OnPropertyChanged([CallerMemberName] string? name = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }

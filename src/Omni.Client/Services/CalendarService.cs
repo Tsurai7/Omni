@@ -1,20 +1,14 @@
 using System.Diagnostics;
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
-using System.Text;
-using System.Text.Json;
-using Omni.Client.Abstractions;
+using Omni.Client.Core.Abstractions.Api;
 using Omni.Client.Models.Calendar;
+using Refit;
 
 namespace Omni.Client.Services;
 
 public sealed class CalendarService
 {
-    private readonly HttpClient _http;
-    private readonly IAuthService _authService;
-    private readonly JsonSerializerOptions _jsonOptions;
+    private readonly ICalendarApi _api;
 
-    // Cached connection status (refreshed on each ConnectAsync / StatusAsync call)
     private bool _isConnected;
     private string? _connectedEmail;
     private DateTime? _lastSyncedAt;
@@ -25,36 +19,23 @@ public sealed class CalendarService
 
     public event EventHandler? StatusChanged;
 
-    public CalendarService(HttpClient http, IAuthService authService, JsonSerializerOptions jsonOptions)
+    public CalendarService(ICalendarApi api)
     {
-        _http = http;
-        _authService = authService;
-        _jsonOptions = jsonOptions;
+        _api = api;
     }
 
-    // ── Auth ──────────────────────────────────────────────────────────────
-
-    /// <summary>Returns the Google OAuth2 consent URL from the backend.</summary>
     public async Task<string?> GetAuthUrlAsync(CancellationToken cancellationToken = default)
     {
-        var token = await GetTokenOrNullAsync(cancellationToken).ConfigureAwait(false);
-        if (token == null) return null;
-
-        var request = new HttpRequestMessage(HttpMethod.Get, "api/calendar/auth/google");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         try
         {
-            using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
-            {
-                var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                Debug.WriteLine($"CalendarService.GetAuthUrlAsync: HTTP {(int)response.StatusCode} — {body}");
-                return null;
-            }
-            var result = await response.Content.ReadFromJsonAsync<CalendarAuthUrl>(_jsonOptions, cancellationToken).ConfigureAwait(false);
+            var result = await _api.GetAuthUrlAsync(cancellationToken).ConfigureAwait(false);
             Debug.WriteLine($"CalendarService.GetAuthUrlAsync: URL={result?.Url}");
             return result?.Url;
+        }
+        catch (ApiException ex)
+        {
+            Debug.WriteLine($"CalendarService.GetAuthUrlAsync: HTTP {(int)ex.StatusCode}");
+            return null;
         }
         catch (Exception ex)
         {
@@ -63,25 +44,20 @@ public sealed class CalendarService
         }
     }
 
-    /// <summary>Sends the OAuth code to the backend to complete the connection.</summary>
     public async Task<bool> ConnectAsync(string code, CancellationToken cancellationToken = default)
     {
-        var token = await GetTokenOrNullAsync(cancellationToken).ConfigureAwait(false);
-        if (token == null) return false;
-
-        var body = JsonSerializer.Serialize(new { code }, _jsonOptions);
-        var request = new HttpRequestMessage(HttpMethod.Post, "api/calendar/auth/google/connect");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        request.Content = new StringContent(body, Encoding.UTF8, "application/json");
-
         try
         {
-            using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode) return false;
+            await _api.ConnectAsync(new { code }, cancellationToken).ConfigureAwait(false);
             _isConnected = true;
             await RefreshStatusAsync(cancellationToken).ConfigureAwait(false);
             StatusChanged?.Invoke(this, EventArgs.Empty);
             return true;
+        }
+        catch (ApiException ex)
+        {
+            Debug.WriteLine($"CalendarService.ConnectAsync: {ex.StatusCode}");
+            return false;
         }
         catch (Exception ex)
         {
@@ -90,23 +66,25 @@ public sealed class CalendarService
         }
     }
 
-    /// <summary>Disconnects Google Calendar from the backend.</summary>
     public async Task<bool> DisconnectAsync(CancellationToken cancellationToken = default)
     {
-        var token = await GetTokenOrNullAsync(cancellationToken).ConfigureAwait(false);
-        if (token == null) return false;
-
-        var request = new HttpRequestMessage(HttpMethod.Delete, "api/calendar/auth/google");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         try
         {
-            using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            await _api.DisconnectAsync(cancellationToken).ConfigureAwait(false);
             _isConnected = false;
             _connectedEmail = null;
             _lastSyncedAt = null;
             StatusChanged?.Invoke(this, EventArgs.Empty);
-            return response.IsSuccessStatusCode;
+            return true;
+        }
+        catch (ApiException ex)
+        {
+            Debug.WriteLine($"CalendarService.DisconnectAsync: {ex.StatusCode}");
+            _isConnected = false;
+            _connectedEmail = null;
+            _lastSyncedAt = null;
+            StatusChanged?.Invoke(this, EventArgs.Empty);
+            return false;
         }
         catch (Exception ex)
         {
@@ -115,20 +93,11 @@ public sealed class CalendarService
         }
     }
 
-    /// <summary>Refreshes the connection status from the backend.</summary>
     public async Task<CalendarStatus?> RefreshStatusAsync(CancellationToken cancellationToken = default)
     {
-        var token = await GetTokenOrNullAsync(cancellationToken).ConfigureAwait(false);
-        if (token == null) return null;
-
-        var request = new HttpRequestMessage(HttpMethod.Get, "api/calendar/status");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         try
         {
-            using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode) return null;
-            var status = await response.Content.ReadFromJsonAsync<CalendarStatus>(_jsonOptions, cancellationToken).ConfigureAwait(false);
+            var status = await _api.GetStatusAsync(cancellationToken).ConfigureAwait(false);
             if (status != null)
             {
                 _isConnected = status.Connected;
@@ -138,6 +107,11 @@ public sealed class CalendarService
             }
             return status;
         }
+        catch (ApiException ex)
+        {
+            Debug.WriteLine($"CalendarService.RefreshStatusAsync: {ex.StatusCode}");
+            return null;
+        }
         catch (Exception ex)
         {
             Debug.WriteLine($"CalendarService.RefreshStatusAsync: {ex.Message}");
@@ -145,26 +119,20 @@ public sealed class CalendarService
         }
     }
 
-    // ── Events ────────────────────────────────────────────────────────────
-
-    /// <summary>Fetches unified calendar events for a date range.</summary>
     public async Task<List<CalendarEvent>> GetEventsAsync(DateTime start, DateTime end, CancellationToken cancellationToken = default)
     {
-        var token = await GetTokenOrNullAsync(cancellationToken).ConfigureAwait(false);
-        if (token == null) return new List<CalendarEvent>();
-
         var startStr = start.ToUniversalTime().ToString("O");
         var endStr   = end.ToUniversalTime().ToString("O");
-        var request  = new HttpRequestMessage(HttpMethod.Get,
-            $"api/calendar/events?start={Uri.EscapeDataString(startStr)}&end={Uri.EscapeDataString(endStr)}");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         try
         {
-            using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode) return new List<CalendarEvent>();
-            var body = await response.Content.ReadFromJsonAsync<CalendarEventsResponse>(_jsonOptions, cancellationToken).ConfigureAwait(false);
+            var body = await _api.GetEventsAsync(startStr, endStr, cancellationToken).ConfigureAwait(false);
             return body?.Events.Select(e => e.ToCalendarEvent()).ToList() ?? new List<CalendarEvent>();
+        }
+        catch (ApiException ex)
+        {
+            Debug.WriteLine($"CalendarService.GetEventsAsync: {ex.StatusCode}");
+            return new List<CalendarEvent>();
         }
         catch (Exception ex)
         {
@@ -173,15 +141,11 @@ public sealed class CalendarService
         }
     }
 
-    /// <summary>Creates a new event directly on Google Calendar.</summary>
     public async Task<bool> CreateGoogleEventAsync(
         string title, DateTime start, DateTime? end, bool isAllDay,
         string? description = null,
         CancellationToken cancellationToken = default)
     {
-        var token = await GetTokenOrNullAsync(cancellationToken).ConfigureAwait(false);
-        if (token == null) return false;
-
         var payload = new
         {
             title,
@@ -191,22 +155,15 @@ public sealed class CalendarService
             is_all_day = isAllDay,
         };
 
-        var body    = JsonSerializer.Serialize(payload, _jsonOptions);
-        var request = new HttpRequestMessage(HttpMethod.Post, "api/calendar/events");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        request.Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
-
         try
         {
-            using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            if (response.IsSuccessStatusCode)
-            {
-                // Refresh events after creation
-                await SyncAsync(cancellationToken).ConfigureAwait(false);
-                return true;
-            }
-            var err = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            Debug.WriteLine($"CalendarService.CreateGoogleEventAsync: HTTP {(int)response.StatusCode} — {err}");
+            await _api.CreateGoogleEventAsync(payload, cancellationToken).ConfigureAwait(false);
+            await SyncAsync(cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (ApiException ex)
+        {
+            Debug.WriteLine($"CalendarService.CreateGoogleEventAsync: HTTP {(int)ex.StatusCode}");
             return false;
         }
         catch (Exception ex)
@@ -216,24 +173,18 @@ public sealed class CalendarService
         }
     }
 
-    /// <summary>Triggers a manual sync on the backend.</summary>
     public async Task<bool> SyncAsync(CancellationToken cancellationToken = default)
     {
-        var token = await GetTokenOrNullAsync(cancellationToken).ConfigureAwait(false);
-        if (token == null) return false;
-
-        var request = new HttpRequestMessage(HttpMethod.Post, "api/calendar/sync");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         try
         {
-            using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            if (response.IsSuccessStatusCode)
-            {
-                _lastSyncedAt = DateTime.Now;
-                StatusChanged?.Invoke(this, EventArgs.Empty);
-                return true;
-            }
+            await _api.SyncAsync(cancellationToken).ConfigureAwait(false);
+            _lastSyncedAt = DateTime.Now;
+            StatusChanged?.Invoke(this, EventArgs.Empty);
+            return true;
+        }
+        catch (ApiException ex)
+        {
+            Debug.WriteLine($"CalendarService.SyncAsync: {ex.StatusCode}");
             return false;
         }
         catch (Exception ex)
@@ -241,13 +192,5 @@ public sealed class CalendarService
             Debug.WriteLine($"CalendarService.SyncAsync: {ex.Message}");
             return false;
         }
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────
-
-    private async Task<string?> GetTokenOrNullAsync(CancellationToken cancellationToken)
-    {
-        var token = await _authService.GetTokenAsync(cancellationToken).ConfigureAwait(false);
-        return string.IsNullOrEmpty(token) ? null : token;
     }
 }

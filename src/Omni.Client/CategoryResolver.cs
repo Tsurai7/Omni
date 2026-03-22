@@ -4,7 +4,6 @@ public static class CategoryResolver
 {
     private static readonly Dictionary<string, string> AppCategoryMappings = new()
     {
-        // Gaming
         {"Steam", "Gaming"},
         {"Battle.net", "Gaming"},
         {"Origin", "Gaming"},
@@ -16,16 +15,12 @@ public static class CategoryResolver
         {"Ubisoft Connect", "Gaming"},
         {"PlayStation", "Gaming"},
         {"Xbox", "Gaming"},
-        
-        // Browsing
         {"Safari", "Browsing"},
         {"Chrome", "Browsing"},
         {"Firefox", "Browsing"},
         {"Edge", "Browsing"},
         {"Brave", "Browsing"},
         {"Opera", "Browsing"},
-        
-        // Coding
         {"Visual Studio", "Coding"},
         {"VS Code", "Coding"},
         {"JetBrains", "Coding"},
@@ -36,8 +31,6 @@ public static class CategoryResolver
         {"Eclipse", "Coding"},
         {"PyCharm", "Coding"},
         {"IntelliJ", "Coding"},
-        
-        // Messaging
         {"Messages", "Messaging"},
         {"WhatsApp", "Messaging"},
         {"Telegram", "Messaging"},
@@ -47,8 +40,6 @@ public static class CategoryResolver
         {"Zoom", "Messaging"},
         {"Skype", "Messaging"},
         {"Signal", "Messaging"},
-        
-        // Entertainment
         {"Spotify", "Chilling"},
         {"Apple Music", "Chilling"},
         {"Netflix", "Chilling"},
@@ -58,8 +49,6 @@ public static class CategoryResolver
         {"Plex", "Chilling"},
         {"Disney+", "Chilling"},
         {"Prime Video", "Chilling"},
-        
-        // Productivity
         {"Microsoft Word", "Productivity"},
         {"Microsoft Excel", "Productivity"},
         {"Pages", "Productivity"},
@@ -84,12 +73,12 @@ public static class CategoryResolver
         {"message", "Messaging"},
         {"mail", "Messaging"}
     };
-        
+
     public static string ResolveCategory(string appName)
     {
         if (string.IsNullOrEmpty(appName))
             return "Other";
-        
+
         foreach (var mapping in AppCategoryMappings)
         {
             if (appName.Contains(mapping.Key))

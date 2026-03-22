@@ -1,5 +1,3 @@
-using System.IO;
-using System.Linq;
 using SQLite;
 using Omni.Client.Models.Task;
 

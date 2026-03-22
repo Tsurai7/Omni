@@ -1,28 +1,35 @@
 using System.Diagnostics;
-using System.Net.Http.Headers;
-using System.Text;
 using System.Text.Json;
 using Omni.Client.Abstractions;
+using Omni.Client.Core.Abstractions.Api;
 using Omni.Client.Models.Task;
 using Omni.Client.Models.Usage;
 using Omni.Client.Models.Session;
+using Refit;
 
 namespace Omni.Client.Services;
 
 public sealed class SyncService : ISyncService
 {
     private const int SyncIntervalSeconds = 45;
-    private readonly HttpClient _http;
-    private readonly IAuthService _authService;
+    private readonly ITaskApi _taskApi;
+    private readonly IUsageApi _usageApi;
+    private readonly ISessionApi _sessionApi;
     private readonly LocalDatabaseService _localDb;
     private readonly JsonSerializerOptions _jsonOptions;
     private CancellationTokenSource? _syncCts;
     private readonly SemaphoreSlim _runLock = new(1, 1);
 
-    public SyncService(HttpClient http, IAuthService authService, LocalDatabaseService localDb, JsonSerializerOptions jsonOptions)
+    public SyncService(
+        ITaskApi taskApi,
+        IUsageApi usageApi,
+        ISessionApi sessionApi,
+        LocalDatabaseService localDb,
+        JsonSerializerOptions jsonOptions)
     {
-        _http = http;
-        _authService = authService;
+        _taskApi = taskApi;
+        _usageApi = usageApi;
+        _sessionApi = sessionApi;
         _localDb = localDb;
         _jsonOptions = jsonOptions;
     }
@@ -65,7 +72,6 @@ public sealed class SyncService : ISyncService
         }
     }
 
-    /// <summary>Single sync pass: drain pending_sync and unsynced tasks.</summary>
     public async Task RunSyncOnceAsync(CancellationToken cancellationToken = default)
     {
         if (!await _runLock.WaitAsync(TimeSpan.Zero, cancellationToken).ConfigureAwait(false))
@@ -73,26 +79,20 @@ public sealed class SyncService : ISyncService
 
         try
         {
-            var token = await _authService.GetTokenAsync(cancellationToken).ConfigureAwait(false);
-            if (string.IsNullOrEmpty(token))
-                return;
-
-            // Drain pending telemetry (usage / session)
             var pending = await _localDb.GetUnsyncedPendingAsync(cancellationToken).ConfigureAwait(false);
             foreach (var row in pending)
             {
                 if (cancellationToken.IsCancellationRequested) return;
-                var success = await SendPendingRowAsync(row, token, cancellationToken).ConfigureAwait(false);
+                var success = await SendPendingRowAsync(row, cancellationToken).ConfigureAwait(false);
                 if (success)
                     await _localDb.MarkPendingSyncedAsync(row.Id, cancellationToken).ConfigureAwait(false);
             }
 
-            // Drain unsynced tasks
             var tasks = await _localDb.GetUnsyncedTasksAsync(cancellationToken).ConfigureAwait(false);
             foreach (var task in tasks)
             {
                 if (cancellationToken.IsCancellationRequested) return;
-                var success = await SendTaskAsync(task, token, cancellationToken).ConfigureAwait(false);
+                var success = await SendTaskAsync(task, cancellationToken).ConfigureAwait(false);
                 if (success)
                     await _localDb.MarkTaskSyncedAsync(task.Id, task.ServerId, cancellationToken).ConfigureAwait(false);
             }
@@ -103,7 +103,7 @@ public sealed class SyncService : ISyncService
         }
     }
 
-    private async Task<bool> SendPendingRowAsync(PendingSyncRow row, string bearerToken, CancellationToken cancellationToken)
+    private async Task<bool> SendPendingRowAsync(PendingSyncRow row, CancellationToken cancellationToken)
     {
         if (row.Kind == "usage")
         {
@@ -119,11 +119,19 @@ public sealed class SyncService : ISyncService
             if (req?.Entries == null || req.Entries.Count == 0)
                 return true;
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, "api/usage/sync");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
-            request.Content = new StringContent(row.Payload, Encoding.UTF8, "application/json");
-            using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            return response.IsSuccessStatusCode;
+            try
+            {
+                await _usageApi.SyncAsync(req, cancellationToken).ConfigureAwait(false);
+                return true;
+            }
+            catch (ApiException)
+            {
+                return false;
+            }
+            catch (HttpRequestException)
+            {
+                return false;
+            }
         }
 
         if (row.Kind == "session")
@@ -140,55 +148,62 @@ public sealed class SyncService : ISyncService
             if (req?.Entries == null || req.Entries.Count == 0)
                 return true;
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, "api/sessions/sync");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
-            request.Content = new StringContent(row.Payload, Encoding.UTF8, "application/json");
-            using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            return response.IsSuccessStatusCode;
+            try
+            {
+                await _sessionApi.SyncSessionsAsync(req, cancellationToken).ConfigureAwait(false);
+                return true;
+            }
+            catch (ApiException)
+            {
+                return false;
+            }
+            catch (HttpRequestException)
+            {
+                return false;
+            }
         }
 
         return false;
     }
 
-    private async Task<bool> SendTaskAsync(LocalTask task, string bearerToken, CancellationToken cancellationToken)
+    private async Task<bool> SendTaskAsync(LocalTask task, CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(task.ServerId))
         {
-            // Create task
-            var body = JsonSerializer.Serialize(new { title = task.Title, status = task.Status }, _jsonOptions);
-            using var request = new HttpRequestMessage(HttpMethod.Post, "api/tasks");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
-            request.Content = new StringContent(body, Encoding.UTF8, "application/json");
-            using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
-                return false;
             try
             {
-                var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                using var doc = JsonDocument.Parse(json);
-                if (doc.RootElement.TryGetProperty("id", out var idEl))
+                var created = await _taskApi.CreateTaskAsync(
+                    new { title = task.Title, status = task.Status },
+                    cancellationToken).ConfigureAwait(false);
+                if (!string.IsNullOrEmpty(created?.Id))
                 {
-                    var serverId = idEl.GetString();
-                    if (!string.IsNullOrEmpty(serverId))
-                    {
-                        task.ServerId = serverId;
-                        await _localDb.MarkTaskSyncedAsync(task.Id, serverId, cancellationToken).ConfigureAwait(false);
-                    }
+                    task.ServerId = created.Id;
+                    await _localDb.MarkTaskSyncedAsync(task.Id, created.Id, cancellationToken).ConfigureAwait(false);
                 }
+                return true;
             }
-            catch
+            catch (ApiException)
             {
-                // still consider synced to avoid retry loop
+                return false;
             }
-            return true;
+            catch (HttpRequestException)
+            {
+                return false;
+            }
         }
 
-        // Update status
-        var patchBody = JsonSerializer.Serialize(new { status = task.Status }, _jsonOptions);
-        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"api/tasks/{task.ServerId}/status");
-        patchRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
-        patchRequest.Content = new StringContent(patchBody, Encoding.UTF8, "application/json");
-        using var patchResponse = await _http.SendAsync(patchRequest, cancellationToken).ConfigureAwait(false);
-        return patchResponse.IsSuccessStatusCode;
+        try
+        {
+            await _taskApi.UpdateStatusAsync(task.ServerId, new { status = task.Status }, cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (ApiException)
+        {
+            return false;
+        }
+        catch (HttpRequestException)
+        {
+            return false;
+        }
     }
 }
