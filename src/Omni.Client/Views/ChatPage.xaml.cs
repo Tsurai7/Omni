@@ -170,6 +170,12 @@ public partial class ChatPage : ContentPage, INotifyPropertyChanged
         ((Command)SendCommand).ChangeCanExecute();
     }
 
+    private async void OnMessageEditorCompleted(object? sender, EventArgs e)
+    {
+        if (CanSendFromEditor)
+            await SendMessageAsync();
+    }
+
     public bool IsStreaming
     {
         get => _isStreaming;
@@ -318,20 +324,18 @@ public partial class ChatPage : ContentPage, INotifyPropertyChanged
             if (_currentConversationId == null) return;
             var msgs = await GetChatService().GetMessagesAsync(_currentConversationId, limit: 2);
             var last = msgs.LastOrDefault(m => m.Role == "assistant");
-            if (last?.Metadata?.Actions is { Count: > 0 } actions)
+            if (last == null) return;
+
+            var idx = Messages.IndexOf(vm);
+            if (idx < 0) return;
+
+            // Always replace with server content (ACTION: lines already stripped server-side)
+            Messages[idx] = new ChatMessageViewModel
             {
-                // Rebuild with actions — replace the vm in collection
-                var idx = Messages.IndexOf(vm);
-                if (idx >= 0)
-                {
-                    Messages[idx] = new ChatMessageViewModel
-                    {
-                        Role = "assistant",
-                        Content = vm.Content,
-                        Actions = actions,
-                    };
-                }
-            }
+                Role = "assistant",
+                Content = last.Content,
+                Actions = last.Metadata?.Actions ?? [],
+            };
         }
         catch (Exception ex)
         {

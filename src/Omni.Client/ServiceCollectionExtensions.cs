@@ -1,4 +1,3 @@
-using System.IO;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Omni.Client.Abstractions;
@@ -31,7 +30,8 @@ public static class ServiceCollectionExtensions
             if (baseUri != null)
                 client.BaseAddress = baseUri;
             client.Timeout = TimeSpan.FromSeconds(30);
-        });
+        })
+        .AddStandardResilienceHandler();
         services.AddSingleton<ITokenStorage, MauiTokenStorage>();
         services.AddSingleton<IAuthService>(sp =>
             new AuthService(

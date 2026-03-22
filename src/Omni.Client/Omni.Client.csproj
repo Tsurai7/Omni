@@ -82,12 +82,13 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.41" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.3" />
-        <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.3" />
-        <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.3" />
-        <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.3" />
-        <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.3" />
+        <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.4.0" />
+        <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.50" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.5" />
+        <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.5" />
+        <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.5" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.5" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.5" />
         <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.3" Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'" />
         <PackageReference Include="sqlite-net-pcl" Version="1.9.172" />
         <PackageReference Include="SQLitePCLRaw.bundle_green" Version="2.1.10" />
@@ -97,6 +98,82 @@
     <ItemGroup>
         <Compile Remove="Platforms\MacCatalyst\NotificationManagerService.cs" Condition="'$(TargetFramework)' != 'net10.0-maccatalyst'" />
         <Compile Remove="Platforms\Windows\NotificationManagerService.cs" Condition="'$(TargetFramework)' != 'net10.0-windows10.0.19041.0'" />
+        <Compile Update="Views\AccountPage.xaml.cs">
+          <DependentUpon>AccountPage.xaml</DependentUpon>
+          <SubType>Code</SubType>
+        </Compile>
+        <Compile Update="Views\CalendarPage.xaml.cs">
+          <DependentUpon>CalendarPage.xaml</DependentUpon>
+          <SubType>Code</SubType>
+        </Compile>
+        <Compile Update="Views\ChatPage.xaml.cs">
+          <DependentUpon>ChatPage.xaml</DependentUpon>
+          <SubType>Code</SubType>
+        </Compile>
+        <Compile Update="Views\MainPage.xaml.cs">
+          <DependentUpon>MainPage.xaml</DependentUpon>
+          <SubType>Code</SubType>
+        </Compile>
+        <Compile Update="Views\LoginPage.xaml.cs">
+          <DependentUpon>LoginPage.xaml</DependentUpon>
+          <SubType>Code</SubType>
+        </Compile>
+        <Compile Update="Views\RegisterPage.xaml.cs">
+          <DependentUpon>RegisterPage.xaml</DependentUpon>
+          <SubType>Code</SubType>
+        </Compile>
+        <Compile Update="Views\SessionPage.xaml.cs">
+          <DependentUpon>SessionPage.xaml</DependentUpon>
+          <SubType>Code</SubType>
+        </Compile>
+        <Compile Update="Views\TasksPage.xaml.cs">
+          <DependentUpon>TasksPage.xaml</DependentUpon>
+          <SubType>Code</SubType>
+        </Compile>
+        <Compile Update="Views\UsageStatsPage.xaml.cs">
+          <DependentUpon>UsageStatsPage.xaml</DependentUpon>
+          <SubType>Code</SubType>
+        </Compile>
+    </ItemGroup>
+    <ItemGroup>
+      <AdditionalFiles Include="Views\AccountPage.xaml" />
+      <AdditionalFiles Include="Views\CalendarPage.xaml" />
+      <AdditionalFiles Include="Views\ChatPage.xaml" />
+      <AdditionalFiles Include="Views\LoginPage.xaml" />
+      <AdditionalFiles Include="Views\MainPage.xaml" />
+      <AdditionalFiles Include="Views\RegisterPage.xaml" />
+      <AdditionalFiles Include="Views\SessionPage.xaml" />
+      <AdditionalFiles Include="Views\TasksPage.xaml" />
+      <AdditionalFiles Include="Views\UsageStatsPage.xaml" />
+    </ItemGroup>
+    <ItemGroup>
+      <MauiXaml Update="Views\AccountPage.xaml">
+        <SubType>Designer</SubType>
+      </MauiXaml>
+      <MauiXaml Update="Views\CalendarPage.xaml">
+        <SubType>Designer</SubType>
+      </MauiXaml>
+      <MauiXaml Update="Views\ChatPage.xaml">
+        <SubType>Designer</SubType>
+      </MauiXaml>
+      <MauiXaml Update="Views\MainPage.xaml">
+        <SubType>Designer</SubType>
+      </MauiXaml>
+      <MauiXaml Update="Views\LoginPage.xaml">
+        <SubType>Designer</SubType>
+      </MauiXaml>
+      <MauiXaml Update="Views\RegisterPage.xaml">
+        <SubType>Designer</SubType>
+      </MauiXaml>
+      <MauiXaml Update="Views\SessionPage.xaml">
+        <SubType>Designer</SubType>
+      </MauiXaml>
+      <MauiXaml Update="Views\TasksPage.xaml">
+        <SubType>Designer</SubType>
+      </MauiXaml>
+      <MauiXaml Update="Views\UsageStatsPage.xaml">
+        <SubType>Designer</SubType>
+      </MauiXaml>
     </ItemGroup>
 
     <!-- .NET 10+ names the .app bundle from ApplicationTitle by default; IDE expects the assembly name (Omni.Client.app). -->

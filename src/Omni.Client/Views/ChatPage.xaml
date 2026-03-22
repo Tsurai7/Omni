@@ -218,6 +218,7 @@
                     <Editor x:Name="MessageEditor"
                             Text="{Binding InputText, Mode=TwoWay}"
                             TextChanged="OnMessageEditorTextChanged"
+                            Completed="OnMessageEditorCompleted"
                             Placeholder="Ask your coach anything..."
                             PlaceholderColor="{StaticResource ProductivityTextMuted}"
                             TextColor="{StaticResource ProductivityTextPrimary}"

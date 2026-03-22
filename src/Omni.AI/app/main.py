@@ -246,6 +246,18 @@ def send_message(user_id: str, req: SendMessageRequest):
         import json as _json
 
         full_text_parts: list[str] = []
+        # Buffer incomplete lines so we can suppress ACTION: lines before emitting
+        line_buf = ""
+
+        def _emit_delta(text: str) -> str:
+            return f"data: {_json.dumps({'delta': text, 'conversation_id': conv_id})}\n\n"
+
+        def _flush_line(line: str) -> str | None:
+            """Return an SSE delta for this line, or None if it's an ACTION: line."""
+            if line.strip().startswith("ACTION:"):
+                return None
+            return _emit_delta(line)
+
         for sse_line in stream_chat_response(system_prompt, history, req.content.strip()):
             # Collect full text for post-stream storage
             if sse_line.startswith("data: "):
@@ -257,6 +269,12 @@ def send_message(user_id: str, req: SendMessageRequest):
                     pass
 
             if sse_line.strip() == 'data: {"done": true}':
+                # Flush any remaining buffered text, suppressing ACTION: lines
+                if line_buf:
+                    out = _flush_line(line_buf)
+                    if out:
+                        yield out
+                    line_buf = ""
                 # Persist the full assistant response
                 full_text = "".join(full_text_parts)
                 visible_text = strip_action_line(full_text)
@@ -265,18 +283,23 @@ def send_message(user_id: str, req: SendMessageRequest):
                 insert_message(conv_id, uid, "assistant", visible_text, metadata)
                 # Send final event with conversation_id
                 yield f'data: {{"done": true, "conversation_id": "{conv_id}"}}\n\n'
-            else:
-                # Inject conversation_id into delta events
-                if sse_line.startswith("data: "):
-                    try:
-                        import json as _j
-                        data = _j.loads(sse_line[6:])
+            elif sse_line.startswith("data: "):
+                try:
+                    data = _json.loads(sse_line[6:])
+                    if "delta" in data and not data.get("error"):
+                        # Buffer and emit line by line to suppress ACTION: lines
+                        line_buf += data["delta"]
+                        while "\n" in line_buf:
+                            line, line_buf = line_buf.split("\n", 1)
+                            out = _flush_line(line + "\n")
+                            if out:
+                                yield out
+                    else:
+                        # Error event — pass through with conversation_id
                         data["conversation_id"] = conv_id
-                        yield f"data: {_j.dumps(data)}\n\n"
-                        continue
-                    except Exception:
-                        pass
-                yield sse_line
+                        yield f"data: {_json.dumps(data)}\n\n"
+                except Exception:
+                    yield sse_line
 
     return StreamingResponse(
         event_stream(),

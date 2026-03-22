@@ -115,6 +115,8 @@ def _should_fallback_to_next_model(exc: BaseException) -> bool:
         return True
     if "404" in raw or "not found" in low or "is not supported for generatecontent" in low:
         return True
+    if "location" in low and ("not supported" in low or "unsupported" in low):
+        return True
     return False
 
 
@@ -133,6 +135,12 @@ def _gemini_stream_error_message(exc: BaseException, *, model_id: str = "") -> s
     raw = str(exc)
     low = raw.lower()
     model_hint = f" ({model_id})" if model_id else ""
+    if "location" in low and ("not supported" in low or "unsupported" in low):
+        return (
+            f"Gemini API is not available in your region{model_hint}. "
+            "The Google AI API (aistudio.google.com) is restricted in some countries. "
+            "To resolve this, use a supported region or set GEMINI_API_ENDPOINT to a compatible proxy."
+        )
     if "404" in raw or "not found" in low or "is not supported for generatecontent" in low:
         return (
             "Gemini model not available for this API key. In AI Studio, open the model list, "
