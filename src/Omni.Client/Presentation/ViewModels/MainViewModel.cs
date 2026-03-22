@@ -3,6 +3,7 @@ using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Omni.Client.Abstractions;
+using Omni.Client.Helpers;
 using Omni.Client.Models;
 using Omni.Client.Services;
 
@@ -175,6 +176,7 @@ public partial class MainViewModel : ObservableObject
             if (!changed)
             {
                 _updateInProgress = false;
+                UpdateNow();
                 return;
             }
             _lastUsageSnapshot = new Dictionary<string, TimeSpan>(currentUsage);
@@ -341,7 +343,7 @@ public partial class MainViewModel : ObservableObject
         try
         {
             var from = DateTime.Today.ToString("yyyy-MM-dd");
-            var response = await _usageService.GetUsageAsync(from, from, "day", null, null);
+            var response = await _usageService.GetUsageAsync(from, from, "day", null, null, DeviceLocalTime.UtcOffsetMinutes);
             if (response?.Entries == null || response.Entries.Count == 0)
             {
                 TodayFocusMinutes = "0m";

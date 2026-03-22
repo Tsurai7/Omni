@@ -3,6 +3,7 @@ using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Omni.Client.Abstractions;
+using Omni.Client.Helpers;
 using Omni.Client.Models.Session;
 
 namespace Omni.Client.Presentation.ViewModels;
@@ -57,7 +58,7 @@ public partial class SessionViewModel : ObservableObject
         {
             var to   = DateTime.Today.AddDays(1).ToString("yyyy-MM-dd");
             var from = DateTime.Today.AddDays(-30).ToString("yyyy-MM-dd");
-            var response = await _sessionService.GetSessionsAsync(from, to);
+            var response = await _sessionService.GetSessionsAsync(from, to, DeviceLocalTime.UtcOffsetMinutes);
             if (response?.Entries == null || response.Entries.Count == 0)
             {
                 GroupedEntries = new ObservableCollection<SessionDateGroup>();

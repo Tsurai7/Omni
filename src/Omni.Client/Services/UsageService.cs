@@ -86,11 +86,11 @@ public sealed class UsageService : IUsageService
         }
     }
 
-    public async Task<UsageListResponse?> GetUsageAsync(string? from = null, string? to = null, string? groupBy = null, string? category = null, string? appName = null, CancellationToken cancellationToken = default)
+    public async Task<UsageListResponse?> GetUsageAsync(string? from = null, string? to = null, string? groupBy = null, string? category = null, string? appName = null, int utcOffsetMinutes = 0, CancellationToken cancellationToken = default)
     {
         try
         {
-            return await _api.GetUsageAsync(from, to, groupBy, category, appName, cancellationToken);
+            return await _api.GetUsageAsync(utcOffsetMinutes, from, to, groupBy, category, appName, cancellationToken);
         }
         catch (ApiException ex)
         {

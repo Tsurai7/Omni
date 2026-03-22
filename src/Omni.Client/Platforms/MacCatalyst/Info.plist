@@ -49,16 +49,6 @@
 	<key>NSAppleEventsUsageDescription</key>
 	<string>App needs to track active applications for time management</string>
 
-	<key>com.apple.security.automation.apple-events</key>
-	<true/>
-
-	<key>com.apple.security.scripting-targets</key>
-	<true/>
-
-	<key>com.apple.security.temporary-exception.apple-events</key>
-	<array>
-		<string>com.apple.systemevents</string>
-	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>

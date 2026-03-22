@@ -3,6 +3,7 @@ using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Omni.Client.Abstractions;
+using Omni.Client.Helpers;
 using Omni.Client.Models.Usage;
 using Omni.Client.Models.Session;
 
@@ -110,15 +111,22 @@ public partial class UsageStatsViewModel : ObservableObject
             try { await _usageService.SyncAsync(ct); } catch { /* best-effort */ }
 
             var (from, to) = GetDateRange();
-            var t1 = _usageService.GetUsageAsync(from, to, "day", SelectedCategory, SelectedApp, ct);
-            var t2 = _sessionService.GetSessionsAsync(from, to, ct);
+            var tz = DeviceLocalTime.UtcOffsetMinutes;
+            var t1 = _usageService.GetUsageAsync(from, to, "day", SelectedCategory, SelectedApp, tz, ct);
+            var t2 = _sessionService.GetSessionsAsync(from, to, tz, ct);
 
             await Task.WhenAll(t1, t2);
 
             UsageData = await t1;
             SessionData = await t2;
 
-            _periodCache[SelectedPeriod] = new CachedPeriodData(UsageData, SessionData, DateTime.UtcNow);
+            if (string.Equals(SelectedPeriod, "Today", StringComparison.Ordinal))
+            {
+                UsageData = FilterUsageToLocalToday(UsageData);
+                SessionData = FilterSessionsToLocalToday(SessionData);
+            }
+
+            CachePeriodIfHasData(SelectedPeriod, UsageData, SessionData);
 
             await ComputeSummaryAsync(ct);
             _lastLoaded = DateTime.UtcNow;
@@ -329,13 +337,57 @@ public partial class UsageStatsViewModel : ObservableObject
             try
             {
                 var (from, to) = GetDateRangeForPeriod(period);
-                var t1 = _usageService.GetUsageAsync(from, to, "day", null, null, default);
-                var t2 = _sessionService.GetSessionsAsync(from, to, default);
+                var tz = DeviceLocalTime.UtcOffsetMinutes;
+                var t1 = _usageService.GetUsageAsync(from, to, "day", null, null, tz, default);
+                var t2 = _sessionService.GetSessionsAsync(from, to, tz, default);
                 await Task.WhenAll(t1, t2);
-                _periodCache[period] = new CachedPeriodData(await t1, await t2, DateTime.UtcNow);
+                var u = await t1;
+                var s = await t2;
+                if (string.Equals(period, "Today", StringComparison.Ordinal))
+                {
+                    u = FilterUsageToLocalToday(u);
+                    s = FilterSessionsToLocalToday(s);
+                }
+                CachePeriodIfHasData(period, u, s);
             }
             catch { /* best-effort background preload */ }
         }
+    }
+
+    /// <summary>
+    /// Empty period results are not cached: singleton VM would otherwise keep serving an empty "Today"
+    /// after the user saw data on Week/Month (cache hit skips refetch for 5 minutes).
+    /// </summary>
+    private void CachePeriodIfHasData(string period, UsageListResponse? usage, SessionListResponse? sessions)
+    {
+        var hasUsage = usage?.Entries is { Count: > 0 };
+        var hasSessions = sessions?.Entries is { Count: > 0 };
+        if (hasUsage || hasSessions)
+            _periodCache[period] = new CachedPeriodData(usage, sessions, DateTime.UtcNow);
+        else
+            _periodCache.Remove(period);
+    }
+
+    private static UsageListResponse? FilterUsageToLocalToday(UsageListResponse? usage)
+    {
+        if (usage?.Entries == null || usage.Entries.Count == 0)
+            return usage;
+        var todayStr = DateTime.Today.ToString("yyyy-MM-dd");
+        var filtered = usage.Entries
+            .Where(e => string.Equals(e.Date, todayStr, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        return new UsageListResponse(filtered);
+    }
+
+    private static SessionListResponse? FilterSessionsToLocalToday(SessionListResponse? sessions)
+    {
+        if (sessions?.Entries == null || sessions.Entries.Count == 0)
+            return sessions;
+        var today = DateTime.Today;
+        var filtered = sessions.Entries
+            .Where(e => DateTime.TryParse(e.StartedAt, out var dt) && dt.Date == today)
+            .ToList();
+        return new SessionListResponse { Entries = filtered };
     }
 
     private static string ComputePeakHour(List<UsageListEntry> entries)
@@ -355,6 +407,8 @@ public partial class UsageStatsViewModel : ObservableObject
         var today = DateTime.Today;
         return period switch
         {
+            // Widen by one day each side so timezone/server boundaries still return rows; client filters to local today.
+            "Today" => (today.AddDays(-1).ToString("yyyy-MM-dd"), today.AddDays(1).ToString("yyyy-MM-dd")),
             "Week" => (today.AddDays(-6).ToString("yyyy-MM-dd"), today.ToString("yyyy-MM-dd")),
             "Month" => (today.AddDays(-29).ToString("yyyy-MM-dd"), today.ToString("yyyy-MM-dd")),
             _ => (today.ToString("yyyy-MM-dd"), today.ToString("yyyy-MM-dd"))

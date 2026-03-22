@@ -56,11 +56,11 @@ public sealed class SessionService : ISessionService
         }
     }
 
-    public async Task<SessionListResponse?> GetSessionsAsync(string? from = null, string? to = null, CancellationToken cancellationToken = default)
+    public async Task<SessionListResponse?> GetSessionsAsync(string? from = null, string? to = null, int utcOffsetMinutes = 0, CancellationToken cancellationToken = default)
     {
         try
         {
-            return await _api.GetSessionsAsync(from, to, cancellationToken);
+            return await _api.GetSessionsAsync(utcOffsetMinutes, from, to, cancellationToken);
         }
         catch (ApiException ex)
         {

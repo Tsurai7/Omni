@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"omni-backend/internal/localdate"
 	"omni-backend/internal/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -148,6 +149,9 @@ func (h *UsageHandler) List(c *gin.Context) {
 		to = time.Now().Format("2006-01-02")
 	}
 
+	offsetMin := localdate.OffsetMinutes(c)
+	localRec := localdate.SQLExpr("recorded_at", 2)
+
 	groupBy := c.Query("group_by")
 	if groupBy == "" {
 		groupBy = "day"
@@ -161,23 +165,23 @@ func (h *UsageHandler) List(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	var dateExpr string
+	var periodExpr string
 	switch groupBy {
 	case "week":
-		dateExpr = "to_char(recorded_at, 'IYYY-\"W\"IW')"
+		periodExpr = fmt.Sprintf(`to_char(%s, 'IYYY-"W"IW')`, localRec)
 	case "month":
-		dateExpr = "to_char(recorded_at, 'YYYY-MM')"
+		periodExpr = fmt.Sprintf(`to_char(%s, 'YYYY-MM')`, localRec)
 	default:
-		dateExpr = "to_char(date(recorded_at), 'YYYY-MM-DD')"
+		periodExpr = fmt.Sprintf(`to_char(%s, 'YYYY-MM-DD')`, localRec)
 	}
 
 	query := fmt.Sprintf(
 		`SELECT %s AS period, app_name, category, SUM(duration_seconds) AS total_seconds
 		 FROM usage_records
-		 WHERE user_id = $1 AND date(recorded_at) >= $2 AND date(recorded_at) <= $3`,
-		dateExpr)
-	args := []interface{}{userID, from, to}
-	argNum := 4
+		 WHERE user_id = $1 AND %s >= $3::date AND %s <= $4::date`,
+		periodExpr, localRec, localRec)
+	args := []interface{}{userID, offsetMin, from, to}
+	argNum := 5
 	if categoryFilter != "" {
 		query += fmt.Sprintf(" AND category = $%d", argNum)
 		args = append(args, categoryFilter)
@@ -190,9 +194,9 @@ func (h *UsageHandler) List(c *gin.Context) {
 	query += fmt.Sprintf(
 		` GROUP BY %s, app_name, category
 		 ORDER BY period DESC, total_seconds DESC`,
-		dateExpr)
+		periodExpr)
 
-	h.logger.Debug("listing usage", "user_id", userID, "from", from, "to", to, "group_by", groupBy)
+	h.logger.Debug("listing usage", "user_id", userID, "from", from, "to", to, "group_by", groupBy, "utc_offset_minutes", offsetMin)
 	rows, err := h.Pool.Query(ctx, query, args...)
 	if err != nil {
 		h.logger.Error("failed to query usage records", "user_id", userID, "error", err)
@@ -361,14 +365,17 @@ func (h *SessionsHandler) List(c *gin.Context) {
 		to = time.Now().Format("2006-01-02")
 	}
 
+	offsetMin := localdate.OffsetMinutes(c)
+	localStarted := localdate.SQLExpr("started_at", 2)
+
 	ctx := c.Request.Context()
-	h.logger.Debug("listing sessions", "user_id", userID, "from", from, "to", to)
+	h.logger.Debug("listing sessions", "user_id", userID, "from", from, "to", to, "utc_offset_minutes", offsetMin)
 	rows, err := h.Pool.Query(ctx,
-		`SELECT id, name, activity_type, started_at, duration_seconds
+		fmt.Sprintf(`SELECT id, name, activity_type, started_at, duration_seconds
 		 FROM sessions
-		 WHERE user_id = $1 AND date(started_at) >= $2 AND date(started_at) <= $3
-		 ORDER BY started_at DESC`,
-		userID, from, to)
+		 WHERE user_id = $1 AND %s >= $3::date AND %s <= $4::date
+		 ORDER BY started_at DESC`, localStarted, localStarted),
+		userID, offsetMin, from, to)
 	if err != nil {
 		h.logger.Error("failed to query sessions", "user_id", userID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load sessions"})

@@ -42,7 +42,9 @@ public partial class UsageStatsPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
-        if (_vm.IsDataStale(TimeSpan.FromSeconds(60)))
+        // Today changes quickly and must not reuse a stale empty load; other periods use a short TTL.
+        if (string.Equals(_vm.SelectedPeriod, "Today", StringComparison.Ordinal) ||
+            _vm.IsDataStale(TimeSpan.FromSeconds(60)))
             _ = _vm.LoadCommand.ExecuteAsync(null);
     }
 

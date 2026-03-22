@@ -10,6 +10,8 @@ public interface IUsageApi
 
     [Get("/api/usage")]
     Task<UsageListResponse> GetUsageAsync(
+        // First: required so Refit always serializes utc_offset_minutes (0 is valid for UTC).
+        [AliasAs("utc_offset_minutes")] int utcOffsetMinutes,
         [AliasAs("from")] string? from = null,
         [AliasAs("to")] string? to = null,
         [AliasAs("group_by")] string? groupBy = null,

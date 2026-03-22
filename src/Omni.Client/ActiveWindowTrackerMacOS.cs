@@ -18,12 +18,9 @@ public class ActiveWindowTrackerMacOs : IActiveWindowTracker
     private DateTime _tabCacheTime = DateTime.MinValue;
     private static readonly TimeSpan TabCacheTtl = TimeSpan.FromSeconds(3);
 
-    private const string GetActiveAppScript = 
-        """
-        tell application "System Events"
-                    get name of first application process whose frontmost is true
-                end tell
-        """;
+    /// <summary>Single-line script so <c>osascript -e</c> argv handling is reliable across macOS versions.</summary>
+    private const string GetActiveAppScript =
+        """tell application "System Events" to get name of first application process whose frontmost is true""";
 
     private const string GetChromeTabScript =
         """

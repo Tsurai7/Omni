@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
 
+	"omni-backend/internal/localdate"
 	"omni-backend/internal/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -117,14 +119,17 @@ func (h *SessionsHandler) List(c *gin.Context) {
 		to = time.Now().Format("2006-01-02")
 	}
 
+	offsetMin := localdate.OffsetMinutes(c)
+	localStarted := localdate.SQLExpr("started_at", 2)
+
 	ctx := c.Request.Context()
-	h.logger.Debug("listing sessions", "user_id", userID, "from", from, "to", to)
+	h.logger.Debug("listing sessions", "user_id", userID, "from", from, "to", to, "utc_offset_minutes", offsetMin)
 	rows, err := h.Pool.Query(ctx,
-		`SELECT id, name, activity_type, started_at, duration_seconds
+		fmt.Sprintf(`SELECT id, name, activity_type, started_at, duration_seconds
 		 FROM sessions
-		 WHERE user_id = $1 AND date(started_at) >= $2 AND date(started_at) <= $3
-		 ORDER BY started_at DESC`,
-		userID, from, to)
+		 WHERE user_id = $1 AND %s >= $3::date AND %s <= $4::date
+		 ORDER BY started_at DESC`, localStarted, localStarted),
+		userID, offsetMin, from, to)
 	if err != nil {
 		h.logger.Error("failed to query sessions", "user_id", userID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load sessions"})

@@ -10,6 +10,7 @@ public interface ISessionApi
 
     [Get("/api/sessions")]
     Task<SessionListResponse> GetSessionsAsync(
+        [AliasAs("utc_offset_minutes")] int utcOffsetMinutes,
         [AliasAs("from")] string? from = null,
         [AliasAs("to")] string? to = null,
         CancellationToken ct = default);
