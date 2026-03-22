@@ -28,204 +28,206 @@
             </Grid>
         </VerticalStackLayout>
 
-        <!-- Kanban: 3 equal columns left → right -->
-        <ScrollView Grid.Row="1"
-                    Orientation="Horizontal"
-                    HorizontalScrollBarVisibility="Never"
-                    VerticalScrollBarVisibility="Never">
-            <Grid x:Name="KanbanGrid"
-                  ColumnDefinitions="*,*,*"
-                  ColumnSpacing="8"
-                  Padding="10,4,10,0">
+        <!-- Kanban: 3 columns filling the full width -->
+        <Grid Grid.Row="1"
+              x:Name="KanbanGrid"
+              ColumnDefinitions="*,*,*"
+              ColumnSpacing="8"
+              Padding="10,4,10,0">
 
-                <!-- ── TO DO ─────────────────────────────────────────────── -->
-                <Border Grid.Column="0"
-                        BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
-                        Stroke="{StaticResource ProductivityCardStroke}"
-                        StrokeThickness="1" Padding="0" VerticalOptions="Fill">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="14"/></Border.StrokeShape>
-                    <Grid RowDefinitions="Auto,*">
-                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="12,12,12,8">
-                            <Label Grid.Column="0" Text="TO DO"
-                                   Style="{StaticResource ProductivityUILabel}"
-                                   VerticalOptions="Center" FontSize="11"/>
-                            <Label Grid.Column="1" Text="{Binding TodoCount}"
-                                   FontSize="11" FontFamily="InterMedium"
-                                   TextColor="{StaticResource ProductivityTextMuted}"
-                                   VerticalOptions="Center"/>
-                        </Grid>
-                        <ScrollView Grid.Row="1" VerticalScrollBarVisibility="Never" HorizontalScrollBarVisibility="Never">
-                            <VerticalStackLayout Padding="8,0,8,80" Spacing="6"
-                                                 BindableLayout.ItemsSource="{Binding TodoTasks}">
-                                <BindableLayout.EmptyView>
-                                    <Label Text="No tasks" Style="{StaticResource ProductivityCaption}"
-                                           HorizontalOptions="Center" Padding="0,20" Opacity="0.4"/>
-                                </BindableLayout.EmptyView>
-                                <BindableLayout.ItemTemplate>
-                                    <DataTemplate x:DataType="taskModels:TaskDisplayItem">
-                                        <Border BackgroundColor="{StaticResource ProductivityCardBackground}"
-                                                Stroke="{StaticResource ProductivityCardStroke}"
-                                                StrokeThickness="1">
-                                            <Border.StrokeShape>
-                                                <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
-                                            </Border.StrokeShape>
-                                            <Border.GestureRecognizers>
-                                                <TapGestureRecognizer Tapped="OnCardTapped"/>
-                                            </Border.GestureRecognizers>
-                                            <Grid ColumnDefinitions="3,*,28" ColumnSpacing="0">
-                                                <BoxView Grid.Column="0" Color="{Binding PriorityColor}" VerticalOptions="Fill"/>
-                                                <VerticalStackLayout Grid.Column="1" Padding="8,10,8,10" Spacing="4">
-                                                    <Label Text="{Binding Title}"
-                                                           Style="{StaticResource ProductivityBody}"
-                                                           FontSize="12" LineBreakMode="WordWrap" MaxLines="3"/>
-                                                    <Label Text="{Binding DueDateLabel}"
-                                                           TextColor="{Binding DueDateColor}"
-                                                           FontSize="10" IsVisible="{Binding HasDueDate}"/>
-                                                </VerticalStackLayout>
-                                                <!-- Drag handle: pan horizontally to move between columns -->
-                                                <Label Grid.Column="2" Text="⠿"
-                                                       VerticalOptions="Center" HorizontalOptions="Center"
-                                                       TextColor="{StaticResource ProductivityTextMuted}"
-                                                       FontSize="14" Opacity="0.5">
-                                                    <Label.GestureRecognizers>
-                                                        <PanGestureRecognizer PanUpdated="OnCardPanUpdated"/>
-                                                    </Label.GestureRecognizers>
-                                                </Label>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </BindableLayout.ItemTemplate>
-                            </VerticalStackLayout>
-                        </ScrollView>
+            <!-- ── TO DO ─────────────────────────────────────────────── -->
+            <Border Grid.Column="0"
+                    BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
+                    Stroke="{StaticResource ProductivityCardStroke}"
+                    StrokeThickness="1" Padding="0" VerticalOptions="Fill">
+                <Border.StrokeShape><RoundRectangle CornerRadius="14"/></Border.StrokeShape>
+                <Grid RowDefinitions="Auto,*">
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="12,12,12,8">
+                        <Label Grid.Column="0" Text="TO DO"
+                               Style="{StaticResource ProductivityUILabel}"
+                               VerticalOptions="Center" FontSize="11"/>
+                        <Label Grid.Column="1" Text="{Binding TodoCount}"
+                               FontSize="11" FontFamily="InterMedium"
+                               TextColor="{StaticResource ProductivityTextMuted}"
+                               VerticalOptions="Center"/>
                     </Grid>
-                </Border>
+                    <ScrollView Grid.Row="1" VerticalScrollBarVisibility="Never" HorizontalScrollBarVisibility="Never">
+                        <VerticalStackLayout Padding="6,0,6,80" Spacing="6"
+                                             BindableLayout.ItemsSource="{Binding TodoTasks}">
+                            <BindableLayout.EmptyView>
+                                <Label Text="No tasks" Style="{StaticResource ProductivityCaption}"
+                                       HorizontalOptions="Center" Padding="0,20" Opacity="0.4"/>
+                            </BindableLayout.EmptyView>
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="taskModels:TaskDisplayItem">
+                                    <Border BackgroundColor="{StaticResource ProductivityCardBackground}"
+                                            Stroke="{StaticResource ProductivityCardStroke}"
+                                            StrokeThickness="1">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                                        </Border.StrokeShape>
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnCardTapped"/>
+                                        </Border.GestureRecognizers>
+                                        <Grid ColumnDefinitions="3,*" ColumnSpacing="0">
+                                            <BoxView Grid.Column="0" Color="{Binding PriorityColor}" VerticalOptions="Fill"/>
+                                            <VerticalStackLayout Grid.Column="1" Padding="6,8,6,8" Spacing="5">
+                                                <Label Text="{Binding Title}"
+                                                       Style="{StaticResource ProductivityBody}"
+                                                       FontSize="11" LineBreakMode="WordWrap" MaxLines="3"/>
+                                                <Label Text="{Binding DueDateLabel}"
+                                                       TextColor="{Binding DueDateColor}"
+                                                       FontSize="9" IsVisible="{Binding HasDueDate}"/>
+                                                <!-- Status move button: tap to advance to next status -->
+                                                <Button Text="→ In Progress"
+                                                        BackgroundColor="#1E3A5F"
+                                                        TextColor="#60A5FA"
+                                                        FontSize="9" CornerRadius="4"
+                                                        Padding="6,2" HeightRequest="22"
+                                                        HorizontalOptions="Start"
+                                                        Clicked="OnMoveForwardClicked"/>
+                                            </VerticalStackLayout>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </ScrollView>
+                </Grid>
+            </Border>
 
-                <!-- ── IN PROGRESS ──────────────────────────────────────── -->
-                <Border Grid.Column="1"
-                        BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
-                        Stroke="{StaticResource ProductivityCardStroke}"
-                        StrokeThickness="1" Padding="0" VerticalOptions="Fill">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="14"/></Border.StrokeShape>
-                    <Grid RowDefinitions="Auto,*">
-                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="12,12,12,8">
-                            <Label Grid.Column="0" Text="IN PROGRESS"
-                                   Style="{StaticResource ProductivityUILabel}"
-                                   VerticalOptions="Center" FontSize="11"/>
-                            <Label Grid.Column="1" Text="{Binding InProgressCount}"
-                                   FontSize="11" FontFamily="InterMedium"
-                                   TextColor="{StaticResource ProductivityTextMuted}"
-                                   VerticalOptions="Center"/>
-                        </Grid>
-                        <ScrollView Grid.Row="1" VerticalScrollBarVisibility="Never" HorizontalScrollBarVisibility="Never">
-                            <VerticalStackLayout Padding="8,0,8,80" Spacing="6"
-                                                 BindableLayout.ItemsSource="{Binding InProgressTasks}">
-                                <BindableLayout.EmptyView>
-                                    <Label Text="No tasks" Style="{StaticResource ProductivityCaption}"
-                                           HorizontalOptions="Center" Padding="0,20" Opacity="0.4"/>
-                                </BindableLayout.EmptyView>
-                                <BindableLayout.ItemTemplate>
-                                    <DataTemplate x:DataType="taskModels:TaskDisplayItem">
-                                        <Border BackgroundColor="{StaticResource ProductivityCardBackground}"
-                                                Stroke="{StaticResource ProductivityCardStroke}"
-                                                StrokeThickness="1">
-                                            <Border.StrokeShape>
-                                                <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
-                                            </Border.StrokeShape>
-                                            <Border.GestureRecognizers>
-                                                <TapGestureRecognizer Tapped="OnCardTapped"/>
-                                            </Border.GestureRecognizers>
-                                            <Grid ColumnDefinitions="3,*,28" ColumnSpacing="0">
-                                                <BoxView Grid.Column="0" Color="{Binding PriorityColor}" VerticalOptions="Fill"/>
-                                                <VerticalStackLayout Grid.Column="1" Padding="8,10,8,10" Spacing="4">
-                                                    <Label Text="{Binding Title}"
-                                                           Style="{StaticResource ProductivityBody}"
-                                                           FontSize="12" LineBreakMode="WordWrap" MaxLines="3"/>
-                                                    <Label Text="{Binding DueDateLabel}"
-                                                           TextColor="{Binding DueDateColor}"
-                                                           FontSize="10" IsVisible="{Binding HasDueDate}"/>
-                                                </VerticalStackLayout>
-                                                <Label Grid.Column="2" Text="⠿"
-                                                       VerticalOptions="Center" HorizontalOptions="Center"
-                                                       TextColor="{StaticResource ProductivityTextMuted}"
-                                                       FontSize="14" Opacity="0.5">
-                                                    <Label.GestureRecognizers>
-                                                        <PanGestureRecognizer PanUpdated="OnCardPanUpdated"/>
-                                                    </Label.GestureRecognizers>
-                                                </Label>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </BindableLayout.ItemTemplate>
-                            </VerticalStackLayout>
-                        </ScrollView>
+            <!-- ── IN PROGRESS ──────────────────────────────────────── -->
+            <Border Grid.Column="1"
+                    BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
+                    Stroke="{StaticResource ProductivityCardStroke}"
+                    StrokeThickness="1" Padding="0" VerticalOptions="Fill">
+                <Border.StrokeShape><RoundRectangle CornerRadius="14"/></Border.StrokeShape>
+                <Grid RowDefinitions="Auto,*">
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="12,12,12,8">
+                        <Label Grid.Column="0" Text="IN PROGRESS"
+                               Style="{StaticResource ProductivityUILabel}"
+                               VerticalOptions="Center" FontSize="11"/>
+                        <Label Grid.Column="1" Text="{Binding InProgressCount}"
+                               FontSize="11" FontFamily="InterMedium"
+                               TextColor="{StaticResource ProductivityTextMuted}"
+                               VerticalOptions="Center"/>
                     </Grid>
-                </Border>
+                    <ScrollView Grid.Row="1" VerticalScrollBarVisibility="Never" HorizontalScrollBarVisibility="Never">
+                        <VerticalStackLayout Padding="6,0,6,80" Spacing="6"
+                                             BindableLayout.ItemsSource="{Binding InProgressTasks}">
+                            <BindableLayout.EmptyView>
+                                <Label Text="No tasks" Style="{StaticResource ProductivityCaption}"
+                                       HorizontalOptions="Center" Padding="0,20" Opacity="0.4"/>
+                            </BindableLayout.EmptyView>
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="taskModels:TaskDisplayItem">
+                                    <Border BackgroundColor="{StaticResource ProductivityCardBackground}"
+                                            Stroke="{StaticResource ProductivityCardStroke}"
+                                            StrokeThickness="1">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                                        </Border.StrokeShape>
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnCardTapped"/>
+                                        </Border.GestureRecognizers>
+                                        <Grid ColumnDefinitions="3,*" ColumnSpacing="0">
+                                            <BoxView Grid.Column="0" Color="{Binding PriorityColor}" VerticalOptions="Fill"/>
+                                            <VerticalStackLayout Grid.Column="1" Padding="6,8,6,8" Spacing="5">
+                                                <Label Text="{Binding Title}"
+                                                       Style="{StaticResource ProductivityBody}"
+                                                       FontSize="11" LineBreakMode="WordWrap" MaxLines="3"/>
+                                                <Label Text="{Binding DueDateLabel}"
+                                                       TextColor="{Binding DueDateColor}"
+                                                       FontSize="9" IsVisible="{Binding HasDueDate}"/>
+                                                <!-- Two buttons: move back or mark done -->
+                                                <HorizontalStackLayout Spacing="4">
+                                                    <Button Text="← To Do"
+                                                            BackgroundColor="#1A1A2E"
+                                                            TextColor="{StaticResource ProductivityTextMuted}"
+                                                            FontSize="9" CornerRadius="4"
+                                                            Padding="5,2" HeightRequest="22"
+                                                            Clicked="OnMoveBackClicked"/>
+                                                    <Button Text="✓ Done"
+                                                            BackgroundColor="#1A2E1A"
+                                                            TextColor="#4ECCA3"
+                                                            FontSize="9" CornerRadius="4"
+                                                            Padding="5,2" HeightRequest="22"
+                                                            Clicked="OnMoveForwardClicked"/>
+                                                </HorizontalStackLayout>
+                                            </VerticalStackLayout>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </ScrollView>
+                </Grid>
+            </Border>
 
-                <!-- ── DONE ─────────────────────────────────────────────── -->
-                <Border Grid.Column="2"
-                        BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
-                        Stroke="{StaticResource ProductivityCardStroke}"
-                        StrokeThickness="1" Padding="0" VerticalOptions="Fill">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="14"/></Border.StrokeShape>
-                    <Grid RowDefinitions="Auto,*">
-                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="12,12,12,8">
-                            <Label Grid.Column="0" Text="DONE"
-                                   Style="{StaticResource ProductivityUILabel}"
-                                   VerticalOptions="Center" FontSize="11"/>
-                            <Label Grid.Column="1" Text="{Binding DoneCount}"
-                                   FontSize="11" FontFamily="InterMedium"
-                                   TextColor="{StaticResource ProductivityTextMuted}"
-                                   VerticalOptions="Center"/>
-                        </Grid>
-                        <ScrollView Grid.Row="1" VerticalScrollBarVisibility="Never" HorizontalScrollBarVisibility="Never">
-                            <VerticalStackLayout Padding="8,0,8,80" Spacing="6"
-                                                 BindableLayout.ItemsSource="{Binding DoneTasks}">
-                                <BindableLayout.EmptyView>
-                                    <Label Text="No tasks" Style="{StaticResource ProductivityCaption}"
-                                           HorizontalOptions="Center" Padding="0,20" Opacity="0.4"/>
-                                </BindableLayout.EmptyView>
-                                <BindableLayout.ItemTemplate>
-                                    <DataTemplate x:DataType="taskModels:TaskDisplayItem">
-                                        <Border BackgroundColor="{StaticResource ProductivityCardBackground}"
-                                                Stroke="{StaticResource ProductivityCardStroke}"
-                                                StrokeThickness="1" Opacity="0.65">
-                                            <Border.StrokeShape>
-                                                <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
-                                            </Border.StrokeShape>
-                                            <Border.GestureRecognizers>
-                                                <TapGestureRecognizer Tapped="OnCardTapped"/>
-                                            </Border.GestureRecognizers>
-                                            <Grid ColumnDefinitions="3,*,28" ColumnSpacing="0">
-                                                <BoxView Grid.Column="0" Color="#4ECCA3" VerticalOptions="Fill"/>
-                                                <VerticalStackLayout Grid.Column="1" Padding="8,10,8,10" Spacing="4">
-                                                    <Label Text="{Binding Title}"
-                                                           Style="{StaticResource ProductivityBody}"
-                                                           FontSize="12" LineBreakMode="WordWrap" MaxLines="3"
-                                                           TextDecorations="Strikethrough" Opacity="0.5"/>
-                                                    <Label Text="{Binding DueDateLabel}"
-                                                           TextColor="{Binding DueDateColor}"
-                                                           FontSize="10" Opacity="0.5"
-                                                           IsVisible="{Binding HasDueDate}"/>
-                                                </VerticalStackLayout>
-                                                <Label Grid.Column="2" Text="⠿"
-                                                       VerticalOptions="Center" HorizontalOptions="Center"
-                                                       TextColor="{StaticResource ProductivityTextMuted}"
-                                                       FontSize="14" Opacity="0.5">
-                                                    <Label.GestureRecognizers>
-                                                        <PanGestureRecognizer PanUpdated="OnCardPanUpdated"/>
-                                                    </Label.GestureRecognizers>
-                                                </Label>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </BindableLayout.ItemTemplate>
-                            </VerticalStackLayout>
-                        </ScrollView>
+            <!-- ── DONE ─────────────────────────────────────────────── -->
+            <Border Grid.Column="2"
+                    BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
+                    Stroke="{StaticResource ProductivityCardStroke}"
+                    StrokeThickness="1" Padding="0" VerticalOptions="Fill">
+                <Border.StrokeShape><RoundRectangle CornerRadius="14"/></Border.StrokeShape>
+                <Grid RowDefinitions="Auto,*">
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="12,12,12,8">
+                        <Label Grid.Column="0" Text="DONE"
+                               Style="{StaticResource ProductivityUILabel}"
+                               VerticalOptions="Center" FontSize="11"/>
+                        <Label Grid.Column="1" Text="{Binding DoneCount}"
+                               FontSize="11" FontFamily="InterMedium"
+                               TextColor="{StaticResource ProductivityTextMuted}"
+                               VerticalOptions="Center"/>
                     </Grid>
-                </Border>
+                    <ScrollView Grid.Row="1" VerticalScrollBarVisibility="Never" HorizontalScrollBarVisibility="Never">
+                        <VerticalStackLayout Padding="6,0,6,80" Spacing="6"
+                                             BindableLayout.ItemsSource="{Binding DoneTasks}">
+                            <BindableLayout.EmptyView>
+                                <Label Text="No tasks" Style="{StaticResource ProductivityCaption}"
+                                       HorizontalOptions="Center" Padding="0,20" Opacity="0.4"/>
+                            </BindableLayout.EmptyView>
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="taskModels:TaskDisplayItem">
+                                    <Border BackgroundColor="{StaticResource ProductivityCardBackground}"
+                                            Stroke="{StaticResource ProductivityCardStroke}"
+                                            StrokeThickness="1" Opacity="0.65">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
+                                        </Border.StrokeShape>
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnCardTapped"/>
+                                        </Border.GestureRecognizers>
+                                        <Grid ColumnDefinitions="3,*" ColumnSpacing="0">
+                                            <BoxView Grid.Column="0" Color="#4ECCA3" VerticalOptions="Fill"/>
+                                            <VerticalStackLayout Grid.Column="1" Padding="6,8,6,8" Spacing="5">
+                                                <Label Text="{Binding Title}"
+                                                       Style="{StaticResource ProductivityBody}"
+                                                       FontSize="11" LineBreakMode="WordWrap" MaxLines="3"
+                                                       TextDecorations="Strikethrough" Opacity="0.5"/>
+                                                <Label Text="{Binding DueDateLabel}"
+                                                       TextColor="{Binding DueDateColor}"
+                                                       FontSize="9" Opacity="0.5"
+                                                       IsVisible="{Binding HasDueDate}"/>
+                                                <!-- Move back button -->
+                                                <Button Text="↩ In Progress"
+                                                        BackgroundColor="#1A1A2E"
+                                                        TextColor="{StaticResource ProductivityTextMuted}"
+                                                        FontSize="9" CornerRadius="4"
+                                                        Padding="6,2" HeightRequest="22"
+                                                        HorizontalOptions="Start"
+                                                        Clicked="OnMoveBackClicked"/>
+                                            </VerticalStackLayout>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </ScrollView>
+                </Grid>
+            </Border>
 
-            </Grid>
-        </ScrollView>
+        </Grid>
 
     </Grid>
 </ContentPage>

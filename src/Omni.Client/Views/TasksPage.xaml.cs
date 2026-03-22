@@ -8,11 +8,6 @@ public partial class TasksPage : ContentPage
 {
     private readonly TasksViewModel _vm;
 
-    // Drag state
-    private TaskDisplayItem? _draggedTask;
-    private Border?          _dragSourceCard;
-    private double           _lastPanX; // iOS resets TotalX to 0 on Completed, so track it during Running
-
     public TasksPage(TasksViewModel vm)
     {
         InitializeComponent();
@@ -33,14 +28,37 @@ public partial class TasksPage : ContentPage
             _ = _vm.LoadAsync();
     }
 
-    protected override void OnSizeAllocated(double width, double height)
+    // ── Status move buttons ───────────────────────────────────────────────
+
+    // "→ In Progress" (from To Do) or "✓ Done" (from In Progress)
+    private async void OnMoveForwardClicked(object? sender, EventArgs e)
     {
-        base.OnSizeAllocated(width, height);
-        if (width > 0)
-            KanbanGrid.WidthRequest = width - 20;
+        if (sender is not BindableObject bo || bo.BindingContext is not TaskDisplayItem item) return;
+        var newStatus = item.Status?.ToLowerInvariant() switch
+        {
+            "pending"     => "in_progress",
+            "in_progress" => "done",
+            _             => null,
+        };
+        if (newStatus != null)
+            await _vm.MoveTaskAsync(item, newStatus);
     }
 
-    // ── Tap: show action sheet (Edit / Move / Delete) ─────────────────────
+    // "← To Do" (from In Progress) or "↩ In Progress" (from Done)
+    private async void OnMoveBackClicked(object? sender, EventArgs e)
+    {
+        if (sender is not BindableObject bo || bo.BindingContext is not TaskDisplayItem item) return;
+        var newStatus = item.Status?.ToLowerInvariant() switch
+        {
+            "in_progress" => "pending",
+            "done"        => "in_progress",
+            _             => null,
+        };
+        if (newStatus != null)
+            await _vm.MoveTaskAsync(item, newStatus);
+    }
+
+    // ── Tap card: edit / move / delete ───────────────────────────────────
 
     private async void OnCardTapped(object? sender, EventArgs e)
     {
@@ -78,73 +96,7 @@ public partial class TasksPage : ContentPage
             await _vm.MoveTaskAsync(item, newStatus);
     }
 
-    // ── Pan on ⠿ handle: drag horizontally to move between columns ────────
-
-    private async void OnCardPanUpdated(object? sender, PanUpdatedEventArgs e)
-    {
-        // sender is the Label (handle); BindingContext flows from the DataTemplate.
-        // Parent chain: Label → Grid (card layout) → Border (card).
-        var handle = sender as Element;
-        var card   = (handle?.Parent as Element)?.Parent as Border;
-
-        switch (e.StatusType)
-        {
-            case GestureStatus.Started:
-                if (sender is not BindableObject bo || bo.BindingContext is not TaskDisplayItem item) return;
-                _draggedTask    = item;
-                _dragSourceCard = card;
-                _lastPanX       = 0;
-                if (card != null) card.Opacity = 0.4;
-                break;
-
-            case GestureStatus.Running:
-                _lastPanX = e.TotalX; // store because iOS zeroes it out on Completed
-                break;
-
-            case GestureStatus.Completed:
-                if (_dragSourceCard != null) _dragSourceCard.Opacity = 1.0;
-
-                if (_draggedTask != null)
-                {
-                    var colWidth = KanbanGrid.Width / 3.0;
-                    if (colWidth <= 0) colWidth = KanbanGrid.WidthRequest / 3.0;
-
-                    var sourceCol = _draggedTask.Status?.ToLowerInvariant() switch
-                    {
-                        "in_progress" => 1,
-                        "done"        => 2,
-                        _             => 0,
-                    };
-
-                    // Round to nearest column using last known TotalX (iOS-safe)
-                    var colDelta  = (int)Math.Round(_lastPanX / colWidth);
-                    var targetCol = Math.Clamp(sourceCol + colDelta, 0, 2);
-
-                    if (targetCol != sourceCol)
-                    {
-                        var newStatus = targetCol switch
-                        {
-                            0 => "pending",
-                            1 => "in_progress",
-                            _ => "done",
-                        };
-                        await _vm.MoveTaskAsync(_draggedTask, newStatus);
-                    }
-                }
-
-                _draggedTask    = null;
-                _dragSourceCard = null;
-                break;
-
-            case GestureStatus.Canceled:
-                if (_dragSourceCard != null) _dragSourceCard.Opacity = 1.0;
-                _draggedTask    = null;
-                _dragSourceCard = null;
-                break;
-        }
-    }
-
-    // ── Add task ──────────────────────────────────────────────────────────
+    // ── Add task ─────────────────────────────────────────────────────────
 
     private async void OnAddTaskClicked(object? sender, EventArgs e)
     {
@@ -177,7 +129,7 @@ public partial class TasksPage : ContentPage
         await _vm.CreateTaskAsync(title.Trim(), p, dueDate);
     }
 
-    // ── Edit ──────────────────────────────────────────────────────────────
+    // ── Edit ─────────────────────────────────────────────────────────────
 
     private async Task EditTaskAsync(TaskDisplayItem item)
     {

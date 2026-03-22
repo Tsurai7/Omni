@@ -1,5 +1,3 @@
-using Microsoft.Maui.Graphics;
-
 namespace Omni.Client.Controls;
 
 /// <summary>

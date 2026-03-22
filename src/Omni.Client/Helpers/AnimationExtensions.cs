@@ -1,6 +1,3 @@
-using Microsoft.Maui.Controls;
-using System.Threading.Tasks;
-
 namespace Omni.Client.Helpers;
 
 /// <summary>

@@ -1,13 +1,10 @@
-using System.Linq;
-using Microsoft.Maui.Graphics;
-
 namespace Omni.Client.Controls;
 
 /// <summary>Draws a horizontal bar chart. Set Segments and MaxValue (or it uses max of values).</summary>
 public sealed class UsageBarDrawable : IDrawable
 {
     private static readonly Color[] BarColors =
-    {
+    [
         Color.FromArgb("#4ECCA3"),
         Color.FromArgb("#6C9BC7"),
         Color.FromArgb("#E8A87C"),
@@ -15,8 +12,8 @@ public sealed class UsageBarDrawable : IDrawable
         Color.FromArgb("#85CDCA"),
         Color.FromArgb("#E27D60"),
         Color.FromArgb("#9B59B6"),
-        Color.FromArgb("#F4D03F"),
-    };
+        Color.FromArgb("#F4D03F")
+    ];
 
     public IList<ChartSegment> Segments { get; set; } = new List<ChartSegment>();
     public double MaxValue { get; set; }
