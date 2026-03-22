@@ -8,11 +8,6 @@ import (
 	"time"
 )
 
-// ReverseProxyTo creates a handler that proxies requests to the given target base URL.
-// Request paths are joined with the target URL the same way as [httputil.NewSingleHostReverseProxy]
-// (via [httputil.ProxyRequest.SetURL]) so RawPath/query are handled correctly.
-// FlushInterval is set to 50ms so SSE (Server-Sent Events) responses stream
-// immediately instead of being buffered.
 func ReverseProxyTo(targetBase string, logger *slog.Logger) (http.Handler, error) {
 	target, err := url.Parse(targetBase)
 	if err != nil {

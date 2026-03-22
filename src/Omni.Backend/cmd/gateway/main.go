@@ -10,6 +10,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -28,6 +30,17 @@ import (
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
+
+func optionalProxy(rawURL, label string, log *slog.Logger) (http.Handler, error) {
+	if rawURL == "" {
+		log.Info(label + " service not configured, endpoints will return 503")
+		msg := fmt.Sprintf(`{"error":"%s service not configured"}`, label)
+		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, msg, http.StatusServiceUnavailable)
+		}), nil
+	}
+	return gateway.ReverseProxyTo(rawURL, log)
+}
 
 func main() {
 	log := logger.New(os.Getenv("DEBUG") == "true")
@@ -60,32 +73,15 @@ func main() {
 		log.Error("failed to set up telemetry proxy", "error", err)
 		os.Exit(1)
 	}
-	var calendarProxy http.Handler
-	if cfg.CalendarURL != "" {
-		calendarProxy, err = gateway.ReverseProxyTo(cfg.CalendarURL, log)
-		if err != nil {
-			log.Error("failed to set up calendar proxy", "error", err)
-			os.Exit(1)
-		}
-	} else {
-		log.Info("Calendar service not configured, /api/calendar/* will return 503")
-		calendarProxy = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			http.Error(w, `{"error":"Calendar service not configured"}`, http.StatusServiceUnavailable)
-		})
+	calendarProxy, err := optionalProxy(cfg.CalendarURL, "Calendar", log)
+	if err != nil {
+		log.Error("failed to set up calendar proxy", "error", err)
+		os.Exit(1)
 	}
-
-	var aiProxy http.Handler
-	if cfg.AIURL != "" {
-		aiProxy, err = gateway.ReverseProxyTo(cfg.AIURL, log)
-		if err != nil {
-			log.Error("failed to set up ai proxy", "error", err)
-			os.Exit(1)
-		}
-	} else {
-		log.Info("AI service not configured, /api/ai/* will return 503")
-		aiProxy = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			http.Error(w, `{"error":"AI service not configured"}`, http.StatusServiceUnavailable)
-		})
+	aiProxy, err := optionalProxy(cfg.AIURL, "AI", log)
+	if err != nil {
+		log.Error("failed to set up ai proxy", "error", err)
+		os.Exit(1)
 	}
 
 	if os.Getenv("GIN_MODE") != "debug" {
@@ -121,9 +117,7 @@ func main() {
 	productivity := api.Group("/productivity").Use(middleware.AuthRequired(cfg.JWTSecret, log))
 	productivity.GET("/notifications", gin.WrapH(telemetryProxy))
 	productivity.PATCH("/notifications/:id/read", gin.WrapH(telemetryProxy))
-	// Public: Google OAuth callback (no auth — Google redirects here with code)
 	api.GET("/calendar/auth/google/callback", gin.WrapH(calendarProxy))
-	// Protected calendar routes (explicit — wildcard conflicts with the static callback above)
 	calGroup := api.Group("/calendar").Use(middleware.AuthRequired(cfg.JWTSecret, log))
 	calGroup.GET("/auth/google", gin.WrapH(calendarProxy))
 	calGroup.POST("/auth/google/connect", gin.WrapH(calendarProxy))
