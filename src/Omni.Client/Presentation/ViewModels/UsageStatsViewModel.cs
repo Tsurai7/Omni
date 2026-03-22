@@ -15,6 +15,9 @@ public partial class UsageStatsViewModel : ObservableObject
     private readonly IProductivityService _productivityService;
     private DateTime _lastLoaded = DateTime.MinValue;
 
+    private record CachedPeriodData(UsageListResponse? Usage, SessionListResponse? Sessions, DateTime LoadedAt);
+    private readonly Dictionary<string, CachedPeriodData> _periodCache = new();
+
     public bool IsDataStale(TimeSpan threshold) => DateTime.UtcNow - _lastLoaded > threshold;
 
     [ObservableProperty]
@@ -115,9 +118,13 @@ public partial class UsageStatsViewModel : ObservableObject
             UsageData = await t1;
             SessionData = await t2;
 
+            _periodCache[SelectedPeriod] = new CachedPeriodData(UsageData, SessionData, DateTime.UtcNow);
+
             await ComputeSummaryAsync(ct);
             _lastLoaded = DateTime.UtcNow;
             DataLoaded?.Invoke();
+
+            _ = PreloadOtherPeriodsAsync();
         }
         catch (Exception ex)
         {
@@ -276,6 +283,55 @@ public partial class UsageStatsViewModel : ObservableObject
         SelectedPeriod = period;
     }
 
+    /// <summary>
+    /// Cache-first period switch. Uses preloaded data instantly when available,
+    /// otherwise falls back to a full load.
+    /// </summary>
+    [RelayCommand]
+    public async Task SwitchPeriodAsync(CancellationToken ct = default)
+    {
+        if (_periodCache.TryGetValue(SelectedPeriod, out var cached) &&
+            DateTime.UtcNow - cached.LoadedAt < TimeSpan.FromMinutes(5) &&
+            SelectedCategory == null && SelectedApp == null)
+        {
+            IsLoading = true;
+            try
+            {
+                UsageData = cached.Usage;
+                SessionData = cached.Sessions;
+                await ComputeSummaryAsync(ct);
+                _lastLoaded = DateTime.UtcNow;
+                DataLoaded?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"UsageStatsViewModel.SwitchPeriodAsync (cache): {ex.Message}");
+                LoadFailed?.Invoke(ex.Message);
+            }
+            finally { IsLoading = false; }
+            return;
+        }
+
+        await LoadAsync(ct);
+    }
+
+    private async Task PreloadOtherPeriodsAsync()
+    {
+        foreach (var period in new[] { "Today", "Week", "Month" })
+        {
+            if (period == SelectedPeriod || _periodCache.ContainsKey(period)) continue;
+            try
+            {
+                var (from, to) = GetDateRangeForPeriod(period);
+                var t1 = _usageService.GetUsageAsync(from, to, "day", null, null, default);
+                var t2 = _sessionService.GetSessionsAsync(from, to, default);
+                await Task.WhenAll(t1, t2);
+                _periodCache[period] = new CachedPeriodData(await t1, await t2, DateTime.UtcNow);
+            }
+            catch { /* best-effort background preload */ }
+        }
+    }
+
     private static string ComputePeakHour(List<UsageListEntry> entries)
     {
         var peakGroup = entries
@@ -286,10 +342,12 @@ public partial class UsageStatsViewModel : ObservableObject
         return peakGroup != null ? $"{peakGroup.Key:D2}:00" : "—";
     }
 
-    private (string from, string to) GetDateRange()
+    private (string from, string to) GetDateRange() => GetDateRangeForPeriod(SelectedPeriod);
+
+    private static (string from, string to) GetDateRangeForPeriod(string period)
     {
         var today = DateTime.Today;
-        return SelectedPeriod switch
+        return period switch
         {
             "Week" => (today.AddDays(-6).ToString("yyyy-MM-dd"), today.ToString("yyyy-MM-dd")),
             "Month" => (today.AddDays(-29).ToString("yyyy-MM-dd"), today.ToString("yyyy-MM-dd")),

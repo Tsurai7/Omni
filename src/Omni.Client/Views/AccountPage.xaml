@@ -37,7 +37,7 @@
                             <RoundRectangle CornerRadius="26"/>
                         </Border.StrokeShape>
                         <Label x:Name="AvatarInitialsLabel"
-                               Text="?"
+                               Text="{Binding AvatarInitial}"
                                FontSize="20"
                                FontAttributes="Bold"
                                TextColor="{StaticResource ProductivityFocus}"
@@ -46,13 +46,15 @@
                     </Border>
                     <!-- Email + Status -->
                     <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
-                        <ActivityIndicator x:Name="LoadingIndicator" IsRunning="True" IsVisible="True"
+                        <ActivityIndicator x:Name="LoadingIndicator"
+                                           IsRunning="{Binding IsLoading}"
+                                           IsVisible="{Binding IsLoading}"
                                            Color="{StaticResource ProductivityFocus}"
                                            HeightRequest="18" WidthRequest="18"
                                            HorizontalOptions="Start"/>
-                        <Label x:Name="EmailLabel" Text="-"
+                        <Label x:Name="EmailLabel" Text="{Binding Email}"
                                Style="{StaticResource ProductivityBody}"
-                               IsVisible="False"/>
+                               IsVisible="{Binding IsNotLoading}"/>
                         <Label Text="Active account"
                                Style="{StaticResource ProductivityCaption}"/>
                     </VerticalStackLayout>
@@ -62,7 +64,7 @@
                             Text="Sign out"
                             Style="{StaticResource ProductivityDangerButton}"
                             VerticalOptions="Center"
-                            IsEnabled="False"
+                            IsEnabled="{Binding IsNotLoading}"
                             Clicked="OnSignOutClicked"/>
                 </Grid>
             </Border>

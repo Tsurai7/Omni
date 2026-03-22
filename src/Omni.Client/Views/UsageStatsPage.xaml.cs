@@ -65,21 +65,21 @@ public partial class UsageStatsPage : ContentPage
     {
         _vm.SelectPeriod("Today");
         UpdatePeriodButtons();
-        _ = _vm.LoadCommand.ExecuteAsync(null);
+        _ = _vm.SwitchPeriodCommand.ExecuteAsync(null);
     }
 
     private void OnPeriodWeekClicked(object? sender, EventArgs e)
     {
         _vm.SelectPeriod("Week");
         UpdatePeriodButtons();
-        _ = _vm.LoadCommand.ExecuteAsync(null);
+        _ = _vm.SwitchPeriodCommand.ExecuteAsync(null);
     }
 
     private void OnPeriodMonthClicked(object? sender, EventArgs e)
     {
         _vm.SelectPeriod("Month");
         UpdatePeriodButtons();
-        _ = _vm.LoadCommand.ExecuteAsync(null);
+        _ = _vm.SwitchPeriodCommand.ExecuteAsync(null);
     }
 
     private void UpdatePeriodButtons()
