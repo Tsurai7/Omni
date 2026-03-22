@@ -12,6 +12,9 @@ public enum CalendarViewMode { Month, Week, Day }
 public partial class CalendarViewModel : ObservableObject
 {
     private readonly CalendarService _calendarService;
+    private DateTime _lastLoaded = DateTime.MinValue;
+
+    public bool IsDataStale(TimeSpan threshold) => DateTime.UtcNow - _lastLoaded > threshold;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ViewModeLabel))]
@@ -58,6 +61,7 @@ public partial class CalendarViewModel : ObservableObject
             var (start, end) = GetDateRange();
             var evts = await _calendarService.GetEventsAsync(start, end, ct);
             Events = new ObservableCollection<CalendarEvent>(evts);
+            _lastLoaded = DateTime.UtcNow;
             EventsLoaded?.Invoke();
         }
         catch (Exception ex)

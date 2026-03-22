@@ -22,22 +22,22 @@ public partial class AccountPage : ContentPage
         NotificationIntensityPicker.ItemsSource = NotificationIntensityOptions;
     }
 
-    protected override async void OnAppearing()
+    protected override void OnAppearing()
     {
         base.OnAppearing();
-        await _vm.LoadAsync();
 
+        // Sync local UI state from VM (instant, no network)
         var goalIndex = Array.IndexOf(DailyGoalOptions, _vm.DailyGoalMinutes);
-        if (goalIndex < 0) goalIndex = 1;
-        DailyGoalPicker.SelectedIndex = goalIndex;
+        DailyGoalPicker.SelectedIndex = goalIndex < 0 ? 1 : goalIndex;
 
         var intensityIndex = NotificationIntensityOptions.ToList().IndexOf(_vm.NotificationIntensity);
-        if (intensityIndex < 0) intensityIndex = 1;
-        NotificationIntensityPicker.SelectedIndex = intensityIndex;
+        NotificationIntensityPicker.SelectedIndex = intensityIndex < 0 ? 1 : intensityIndex;
 
         StreakVisibleSwitch.IsToggled = _vm.StreakVisible;
-
         UpdateGCalUI();
+
+        if (_vm.IsDataStale(TimeSpan.FromSeconds(60)))
+            _ = _vm.LoadAsync();
     }
 
     private void UpdateGCalUI()
@@ -46,14 +46,14 @@ public partial class AccountPage : ContentPage
         GCalConnectButton.Text = _vm.GCalConnectButtonText;
         if (_vm.IsGoogleConnected)
         {
-            GCalConnectButton.Style = (Style)Resources["ProductivityDangerButton"];
+            GCalConnectButton.Style = (Style)Application.Current!.Resources["ProductivityDangerButton"];
             GCalSyncRow.IsVisible = true;
             GCalSyncDivider.IsVisible = true;
             GCalLastSyncLabel.Text = _vm.GCalLastSyncText;
         }
         else
         {
-            GCalConnectButton.Style = (Style)Resources["ProductivityPillButton"];
+            GCalConnectButton.Style = (Style)Application.Current!.Resources["ProductivityPillButton"];
             GCalSyncRow.IsVisible = false;
             GCalSyncDivider.IsVisible = false;
         }

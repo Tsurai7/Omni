@@ -39,10 +39,11 @@ public partial class UsageStatsPage : ContentPage
         _vm.LoadFailed += OnLoadFailed;
     }
 
-    protected override async void OnAppearing()
+    protected override void OnAppearing()
     {
         base.OnAppearing();
-        await _vm.LoadCommand.ExecuteAsync(null);
+        if (_vm.IsDataStale(TimeSpan.FromSeconds(60)))
+            _ = _vm.LoadCommand.ExecuteAsync(null);
     }
 
     private void OnDataLoaded()

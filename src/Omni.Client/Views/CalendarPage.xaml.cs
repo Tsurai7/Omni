@@ -39,10 +39,11 @@ public partial class CalendarPage : ContentPage
         });
     }
 
-    protected override async void OnAppearing()
+    protected override void OnAppearing()
     {
         base.OnAppearing();
-        await RefreshAsync();
+        if (_vm.IsDataStale(TimeSpan.FromSeconds(60)))
+            _ = RefreshAsync();
     }
 
     private async Task RefreshAsync()

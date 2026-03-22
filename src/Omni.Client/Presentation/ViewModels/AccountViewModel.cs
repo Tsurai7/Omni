@@ -10,6 +10,9 @@ public partial class AccountViewModel : ObservableObject
     private readonly IAuthService _authService;
     private readonly CalendarService _calendarService;
     private readonly IUsageService? _usageService;
+    private DateTime _lastLoaded = DateTime.MinValue;
+
+    public bool IsDataStale(TimeSpan threshold) => DateTime.UtcNow - _lastLoaded > threshold;
 
     [ObservableProperty]
     private string _email = "-";
@@ -79,6 +82,7 @@ public partial class AccountViewModel : ObservableObject
         LoadProductivityPreferences();
         await RefreshGCalStatusAsync();
 
+        _lastLoaded = DateTime.UtcNow;
         IsLoading = false;
     }
 

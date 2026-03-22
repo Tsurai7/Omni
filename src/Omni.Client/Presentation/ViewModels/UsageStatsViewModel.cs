@@ -13,6 +13,9 @@ public partial class UsageStatsViewModel : ObservableObject
     private readonly IUsageService _usageService;
     private readonly ISessionService _sessionService;
     private readonly IProductivityService _productivityService;
+    private DateTime _lastLoaded = DateTime.MinValue;
+
+    public bool IsDataStale(TimeSpan threshold) => DateTime.UtcNow - _lastLoaded > threshold;
 
     [ObservableProperty]
     private string _selectedPeriod = "Today";
@@ -113,6 +116,7 @@ public partial class UsageStatsViewModel : ObservableObject
             SessionData = await t2;
 
             await ComputeSummaryAsync(ct);
+            _lastLoaded = DateTime.UtcNow;
             DataLoaded?.Invoke();
         }
         catch (Exception ex)

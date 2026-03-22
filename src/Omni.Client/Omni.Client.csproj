@@ -137,11 +137,26 @@
           <DependentUpon>UsageStatsPage.xaml</DependentUpon>
           <SubType>Code</SubType>
         </Compile>
+        <Compile Update="Views\DigestPage.xaml.cs">
+          <DependentUpon>DigestPage.xaml</DependentUpon>
+          <SubType>Code</SubType>
+        </Compile>
+        <Compile Update="App.xaml.cs">
+          <DependentUpon>App.xaml</DependentUpon>
+          <SubType>Code</SubType>
+        </Compile>
+        <Compile Update="AppShell.xaml.cs">
+          <DependentUpon>AppShell.xaml</DependentUpon>
+          <SubType>Code</SubType>
+        </Compile>
     </ItemGroup>
     <ItemGroup>
       <AdditionalFiles Include="Views\AccountPage.xaml" />
+      <AdditionalFiles Include="App.xaml" />
+      <AdditionalFiles Include="AppShell.xaml" />
       <AdditionalFiles Include="Views\CalendarPage.xaml" />
       <AdditionalFiles Include="Views\ChatPage.xaml" />
+      <AdditionalFiles Include="Views\DigestPage.xaml" />
       <AdditionalFiles Include="Views\LoginPage.xaml" />
       <AdditionalFiles Include="Views\MainPage.xaml" />
       <AdditionalFiles Include="Views\RegisterPage.xaml" />
@@ -175,6 +190,15 @@
         <SubType>Designer</SubType>
       </MauiXaml>
       <MauiXaml Update="Views\UsageStatsPage.xaml">
+        <SubType>Designer</SubType>
+      </MauiXaml>
+      <MauiXaml Update="Views\DigestPage.xaml">
+        <SubType>Designer</SubType>
+      </MauiXaml>
+      <MauiXaml Update="App.xaml">
+        <SubType>Designer</SubType>
+      </MauiXaml>
+      <MauiXaml Update="AppShell.xaml">
         <SubType>Designer</SubType>
       </MauiXaml>
     </ItemGroup>

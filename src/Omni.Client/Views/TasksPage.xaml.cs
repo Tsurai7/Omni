@@ -24,8 +24,15 @@ public partial class TasksPage : ContentPage
             await Shell.Current.GoToAsync(nameof(LoginPage));
             return;
         }
-        await _vm.LoadAsync();
+        if (_vm.IsDataStale(TimeSpan.FromSeconds(60)))
+            _ = _vm.LoadAsync();
     }
+
+    private void OnFilterAll(object? sender, EventArgs e)    => _vm.FilterAllCommand.Execute(null);
+    private void OnFilterTodo(object? sender, EventArgs e)   => _vm.FilterTodoCommand.Execute(null);
+    private void OnFilterActive(object? sender, EventArgs e) => _vm.FilterActiveCommand.Execute(null);
+    private void OnFilterDone(object? sender, EventArgs e)   => _vm.FilterDoneCommand.Execute(null);
+    private void OnToggleDoneExpanded(object? sender, EventArgs e) => _vm.ToggleDoneExpandedCommand.Execute(null);
 
     private async void OnAddTaskClicked(object? sender, EventArgs e)
     {

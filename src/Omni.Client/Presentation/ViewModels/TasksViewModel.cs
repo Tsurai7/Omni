@@ -11,6 +11,9 @@ public partial class TasksViewModel : ObservableObject
 {
     private readonly ITaskService _taskService;
     private readonly LocalDatabaseService _localDb;
+    private DateTime _lastLoaded = DateTime.MinValue;
+
+    public bool IsDataStale(TimeSpan threshold) => DateTime.UtcNow - _lastLoaded > threshold;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TodoCount), nameof(TotalCount), nameof(ProgressSummary), nameof(HasNoTasks),
@@ -135,6 +138,7 @@ public partial class TasksViewModel : ObservableObject
             TodoTasks       = new ObservableCollection<TaskDisplayItem>(merged.Where(t => t.IsPending));
             InProgressTasks = new ObservableCollection<TaskDisplayItem>(merged.Where(t => t.IsInProgress));
             DoneTasks       = new ObservableCollection<TaskDisplayItem>(merged.Where(t => t.IsDone));
+            _lastLoaded = DateTime.UtcNow;
         }
         catch (Exception ex)
         {

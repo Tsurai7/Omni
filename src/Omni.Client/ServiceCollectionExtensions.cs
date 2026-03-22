@@ -237,22 +237,27 @@ public static class ServiceCollectionExtensions
 
         services.AddTransient<LoginViewModel>();
         services.AddTransient<RegisterViewModel>();
-        services.AddTransient<MainViewModel>();
-        services.AddTransient<ChatViewModel>();
-        services.AddTransient<SessionViewModel>();
-        services.AddTransient<TasksViewModel>();
-        services.AddTransient<UsageStatsViewModel>();
-        services.AddTransient<CalendarViewModel>();
-        services.AddTransient<AccountViewModel>();
 
-        services.AddTransient<MainPage>();
-        services.AddTransient<UsageStatsPage>();
-        services.AddTransient<SessionPage>();
-        services.AddTransient<TasksPage>();
-        services.AddTransient<AccountPage>();
+        // Flyout pages: singleton so they stay alive between navigations,
+        // preserving state and avoiding reconstruction cost on each switch.
+        services.AddSingleton<MainViewModel>();
+        services.AddSingleton<ChatViewModel>();
+        services.AddSingleton<SessionViewModel>();
+        services.AddSingleton<TasksViewModel>();
+        services.AddSingleton<UsageStatsViewModel>();
+        services.AddSingleton<CalendarViewModel>();
+        services.AddSingleton<AccountViewModel>();
+
+        services.AddSingleton<MainPage>();
+        services.AddSingleton<UsageStatsPage>();
+        services.AddSingleton<SessionPage>();
+        services.AddSingleton<TasksPage>();
+        services.AddSingleton<AccountPage>();
+        services.AddSingleton<ChatPage>();
+        services.AddSingleton<CalendarPage>();
+
+        // Navigation-push pages: transient (created fresh each time).
         services.AddTransient<DigestPage>();
-        services.AddTransient<ChatPage>();
-        services.AddTransient<CalendarPage>();
 
         return services;
     }

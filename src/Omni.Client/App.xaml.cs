@@ -29,8 +29,7 @@ public partial class App : Application
     private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
     {
         e.SetObserved();
-        var message = e.Exception?.GetBaseException()?.Message ?? e.Exception?.Message ?? "Unknown error";
-        ShowExceptionPopup("Background Error", message);
+        System.Diagnostics.Debug.WriteLine($"[App] Unobserved task exception: {e.Exception?.GetBaseException()?.Message}");
     }
 
     private void ShowExceptionPopup(string title, string message)
