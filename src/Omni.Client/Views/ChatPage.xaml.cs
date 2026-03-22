@@ -156,6 +156,7 @@ public partial class ChatPage : ContentPage
         switch (action.Type)
         {
             case "start_session":
+                MauiProgram.AppServices?.GetService<SessionPage>()?.SetNavigatedFromChat();
                 await Shell.Current.GoToAsync("///SessionPage");
                 break;
             case "create_task":

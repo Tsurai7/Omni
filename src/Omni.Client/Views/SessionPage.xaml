@@ -30,6 +30,16 @@
                 <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusLg}"/>
             </Border.StrokeShape>
             <VerticalStackLayout Spacing="14">
+                <Button x:Name="BackToCoachButton"
+                        Text="← Back to Coach"
+                        IsVisible="False"
+                        Clicked="OnBackToCoachTapped"
+                        BackgroundColor="Transparent"
+                        TextColor="{StaticResource ProductivityTextMuted}"
+                        FontSize="13"
+                        Padding="0"
+                        HorizontalOptions="Start"
+                        Margin="0,0,0,-4"/>
                 <Label Text="What will you work on?" Style="{StaticResource ProductivityHeadline}"/>
                 <Label Text="Set your intention before starting" Style="{StaticResource ProductivityCaption}"/>
 

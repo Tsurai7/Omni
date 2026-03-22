@@ -13,6 +13,7 @@ public partial class SessionPage : ContentPage
     private readonly SessionViewModel _vm;
     private IRunningSessionState? _runningState;
     private ISessionDistractionService? _distractionService;
+    private bool _navigatedFromChat;
 
     private readonly string[] _activityTypes = { "work", "break", "other" };
     private readonly (string Label, int Seconds)[] _durationPresets =
@@ -60,6 +61,16 @@ public partial class SessionPage : ContentPage
         BreathingView.Drawable = _breathingDrawable;
     }
 
+    internal void SetNavigatedFromChat()
+    {
+        _navigatedFromChat = true;
+    }
+
+    private async void OnBackToCoachTapped(object? sender, EventArgs e)
+    {
+        await Shell.Current.GoToAsync("///ChatPage");
+    }
+
     private void BuildDurationPills()
     {
         Style? pillStyle = null;
@@ -101,6 +112,9 @@ public partial class SessionPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        BackToCoachButton.IsVisible = _navigatedFromChat;
+        _navigatedFromChat = false;
+
         var auth = MauiProgram.AppServices?.GetService<IAuthService>();
         if (auth != null && !await auth.IsAuthenticatedAsync())
         {
