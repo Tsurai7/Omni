@@ -12,6 +12,7 @@ public partial class UsageStatsPage : ContentPage
     private readonly UsageBarDrawable _barDrawable = new();
     private readonly FocusScoreTrendDrawable _trendDrawable = new();
     private readonly ActivityHeatmapDrawable _heatmapDrawable = new();
+    private readonly WeeklyFocusBarDrawable _weeklyFocusDrawable = new();
     private readonly ObservableCollection<string> _categoryOptions = new() { "All" };
     private readonly ObservableCollection<string> _appOptions = new() { "All" };
     private bool _ignorePickerChanges;
@@ -31,6 +32,7 @@ public partial class UsageStatsPage : ContentPage
         BarChartView.Drawable = _barDrawable;
         TrendChartView.Drawable = _trendDrawable;
         HeatmapView.Drawable = _heatmapDrawable;
+        WeeklyFocusView.Drawable = _weeklyFocusDrawable;
 
         UpdatePeriodButtons();
         StatsNetworkBanner.RetryAction = () => _ = _vm.LoadCommand.ExecuteAsync(null);
@@ -197,5 +199,16 @@ public partial class UsageStatsPage : ContentPage
             .Select(g => (Date: g.Key, FocusMinutes: (int)(g.Sum(x => x.TotalSeconds) / 60)));
         _heatmapDrawable.SetData(heatmapData);
         HeatmapView.Invalidate();
+
+        // Weekday focus bars: Mon=0 … Sun=6
+        var weekdaySeconds = new long[7];
+        foreach (var e in entries)
+        {
+            if (!IsFocusCategory(e.Category) || !DateTime.TryParse(e.Date, out var dt)) continue;
+            weekdaySeconds[((int)dt.DayOfWeek + 6) % 7] += e.TotalSeconds;
+        }
+        int todayIdx = ((int)DateTime.Today.DayOfWeek + 6) % 7;
+        _weeklyFocusDrawable.SetData(weekdaySeconds, todayIdx);
+        WeeklyFocusView.Invalidate();
     }
 }

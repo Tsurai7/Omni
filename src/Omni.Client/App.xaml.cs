@@ -1,4 +1,5 @@
 using Omni.Client.Abstractions;
+using Omni.Client.Services;
 
 namespace Omni.Client;
 
@@ -14,6 +15,11 @@ public partial class App : Application
 
     protected override Window CreateWindow(IActivationState? activationState)
     {
+        // Apply saved theme before any pages are instantiated so DynamicResource
+        // bindings pick up the correct palette on first render (no flash).
+        var themeService = MauiProgram.AppServices?.GetService<IThemeService>();
+        themeService?.Apply(ProductivityPreferences.GetTheme());
+
         var window = new Window(new AppShell()) { Title = "Omni" };
         _ = PreloadStoredTokenAsync();
         StartBackgroundServices();

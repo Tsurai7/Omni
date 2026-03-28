@@ -4,8 +4,8 @@
              x:Class="Omni.Client.Controls.ProductivityCard">
     <ContentView.ControlTemplate>
         <ControlTemplate>
-            <Border BackgroundColor="{StaticResource ProductivityCardBackground}"
-                    Stroke="{StaticResource ProductivityCardStroke}"
+            <Border BackgroundColor="{DynamicResource ProductivityCardBackground}"
+                    Stroke="{DynamicResource ProductivityCardStroke}"
                     StrokeThickness="1"
                     Padding="{StaticResource ProductivityCardPadding}"
                     Margin="{StaticResource ProductivityCardMargin}">

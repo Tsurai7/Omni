@@ -1,3 +1,5 @@
+using Omni.Client.Services;
+
 namespace Omni.Client;
 
 /// <summary>
@@ -10,6 +12,7 @@ public static class ProductivityPreferences
     public const string StreakVisibleKey = "omni_streak_visible";
     public const string FocusHoursStartKey = "omni_focus_hours_start";
     public const string FocusHoursEndKey = "omni_focus_hours_end";
+    public const string ThemeKey = "omni_app_theme";
 
     public const int DefaultDailyGoalMinutes = 60;
     public const string DefaultNotificationIntensity = "Medium";
@@ -46,4 +49,10 @@ public static class ProductivityPreferences
 
     public static void SetFocusHoursEnd(string value) =>
         Preferences.Default.Set(FocusHoursEndKey, value);
+
+    public static AppColorTheme GetTheme() =>
+        (AppColorTheme)Preferences.Default.Get(ThemeKey, (int)AppColorTheme.Dark);
+
+    public static void SetTheme(AppColorTheme value) =>
+        Preferences.Default.Set(ThemeKey, (int)value);
 }

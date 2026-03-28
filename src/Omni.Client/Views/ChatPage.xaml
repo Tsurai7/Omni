@@ -6,10 +6,11 @@
              xmlns:chatModels="clr-namespace:Omni.Client.Models.Chat"
              x:Class="Omni.Client.ChatPage"
              x:DataType="vm:ChatViewModel"
-             Shell.NavBarIsVisible="False">
-    <ContentPage.Background>
-        <StaticResource Key="ProductivityPageGradient"/>
-    </ContentPage.Background>
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource ProductivityPageGradient}">
+    
+    
+    
 
     <Grid RowDefinitions="Auto,*,Auto" x:Name="RootGrid">
 
@@ -48,15 +49,15 @@
 
                     <Border WidthRequest="64" HeightRequest="64"
                             HorizontalOptions="Center"
-                            BackgroundColor="{StaticResource ProductivityUIAccentSoft}"
-                            Stroke="{StaticResource ProductivityUIAccentGlow}"
+                            BackgroundColor="{DynamicResource ProductivityUIAccentSoft}"
+                            Stroke="{DynamicResource ProductivityUIAccentGlow}"
                             StrokeThickness="1">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="32"/>
                         </Border.StrokeShape>
                         <Label Text="✦"
                                FontSize="28"
-                               TextColor="{StaticResource ProductivityUIAccent}"
+                               TextColor="{DynamicResource ProductivityUIAccent}"
                                HorizontalOptions="Center"
                                VerticalOptions="Center"/>
                     </Border>
@@ -81,8 +82,8 @@
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="local:StarterViewModel">
                                     <Border Padding="14,12"
-                                            BackgroundColor="{StaticResource ProductivityCardBackground}"
-                                            Stroke="{StaticResource ProductivityCardStroke}"
+                                            BackgroundColor="{DynamicResource ProductivityCardBackground}"
+                                            Stroke="{DynamicResource ProductivityCardStroke}"
                                             StrokeThickness="1">
                                         <Border.StrokeShape>
                                             <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
@@ -117,15 +118,15 @@
                                        Margin="20,4,0,14">
                     <BoxView x:Name="Dot1" WidthRequest="6" HeightRequest="6"
                              CornerRadius="3"
-                             Color="{StaticResource ProductivityFocus}"
+                             Color="{DynamicResource ProductivityFocus}"
                              Opacity="0.4"/>
                     <BoxView x:Name="Dot2" WidthRequest="6" HeightRequest="6"
                              CornerRadius="3"
-                             Color="{StaticResource ProductivityFocus}"
+                             Color="{DynamicResource ProductivityFocus}"
                              Opacity="0.4"/>
                     <BoxView x:Name="Dot3" WidthRequest="6" HeightRequest="6"
                              CornerRadius="3"
-                             Color="{StaticResource ProductivityFocus}"
+                             Color="{DynamicResource ProductivityFocus}"
                              Opacity="0.4"/>
                 </HorizontalStackLayout>
             </CollectionView.Footer>
@@ -139,13 +140,13 @@
                                 HorizontalOptions="End"
                                 MaximumWidthRequest="280"
                                 Padding="14,10"
-                                BackgroundColor="{StaticResource ProductivityFocus}"
+                                BackgroundColor="{DynamicResource ProductivityFocus}"
                                 StrokeThickness="0">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="18,18,4,18"/>
                             </Border.StrokeShape>
                             <Label Text="{Binding Content}"
-                                   TextColor="{StaticResource ProductivityCtaText}"
+                                   TextColor="{DynamicResource ProductivityCtaText}"
                                    FontSize="14"
                                    LineBreakMode="WordWrap"/>
                         </Border>
@@ -156,8 +157,8 @@
                                              MaximumWidthRequest="300"
                                              Spacing="8">
                             <Border Padding="14,10"
-                                    BackgroundColor="{StaticResource ProductivityCardBackground}"
-                                    Stroke="{StaticResource ProductivityCardStroke}"
+                                    BackgroundColor="{DynamicResource ProductivityCardBackground}"
+                                    Stroke="{DynamicResource ProductivityCardStroke}"
                                     StrokeThickness="1">
                                 <Border.StrokeShape>
                                     <RoundRectangle CornerRadius="4,18,18,18"/>
@@ -175,7 +176,7 @@
                                     <DataTemplate x:DataType="chatModels:ChatAction">
                                         <Border Padding="12,7"
                                                 BackgroundColor="Transparent"
-                                                Stroke="{StaticResource ProductivityFocus}"
+                                                Stroke="{DynamicResource ProductivityFocus}"
                                                 StrokeThickness="1">
                                             <Border.StrokeShape>
                                                 <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusPill}"/>
@@ -184,7 +185,7 @@
                                                 <TapGestureRecognizer Tapped="OnActionTapped"/>
                                             </Border.GestureRecognizers>
                                             <Label Text="{Binding Label}"
-                                                   TextColor="{StaticResource ProductivityFocus}"
+                                                   TextColor="{DynamicResource ProductivityFocus}"
                                                    FontSize="12"
                                                    FontAttributes="Bold"/>
                                         </Border>
@@ -200,7 +201,7 @@
 
         <!-- ── Input area ─────────────────────────────────────────────── -->
         <Border Grid.Row="2"
-                BackgroundColor="{StaticResource ProductivityCardBackground}"
+                BackgroundColor="{DynamicResource ProductivityCardBackground}"
                 StrokeThickness="0"
                 Padding="16,12,16,32">
             <Border.StrokeShape>
@@ -208,8 +209,8 @@
             </Border.StrokeShape>
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                 <Border Grid.Column="0"
-                        BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
-                        Stroke="{StaticResource ProductivityCardStroke}"
+                        BackgroundColor="{DynamicResource ProductivityCardBackgroundElevated}"
+                        Stroke="{DynamicResource ProductivityCardStroke}"
                         StrokeThickness="1"
                         Padding="14,8">
                     <Border.StrokeShape>
@@ -220,8 +221,8 @@
                            TextChanged="OnMessageEditorTextChanged"
                            Completed="OnMessageEditorCompleted"
                            Placeholder="Ask your coach anything..."
-                           PlaceholderColor="{StaticResource ProductivityTextMuted}"
-                           TextColor="{StaticResource ProductivityTextPrimary}"
+                           PlaceholderColor="{DynamicResource ProductivityTextMuted}"
+                           TextColor="{DynamicResource ProductivityTextPrimary}"
                            BackgroundColor="Transparent"
                            FontSize="14"
                            ReturnType="Send"
@@ -231,7 +232,7 @@
 
                 <Border Grid.Column="1"
                         WidthRequest="44" HeightRequest="44"
-                        BackgroundColor="{StaticResource ProductivityFocus}"
+                        BackgroundColor="{DynamicResource ProductivityFocus}"
                         StrokeThickness="0"
                         VerticalOptions="End">
                     <Border.StrokeShape>
@@ -241,7 +242,7 @@
                         <TapGestureRecognizer Command="{Binding SendCommand}"/>
                     </Border.GestureRecognizers>
                     <Label Text="↑"
-                           TextColor="{StaticResource ProductivityCtaText}"
+                           TextColor="{DynamicResource ProductivityCtaText}"
                            FontSize="18"
                            FontAttributes="Bold"
                            HorizontalOptions="Center"
@@ -254,7 +255,7 @@
         <!-- ── History overlay ──────────────────────────────────────────────── -->
         <Grid Grid.Row="0" Grid.RowSpan="3"
               IsVisible="{Binding ShowHistory}"
-              BackgroundColor="{StaticResource ProductivityPageBackground}"
+              BackgroundColor="{DynamicResource ProductivityPageBackground}"
               RowDefinitions="Auto,*,Auto">
 
             <!-- Header -->
@@ -295,8 +296,8 @@
                     <DataTemplate x:DataType="local:ConversationViewModel">
                         <Border Margin="16,0,16,8"
                                 Padding="16,14"
-                                BackgroundColor="{StaticResource ProductivityCardBackground}"
-                                Stroke="{StaticResource ProductivityCardStroke}"
+                                BackgroundColor="{DynamicResource ProductivityCardBackground}"
+                                Stroke="{DynamicResource ProductivityCardStroke}"
                                 StrokeThickness="1">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>

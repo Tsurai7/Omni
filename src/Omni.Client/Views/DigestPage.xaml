@@ -24,7 +24,7 @@
 
             <!-- Headline Stat Card -->
             <Border Margin="0,0,0,16" Padding="24"
-                    BackgroundColor="{StaticResource ProductivityCardBackground}"
+                    BackgroundColor="{DynamicResource ProductivityCardBackground}"
                     StrokeThickness="1">
                 <Border.Stroke>
                     <SolidColorBrush Color="#4ECCA3"/>
@@ -43,7 +43,7 @@
                     <Label x:Name="ComparisonLabel"
                            Text=""
                            Style="{StaticResource ProductivityCaption}"
-                           TextColor="{StaticResource ProductivityFocus}"
+                           TextColor="{DynamicResource ProductivityFocus}"
                            HorizontalOptions="Center"
                            IsVisible="False"/>
                 </VerticalStackLayout>
@@ -53,8 +53,8 @@
             <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="12" Margin="0,0,0,16">
                 <!-- Avg Daily Score -->
                 <Border Grid.Row="0" Grid.Column="0" Padding="16"
-                        BackgroundColor="{StaticResource ProductivityCardBackground}"
-                        Stroke="{StaticResource ProductivityCardStroke}" StrokeThickness="1">
+                        BackgroundColor="{DynamicResource ProductivityCardBackground}"
+                        Stroke="{DynamicResource ProductivityCardStroke}" StrokeThickness="1">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
                     </Border.StrokeShape>
@@ -62,14 +62,14 @@
                         <Label x:Name="AvgScoreLabel" Text="—"
                                Style="{StaticResource ProductivityTitle}"
                                FontSize="26" FontAttributes="Bold"
-                               TextColor="{StaticResource ProductivityFocus}"/>
+                               TextColor="{DynamicResource ProductivityFocus}"/>
                         <Label Text="avg focus score" Style="{StaticResource ProductivityCaption}"/>
                     </VerticalStackLayout>
                 </Border>
                 <!-- Most Productive Day -->
                 <Border Grid.Row="0" Grid.Column="1" Padding="16"
-                        BackgroundColor="{StaticResource ProductivityCardBackground}"
-                        Stroke="{StaticResource ProductivityCardStroke}" StrokeThickness="1">
+                        BackgroundColor="{DynamicResource ProductivityCardBackground}"
+                        Stroke="{DynamicResource ProductivityCardStroke}" StrokeThickness="1">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
                     </Border.StrokeShape>
@@ -82,8 +82,8 @@
                 </Border>
                 <!-- Top Focus App -->
                 <Border Grid.Row="1" Grid.Column="0" Padding="16"
-                        BackgroundColor="{StaticResource ProductivityCardBackground}"
-                        Stroke="{StaticResource ProductivityCardStroke}" StrokeThickness="1">
+                        BackgroundColor="{DynamicResource ProductivityCardBackground}"
+                        Stroke="{DynamicResource ProductivityCardStroke}" StrokeThickness="1">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
                     </Border.StrokeShape>
@@ -97,8 +97,8 @@
                 </Border>
                 <!-- Streak -->
                 <Border Grid.Row="1" Grid.Column="1" Padding="16"
-                        BackgroundColor="{StaticResource ProductivityCardBackground}"
-                        Stroke="{StaticResource ProductivityCardStroke}" StrokeThickness="1">
+                        BackgroundColor="{DynamicResource ProductivityCardBackground}"
+                        Stroke="{DynamicResource ProductivityCardStroke}" StrokeThickness="1">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
                     </Border.StrokeShape>
@@ -106,7 +106,7 @@
                         <Label x:Name="StreakLabel" Text="—"
                                Style="{StaticResource ProductivityTitle}"
                                FontSize="26" FontAttributes="Bold"
-                               TextColor="{StaticResource ProductivityAmber}"/>
+                               TextColor="{DynamicResource ProductivityAmber}"/>
                         <Label Text="day streak 🔥" Style="{StaticResource ProductivityCaption}"/>
                     </VerticalStackLayout>
                 </Border>
@@ -114,8 +114,8 @@
 
             <!-- AI Insight Callout -->
             <Border x:Name="InsightCard" Margin="0,0,0,28" Padding="20"
-                    BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
-                    Stroke="{StaticResource ProductivityCardStroke}" StrokeThickness="1"
+                    BackgroundColor="{DynamicResource ProductivityCardBackgroundElevated}"
+                    Stroke="{DynamicResource ProductivityCardStroke}" StrokeThickness="1"
                     IsVisible="False">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>

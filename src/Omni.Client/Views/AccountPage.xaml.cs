@@ -7,15 +7,17 @@ public partial class AccountPage : ContentPage
 {
     private readonly AccountViewModel _vm;
     private readonly CalendarService _calendarService;
+    private readonly IThemeService _themeService;
 
     public static readonly string[] NotificationIntensityOptions = AccountViewModel.NotificationIntensityOptions;
     public static readonly int[] DailyGoalOptions = AccountViewModel.DailyGoalOptions;
 
-    public AccountPage(AccountViewModel vm, CalendarService calendarService)
+    public AccountPage(AccountViewModel vm, CalendarService calendarService, IThemeService themeService)
     {
         InitializeComponent();
         _vm = vm;
         _calendarService = calendarService;
+        _themeService = themeService;
         BindingContext = vm;
 
         DailyGoalPicker.ItemsSource = DailyGoalOptions.Select(i => i.ToString()).ToList();
@@ -36,7 +38,6 @@ public partial class AccountPage : ContentPage
     {
         base.OnAppearing();
 
-        // Sync local UI state from VM (instant, no network)
         var goalIndex = Array.IndexOf(DailyGoalOptions, _vm.DailyGoalMinutes);
         DailyGoalPicker.SelectedIndex = goalIndex < 0 ? 1 : goalIndex;
 
@@ -45,10 +46,35 @@ public partial class AccountPage : ContentPage
 
         StreakVisibleSwitch.IsToggled = _vm.StreakVisible;
         UpdateGCalUI();
+        UpdateThemeButtons(_themeService.Current);
 
         if (_vm.IsDataStale(TimeSpan.FromSeconds(60)))
             _ = _vm.LoadAsync();
     }
+
+    // ── Theme switching ───────────────────────────────────────────────────────
+
+    private void OnThemeDarkClicked(object? sender, EventArgs e)   => SetTheme(AppColorTheme.Dark);
+    private void OnThemeSystemClicked(object? sender, EventArgs e) => SetTheme(AppColorTheme.System);
+    private void OnThemeLightClicked(object? sender, EventArgs e)  => SetTheme(AppColorTheme.Light);
+
+    private void SetTheme(AppColorTheme theme)
+    {
+        _themeService.Apply(theme);
+        UpdateThemeButtons(theme);
+    }
+
+    private void UpdateThemeButtons(AppColorTheme active)
+    {
+        var pill    = (Style)Application.Current!.Resources["ProductivityPillButton"];
+        var segment = (Style)Application.Current!.Resources["ProductivitySegmentButton"];
+
+        ThemeDarkBtn.Style   = active == AppColorTheme.Dark   ? pill : segment;
+        ThemeSystemBtn.Style = active == AppColorTheme.System ? pill : segment;
+        ThemeLightBtn.Style  = active == AppColorTheme.Light  ? pill : segment;
+    }
+
+    // ── Google Calendar ───────────────────────────────────────────────────────
 
     private void UpdateGCalUI()
     {

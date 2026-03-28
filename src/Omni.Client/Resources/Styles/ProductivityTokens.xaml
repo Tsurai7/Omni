@@ -5,18 +5,18 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
     <!-- ═══════════════════════════════════════════════════════════════════════
-         SEMANTIC COLORS — dark theme
-         Aligned with Omni landing page design language.
-         Backgrounds match landing bg / bg-surface / bg-elevated tokens.
+         SEMANTIC COLORS — dark theme defaults
+         These values are overwritten at runtime by ThemeService when the user
+         switches theme. Views must use DynamicResource (not StaticResource)
+         for any of these keys so the live update propagates.
          ═══════════════════════════════════════════════════════════════════════ -->
 
-    <!-- Backgrounds — matched to landing page depth -->
+    <!-- Backgrounds -->
     <Color x:Key="ProductivityPageBackground">#07070A</Color>
     <Color x:Key="ProductivityCardBackground">#0F0F12</Color>
     <Color x:Key="ProductivityCardBackgroundElevated">#16161B</Color>
 
-    <!-- Borders — translucent like landing rgba(255,255,255,0.07/0.04)
-         MAUI ARGB hex format: #AARRGGBB -->
+    <!-- Borders — MAUI ARGB hex: #AARRGGBB -->
     <Color x:Key="ProductivityCardStroke">#12FFFFFF</Color>
     <Color x:Key="ProductivityCardStrokeSubtle">#0AFFFFFF</Color>
 
@@ -26,12 +26,12 @@
     <Color x:Key="ProductivityTextTertiary">#4A4A5A</Color>
     <Color x:Key="ProductivityTextMuted">#333340</Color>
 
-    <!-- ── Purple UI accent — brand / chrome color from landing page ── -->
+    <!-- Purple UI accent -->
     <Color x:Key="ProductivityUIAccent">#8B5CF6</Color>
     <Color x:Key="ProductivityUIAccentSoft">#2E8B5CF6</Color>
     <Color x:Key="ProductivityUIAccentGlow">#598B5CF6</Color>
 
-    <!-- ── Mint accent — productivity / data semantic colors ── -->
+    <!-- Mint / productivity semantic colors -->
     <Color x:Key="ProductivityFocus">#4ECCA3</Color>
     <Color x:Key="ProductivityFocusDim">#2A7A61</Color>
     <Color x:Key="ProductivityNeutral">#6B9AC4</Color>
@@ -39,7 +39,7 @@
     <Color x:Key="ProductivityAmber">#F5A623</Color>
     <Color x:Key="ProductivitySuccess">#4ECCA3</Color>
 
-    <!-- CTA — keep mint for primary action buttons -->
+    <!-- CTA -->
     <Color x:Key="ProductivityCtaBackground">#4ECCA3</Color>
     <Color x:Key="ProductivityCtaText">#0F1210</Color>
 
@@ -50,7 +50,6 @@
          GRADIENT BRUSHES
          ═══════════════════════════════════════════════════════════════════════ -->
 
-    <!-- Page background: subtle purple top fade, matches landing radial gradient -->
     <LinearGradientBrush x:Key="ProductivityPageGradient"
                          StartPoint="0.5,0" EndPoint="0.5,1">
         <GradientStop Color="#1A8B5CF6" Offset="0.0"/>
@@ -69,7 +68,7 @@
     <x:Double x:Key="ProductivitySpacing3Xl">32</x:Double>
 
     <!-- ═══════════════════════════════════════════════════════════════════════
-         CORNER RADII — generous curves
+         CORNER RADII
          ═══════════════════════════════════════════════════════════════════════ -->
     <x:Double x:Key="ProductivityRadiusXs">8</x:Double>
     <x:Int32  x:Key="ProductivityRadiusXsInt">8</x:Int32>
@@ -95,13 +94,12 @@
 
     <!-- ═══════════════════════════════════════════════════════════════════════
          TYPOGRAPHY — Inter font family
-         Scale: Overline 10 · Caption 12 · Body 14 · Title 16 · Headline 22 · Display 32 · Metric 56
+         NOTE: color setters use DynamicResource so theme switches propagate.
          ═══════════════════════════════════════════════════════════════════════ -->
 
-    <!-- Purple section label — matches landing .section-label / .feature-label -->
     <Style TargetType="Label" x:Key="ProductivityUILabel">
         <Setter Property="FontSize" Value="10"/>
-        <Setter Property="TextColor" Value="{StaticResource ProductivityUIAccent}"/>
+        <Setter Property="TextColor" Value="{DynamicResource ProductivityUIAccent}"/>
         <Setter Property="CharacterSpacing" Value="1.5"/>
         <Setter Property="TextTransform" Value="Uppercase"/>
         <Setter Property="FontFamily" Value="InterSemiBold"/>
@@ -109,7 +107,7 @@
 
     <Style TargetType="Label" x:Key="ProductivityOverline">
         <Setter Property="FontSize" Value="10"/>
-        <Setter Property="TextColor" Value="{StaticResource ProductivityTextTertiary}"/>
+        <Setter Property="TextColor" Value="{DynamicResource ProductivityTextTertiary}"/>
         <Setter Property="CharacterSpacing" Value="1.2"/>
         <Setter Property="TextTransform" Value="Uppercase"/>
         <Setter Property="FontFamily" Value="InterSemiBold"/>
@@ -117,66 +115,64 @@
 
     <Style TargetType="Label" x:Key="ProductivityCaption">
         <Setter Property="FontSize" Value="12"/>
-        <Setter Property="TextColor" Value="{StaticResource ProductivityTextSecondary}"/>
+        <Setter Property="TextColor" Value="{DynamicResource ProductivityTextSecondary}"/>
         <Setter Property="FontFamily" Value="InterRegular"/>
     </Style>
 
     <Style TargetType="Label" x:Key="ProductivityBody">
         <Setter Property="FontSize" Value="14"/>
-        <Setter Property="TextColor" Value="{StaticResource ProductivityTextPrimary}"/>
+        <Setter Property="TextColor" Value="{DynamicResource ProductivityTextPrimary}"/>
         <Setter Property="FontFamily" Value="InterRegular"/>
     </Style>
 
     <Style TargetType="Label" x:Key="ProductivityBodyBold">
         <Setter Property="FontSize" Value="14"/>
-        <Setter Property="TextColor" Value="{StaticResource ProductivityTextPrimary}"/>
+        <Setter Property="TextColor" Value="{DynamicResource ProductivityTextPrimary}"/>
         <Setter Property="FontAttributes" Value="Bold"/>
         <Setter Property="FontFamily" Value="InterSemiBold"/>
     </Style>
 
     <Style TargetType="Label" x:Key="ProductivityBodySecondary">
         <Setter Property="FontSize" Value="13"/>
-        <Setter Property="TextColor" Value="{StaticResource ProductivityTextSecondary}"/>
+        <Setter Property="TextColor" Value="{DynamicResource ProductivityTextSecondary}"/>
         <Setter Property="FontFamily" Value="InterRegular"/>
     </Style>
 
     <Style TargetType="Label" x:Key="ProductivityTitle">
         <Setter Property="FontSize" Value="16"/>
-        <Setter Property="TextColor" Value="{StaticResource ProductivityTextPrimary}"/>
+        <Setter Property="TextColor" Value="{DynamicResource ProductivityTextPrimary}"/>
         <Setter Property="FontAttributes" Value="Bold"/>
         <Setter Property="FontFamily" Value="InterBold"/>
     </Style>
 
     <Style TargetType="Label" x:Key="ProductivityHeadline">
         <Setter Property="FontSize" Value="22"/>
-        <Setter Property="TextColor" Value="{StaticResource ProductivityTextPrimary}"/>
+        <Setter Property="TextColor" Value="{DynamicResource ProductivityTextPrimary}"/>
         <Setter Property="FontAttributes" Value="Bold"/>
         <Setter Property="FontFamily" Value="InterBold"/>
     </Style>
 
     <Style TargetType="Label" x:Key="ProductivityDisplay">
         <Setter Property="FontSize" Value="32"/>
-        <Setter Property="TextColor" Value="{StaticResource ProductivityFocus}"/>
+        <Setter Property="TextColor" Value="{DynamicResource ProductivityFocus}"/>
         <Setter Property="FontAttributes" Value="Bold"/>
         <Setter Property="FontFamily" Value="InterBold"/>
     </Style>
 
-    <!-- Large metric number — score, big counters -->
     <Style TargetType="Label" x:Key="ProductivityMetric">
         <Setter Property="FontSize" Value="56"/>
-        <Setter Property="TextColor" Value="{StaticResource ProductivityTextPrimary}"/>
+        <Setter Property="TextColor" Value="{DynamicResource ProductivityTextPrimary}"/>
         <Setter Property="FontAttributes" Value="Bold"/>
         <Setter Property="FontFamily" Value="InterBold"/>
     </Style>
 
     <!-- ═══════════════════════════════════════════════════════════════════════
-         BUTTONS
+         BUTTONS — color setters use DynamicResource
          ═══════════════════════════════════════════════════════════════════════ -->
 
-    <!-- Primary CTA — mint green fill (productivity action) -->
     <Style TargetType="Button" x:Key="ProductivityCtaButton">
-        <Setter Property="BackgroundColor" Value="{StaticResource ProductivityCtaBackground}"/>
-        <Setter Property="TextColor" Value="{StaticResource ProductivityCtaText}"/>
+        <Setter Property="BackgroundColor" Value="{DynamicResource ProductivityCtaBackground}"/>
+        <Setter Property="TextColor" Value="{DynamicResource ProductivityCtaText}"/>
         <Setter Property="FontAttributes" Value="Bold"/>
         <Setter Property="FontFamily" Value="InterSemiBold"/>
         <Setter Property="FontSize" Value="15"/>
@@ -185,23 +181,21 @@
         <Setter Property="Padding" Value="20,0"/>
     </Style>
 
-    <!-- Secondary / ghost button -->
     <Style TargetType="Button" x:Key="ProductivitySecondaryButton">
-        <Setter Property="BackgroundColor" Value="{StaticResource ProductivityCardBackgroundElevated}"/>
-        <Setter Property="TextColor" Value="{StaticResource ProductivityTextPrimary}"/>
+        <Setter Property="BackgroundColor" Value="{DynamicResource ProductivityCardBackgroundElevated}"/>
+        <Setter Property="TextColor" Value="{DynamicResource ProductivityTextPrimary}"/>
         <Setter Property="FontFamily" Value="InterMedium"/>
         <Setter Property="FontSize" Value="14"/>
         <Setter Property="CornerRadius" Value="{StaticResource ProductivityRadiusMdInt}"/>
         <Setter Property="HeightRequest" Value="46"/>
         <Setter Property="Padding" Value="16,0"/>
-        <Setter Property="BorderColor" Value="{StaticResource ProductivityCardStroke}"/>
+        <Setter Property="BorderColor" Value="{DynamicResource ProductivityCardStroke}"/>
         <Setter Property="BorderWidth" Value="1"/>
     </Style>
 
-    <!-- Pill / chip button — small quick-actions, accent color -->
     <Style TargetType="Button" x:Key="ProductivityPillButton">
-        <Setter Property="BackgroundColor" Value="{StaticResource ProductivityUIAccentSoft}"/>
-        <Setter Property="TextColor" Value="{StaticResource ProductivityUIAccent}"/>
+        <Setter Property="BackgroundColor" Value="{DynamicResource ProductivityUIAccentSoft}"/>
+        <Setter Property="TextColor" Value="{DynamicResource ProductivityUIAccent}"/>
         <Setter Property="FontFamily" Value="InterSemiBold"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="FontAttributes" Value="Bold"/>
@@ -210,10 +204,9 @@
         <Setter Property="Padding" Value="18,0"/>
     </Style>
 
-    <!-- Segment / tab button — inactive state for pill-shaped tab selectors -->
     <Style TargetType="Button" x:Key="ProductivitySegmentButton">
         <Setter Property="BackgroundColor" Value="Transparent"/>
-        <Setter Property="TextColor" Value="{StaticResource ProductivityTextSecondary}"/>
+        <Setter Property="TextColor" Value="{DynamicResource ProductivityTextSecondary}"/>
         <Setter Property="FontFamily" Value="InterMedium"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="CornerRadius" Value="{StaticResource ProductivityRadiusPillInt}"/>
@@ -221,10 +214,9 @@
         <Setter Property="Padding" Value="18,0"/>
     </Style>
 
-    <!-- Danger button -->
     <Style TargetType="Button" x:Key="ProductivityDangerButton">
         <Setter Property="BackgroundColor" Value="Transparent"/>
-        <Setter Property="TextColor" Value="{StaticResource ProductivityDanger}"/>
+        <Setter Property="TextColor" Value="{DynamicResource ProductivityDanger}"/>
         <Setter Property="FontFamily" Value="InterMedium"/>
         <Setter Property="FontSize" Value="14"/>
         <Setter Property="CornerRadius" Value="{StaticResource ProductivityRadiusMdInt}"/>
@@ -233,8 +225,6 @@
 
     <!-- ═══════════════════════════════════════════════════════════════════════
          SIDEBAR NAVIGATION
-         Permanent left sidebar (Locked Flyout) — desktop only.
-         220px wide, icon + label rows, purple active pill.
          ═══════════════════════════════════════════════════════════════════════ -->
 
     <x:Double x:Key="SidebarWidth">220</x:Double>
@@ -242,11 +232,8 @@
     <x:Double x:Key="SidebarHeaderHeight">64</x:Double>
     <x:Double x:Key="SidebarFooterHeight">72</x:Double>
 
-    <!-- Active row: 10% purple pill -->
     <Color x:Key="SidebarItemActiveBg">#1A8B5CF6</Color>
-    <!-- Pressed row: 5% purple -->
     <Color x:Key="SidebarItemPressedBg">#0D8B5CF6</Color>
-    <!-- Panel background — slightly elevated above the page -->
     <Color x:Key="SidebarBackground">#0F0F12</Color>
 
 </ResourceDictionary>

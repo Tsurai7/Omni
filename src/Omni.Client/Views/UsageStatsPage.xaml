@@ -7,10 +7,11 @@
              x:Class="Omni.Client.UsageStatsPage"
              x:DataType="vm:UsageStatsViewModel"
              Title="Stats"
-             Shell.NavBarIsVisible="False">
-    <ContentPage.Background>
-        <StaticResource Key="ProductivityPageGradient"/>
-    </ContentPage.Background>
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource ProductivityPageGradient}">
+    
+    
+    
 
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
 
@@ -25,8 +26,8 @@
 
         <!-- ═══ Period Selector ══════════════════════════════════════════════ -->
         <Border Grid.Row="2" Margin="20,0,20,12"
-                BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
-                Stroke="{StaticResource ProductivityCardStroke}"
+                BackgroundColor="{DynamicResource ProductivityCardBackgroundElevated}"
+                Stroke="{DynamicResource ProductivityCardStroke}"
                 StrokeThickness="1" Padding="4">
             <Border.StrokeShape>
                 <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusXl}"/>
@@ -48,15 +49,15 @@
         <Grid Grid.Row="3" ColumnDefinitions="*,*,*" ColumnSpacing="10" Margin="20,0,20,12">
             <controls:StatCard Value="{Binding TotalFocusTime}"
                                Caption="Focus time"
-                               AccentColor="{StaticResource ProductivityFocus}"/>
+                               AccentColor="{DynamicResource ProductivityFocus}"/>
             <controls:StatCard Grid.Column="1"
                                Value="{Binding SummaryAvgScore}"
                                Caption="Avg score"
-                               AccentColor="{StaticResource ProductivityNeutral}"/>
+                               AccentColor="{DynamicResource ProductivityNeutral}"/>
             <controls:StatCard Grid.Column="2"
                                Value="{Binding SummaryPeakHour}"
                                Caption="Peak hour"
-                               AccentColor="{StaticResource ProductivityAmber}"/>
+                               AccentColor="{DynamicResource ProductivityAmber}"/>
         </Grid>
 
         <!-- ═══ Scrollable content ═══════════════════════════════════════════ -->
@@ -69,8 +70,8 @@
                     <!-- AI Insight / Recommendation -->
                     <Border x:Name="InsightsFrame" Margin="20,0,20,12"
                             IsVisible="{Binding HasInsights}"
-                            BackgroundColor="{StaticResource ProductivityCardBackground}"
-                            Stroke="{StaticResource ProductivityFocusDim}"
+                            BackgroundColor="{DynamicResource ProductivityCardBackground}"
+                            Stroke="{DynamicResource ProductivityFocusDim}"
                             StrokeThickness="1" Padding="16,14">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
@@ -86,8 +87,8 @@
 
                     <!-- Recommendation chip -->
                     <Border Margin="20,0,20,12" IsVisible="{Binding HasRecommendation}"
-                            BackgroundColor="{StaticResource ProductivityCardBackground}"
-                            Stroke="{StaticResource ProductivityCardStroke}"
+                            BackgroundColor="{DynamicResource ProductivityCardBackground}"
+                            Stroke="{DynamicResource ProductivityCardStroke}"
                             StrokeThickness="1" Padding="14,12">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
@@ -104,8 +105,8 @@
 
                     <!-- Charts: Pie + Bar side-by-side -->
                     <Border x:Name="ChartsFrame" Margin="20,0,20,12"
-                            BackgroundColor="{StaticResource ProductivityCardBackground}"
-                            Stroke="{StaticResource ProductivityCardStroke}"
+                            BackgroundColor="{DynamicResource ProductivityCardBackground}"
+                            Stroke="{DynamicResource ProductivityCardStroke}"
                             StrokeThickness="1" Padding="16">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
@@ -119,8 +120,8 @@
 
                     <!-- Focus Score Trend Chart -->
                     <Border Margin="20,0,20,12"
-                            BackgroundColor="{StaticResource ProductivityCardBackground}"
-                            Stroke="{StaticResource ProductivityCardStroke}"
+                            BackgroundColor="{DynamicResource ProductivityCardBackground}"
+                            Stroke="{DynamicResource ProductivityCardStroke}"
                             StrokeThickness="1" Padding="16,14">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
@@ -128,13 +129,15 @@
                         <VerticalStackLayout Spacing="10">
                             <Label Text="Focus score trend" Style="{StaticResource ProductivityTitle}"/>
                             <GraphicsView x:Name="TrendChartView" HeightRequest="140" HorizontalOptions="Fill"/>
+                            <Label Text="Focus time by weekday" Style="{StaticResource ProductivityCaption}" Margin="0,6,0,0"/>
+                            <GraphicsView x:Name="WeeklyFocusView" HeightRequest="120" HorizontalOptions="Fill"/>
                         </VerticalStackLayout>
                     </Border>
 
                     <!-- Activity Heatmap -->
                     <Border Margin="20,0,20,12"
-                            BackgroundColor="{StaticResource ProductivityCardBackground}"
-                            Stroke="{StaticResource ProductivityCardStroke}"
+                            BackgroundColor="{DynamicResource ProductivityCardBackground}"
+                            Stroke="{DynamicResource ProductivityCardStroke}"
                             StrokeThickness="1" Padding="16,14">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
@@ -148,8 +151,8 @@
 
                     <!-- Filters -->
                     <Border Margin="20,0,20,12"
-                            BackgroundColor="{StaticResource ProductivityCardBackground}"
-                            Stroke="{StaticResource ProductivityCardStroke}"
+                            BackgroundColor="{DynamicResource ProductivityCardBackground}"
+                            Stroke="{DynamicResource ProductivityCardStroke}"
                             StrokeThickness="1" Padding="14,12">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
@@ -157,14 +160,14 @@
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                             <VerticalStackLayout Spacing="4">
                                 <Label Text="Category" Style="{StaticResource ProductivityCaption}"/>
-                                <Border BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
-                                        Stroke="{StaticResource ProductivityCardStroke}"
+                                <Border BackgroundColor="{DynamicResource ProductivityCardBackgroundElevated}"
+                                        Stroke="{DynamicResource ProductivityCardStroke}"
                                         StrokeThickness="1" Padding="4,0">
                                     <Border.StrokeShape>
                                         <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusXs}"/>
                                     </Border.StrokeShape>
                                     <Picker x:Name="CategoryPicker" Title="All categories"
-                                            TextColor="{StaticResource ProductivityTextPrimary}"
+                                            TextColor="{DynamicResource ProductivityTextPrimary}"
                                             BackgroundColor="Transparent"
                                             HeightRequest="38"
                                             SelectedIndexChanged="OnCategoryChanged"/>
@@ -172,14 +175,14 @@
                             </VerticalStackLayout>
                             <VerticalStackLayout Grid.Column="1" Spacing="4">
                                 <Label Text="App" Style="{StaticResource ProductivityCaption}"/>
-                                <Border BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
-                                        Stroke="{StaticResource ProductivityCardStroke}"
+                                <Border BackgroundColor="{DynamicResource ProductivityCardBackgroundElevated}"
+                                        Stroke="{DynamicResource ProductivityCardStroke}"
                                         StrokeThickness="1" Padding="4,0">
                                     <Border.StrokeShape>
                                         <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusXs}"/>
                                     </Border.StrokeShape>
                                     <Picker x:Name="AppPicker" Title="All apps"
-                                            TextColor="{StaticResource ProductivityTextPrimary}"
+                                            TextColor="{DynamicResource ProductivityTextPrimary}"
                                             BackgroundColor="Transparent"
                                             HeightRequest="38"
                                             SelectedIndexChanged="OnAppFilterChanged"/>
@@ -198,7 +201,7 @@
                             <DataTemplate x:DataType="usageModels:UsageDateGroup">
                                 <Grid Padding="0,12,0,6" BackgroundColor="Transparent">
                                     <HorizontalStackLayout Spacing="10">
-                                        <BoxView Color="{StaticResource ProductivityFocus}"
+                                        <BoxView Color="{DynamicResource ProductivityFocus}"
                                                  WidthRequest="3" HeightRequest="14"
                                                  CornerRadius="2" VerticalOptions="Center"/>
                                         <Label Text="{Binding Date}" Style="{StaticResource ProductivityBodyBold}"
@@ -210,8 +213,8 @@
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="usageModels:UsageStatsItem">
                                 <Border Padding="14,12" Margin="0,0,0,8"
-                                        BackgroundColor="{StaticResource ProductivityCardBackground}"
-                                        Stroke="{StaticResource ProductivityCardStroke}"
+                                        BackgroundColor="{DynamicResource ProductivityCardBackground}"
+                                        Stroke="{DynamicResource ProductivityCardStroke}"
                                         StrokeThickness="1">
                                     <Border.StrokeShape>
                                         <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusSm}"/>
@@ -224,7 +227,7 @@
                                         <Label Grid.Column="1"
                                                Text="{Binding FormattedTime}"
                                                FontSize="14" FontAttributes="Bold"
-                                               TextColor="{StaticResource ProductivityFocus}"
+                                               TextColor="{DynamicResource ProductivityFocus}"
                                                VerticalOptions="Center"/>
                                     </Grid>
                                 </Border>

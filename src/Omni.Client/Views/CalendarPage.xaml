@@ -2,10 +2,11 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="Omni.Client.CalendarPage"
-             Shell.NavBarIsVisible="False">
-    <ContentPage.Background>
-        <StaticResource Key="ProductivityPageGradient"/>
-    </ContentPage.Background>
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource ProductivityPageGradient}">
+    
+    
+    
 
     <Grid RowDefinitions="Auto,Auto,Auto,*">
 
@@ -45,8 +46,8 @@
             <!-- Month / Week / Day toggle -->
             <Border Grid.Column="0"
                     Padding="2"
-                    BackgroundColor="{StaticResource ProductivityCardBackground}"
-                    Stroke="{StaticResource ProductivityCardStroke}"
+                    BackgroundColor="{DynamicResource ProductivityCardBackground}"
+                    Stroke="{DynamicResource ProductivityCardStroke}"
                     StrokeThickness="1">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="10"/>
@@ -79,8 +80,8 @@
             <!-- Sync status pill -->
             <Border Grid.Column="1"
                     Padding="8,4"
-                    BackgroundColor="{StaticResource ProductivityCardBackground}"
-                    Stroke="{StaticResource ProductivityCardStroke}"
+                    BackgroundColor="{DynamicResource ProductivityCardBackground}"
+                    Stroke="{DynamicResource ProductivityCardStroke}"
                     StrokeThickness="1"
                     VerticalOptions="Center">
                 <Border.StrokeShape>
@@ -128,13 +129,13 @@
                 <Grid x:Name="WeekDayHeaders" Grid.Row="0"
                       ColumnDefinitions="44,*,*,*,*,*,*,*"
                       Padding="0,4,0,4"
-                      BackgroundColor="{StaticResource ProductivityPageBackground}"/>
+                      BackgroundColor="{DynamicResource ProductivityPageBackground}"/>
 
                 <!-- All-day events strip -->
                 <Grid x:Name="WeekAllDayStrip" Grid.Row="1"
                       ColumnDefinitions="44,*,*,*,*,*,*,*"
                       MinimumHeightRequest="0"
-                      BackgroundColor="{StaticResource ProductivityCardBackground}"
+                      BackgroundColor="{DynamicResource ProductivityCardBackground}"
                       Padding="0,4,0,4"/>
 
                 <ScrollView Grid.Row="2" x:Name="WeekScrollView">
@@ -155,7 +156,7 @@
                 <!-- All-day events strip -->
                 <VerticalStackLayout x:Name="DayAllDayStrip" Grid.Row="1"
                                      Padding="20,4,20,4" Spacing="3"
-                                     BackgroundColor="{StaticResource ProductivityCardBackground}"
+                                     BackgroundColor="{DynamicResource ProductivityCardBackground}"
                                      MinimumHeightRequest="0"/>
 
                 <ScrollView Grid.Row="2" x:Name="DayScrollView">
@@ -168,7 +169,7 @@
         <!-- ── FAB: New Event ── -->
         <Border Grid.RowSpan="4"
                 WidthRequest="56" HeightRequest="56"
-                BackgroundColor="{StaticResource ProductivityFocus}"
+                BackgroundColor="{DynamicResource ProductivityFocus}"
                 Stroke="Transparent"
                 HorizontalOptions="End" VerticalOptions="End"
                 Margin="0,0,24,32">
@@ -176,7 +177,7 @@
                 <RoundRectangle CornerRadius="28"/>
             </Border.StrokeShape>
             <Border.Shadow>
-                <Shadow Brush="{StaticResource ProductivityFocus}" Offset="0,4" Radius="12" Opacity="0.4"/>
+                <Shadow Brush="{DynamicResource ProductivityFocus}" Offset="0,4" Radius="12" Opacity="0.4"/>
             </Border.Shadow>
             <Border.GestureRecognizers>
                 <TapGestureRecognizer Tapped="OnFabTapped"/>
@@ -196,8 +197,8 @@
             </Grid.GestureRecognizers>
             <Border x:Name="DayDetailSheet"
                     VerticalOptions="End"
-                    BackgroundColor="{StaticResource ProductivityCardBackground}"
-                    Stroke="{StaticResource ProductivityCardStroke}"
+                    BackgroundColor="{DynamicResource ProductivityCardBackground}"
+                    Stroke="{DynamicResource ProductivityCardStroke}"
                     StrokeThickness="1">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="20,20,0,0"/>
@@ -228,8 +229,8 @@
             </Grid.GestureRecognizers>
             <Border x:Name="CreateEventSheet"
                     VerticalOptions="End"
-                    BackgroundColor="{StaticResource ProductivityCardBackground}"
-                    Stroke="{StaticResource ProductivityCardStroke}"
+                    BackgroundColor="{DynamicResource ProductivityCardBackground}"
+                    Stroke="{DynamicResource ProductivityCardStroke}"
                     StrokeThickness="1">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="20,20,0,0"/>
@@ -243,14 +244,14 @@
 
                     <!-- Event title input -->
                     <Border Padding="12,0"
-                            BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
-                            Stroke="{StaticResource ProductivityCardStroke}"
+                            BackgroundColor="{DynamicResource ProductivityCardBackgroundElevated}"
+                            Stroke="{DynamicResource ProductivityCardStroke}"
                             StrokeThickness="1" HeightRequest="48">
                         <Border.StrokeShape><RoundRectangle CornerRadius="12"/></Border.StrokeShape>
                         <Entry x:Name="EventTitleEntry"
                                Placeholder="Event title"
                                PlaceholderColor="#44444F"
-                               TextColor="{StaticResource ProductivityTextPrimary}"
+                               TextColor="{DynamicResource ProductivityTextPrimary}"
                                BackgroundColor="Transparent"
                                VerticalOptions="Center"/>
                     </Border>
@@ -258,12 +259,12 @@
                     <!-- Date picker row -->
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                         <Border Grid.Column="0" Padding="12,0"
-                                BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
-                                Stroke="{StaticResource ProductivityCardStroke}"
+                                BackgroundColor="{DynamicResource ProductivityCardBackgroundElevated}"
+                                Stroke="{DynamicResource ProductivityCardStroke}"
                                 StrokeThickness="1" HeightRequest="48">
                             <Border.StrokeShape><RoundRectangle CornerRadius="12"/></Border.StrokeShape>
                             <DatePicker x:Name="EventDatePicker"
-                                        TextColor="{StaticResource ProductivityTextPrimary}"
+                                        TextColor="{DynamicResource ProductivityTextPrimary}"
                                         BackgroundColor="Transparent"
                                         VerticalOptions="Center"/>
                         </Border>
@@ -273,7 +274,7 @@
                                    Style="{StaticResource ProductivityBody}"
                                    VerticalOptions="Center"/>
                             <Switch Grid.Column="1" x:Name="AllDaySwitch"
-                                    OnColor="{StaticResource ProductivityFocus}"
+                                    OnColor="{DynamicResource ProductivityFocus}"
                                     VerticalOptions="Center"
                                     Toggled="OnAllDayToggled"/>
                         </Grid>
@@ -282,22 +283,22 @@
                     <!-- Time pickers (hidden when all-day) -->
                     <Grid x:Name="TimePickerRow" ColumnDefinitions="*,*" ColumnSpacing="10">
                         <Border Grid.Column="0" Padding="12,0"
-                                BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
-                                Stroke="{StaticResource ProductivityCardStroke}"
+                                BackgroundColor="{DynamicResource ProductivityCardBackgroundElevated}"
+                                Stroke="{DynamicResource ProductivityCardStroke}"
                                 StrokeThickness="1" HeightRequest="48">
                             <Border.StrokeShape><RoundRectangle CornerRadius="12"/></Border.StrokeShape>
                             <TimePicker x:Name="EventStartTime"
-                                        TextColor="{StaticResource ProductivityTextPrimary}"
+                                        TextColor="{DynamicResource ProductivityTextPrimary}"
                                         BackgroundColor="Transparent"
                                         VerticalOptions="Center"/>
                         </Border>
                         <Border Grid.Column="1" Padding="12,0"
-                                BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
-                                Stroke="{StaticResource ProductivityCardStroke}"
+                                BackgroundColor="{DynamicResource ProductivityCardBackgroundElevated}"
+                                Stroke="{DynamicResource ProductivityCardStroke}"
                                 StrokeThickness="1" HeightRequest="48">
                             <Border.StrokeShape><RoundRectangle CornerRadius="12"/></Border.StrokeShape>
                             <TimePicker x:Name="EventEndTime"
-                                        TextColor="{StaticResource ProductivityTextPrimary}"
+                                        TextColor="{DynamicResource ProductivityTextPrimary}"
                                         BackgroundColor="Transparent"
                                         VerticalOptions="Center"/>
                         </Border>
@@ -305,28 +306,28 @@
 
                     <!-- Calendar type picker -->
                     <Border Padding="12,0"
-                            BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
-                            Stroke="{StaticResource ProductivityCardStroke}"
+                            BackgroundColor="{DynamicResource ProductivityCardBackgroundElevated}"
+                            Stroke="{DynamicResource ProductivityCardStroke}"
                             StrokeThickness="1" HeightRequest="48">
                         <Border.StrokeShape><RoundRectangle CornerRadius="12"/></Border.StrokeShape>
                         <Picker x:Name="CalendarTypePicker"
                                 Title="Save to..."
                                 TitleColor="#44444F"
-                                TextColor="{StaticResource ProductivityTextPrimary}"
+                                TextColor="{DynamicResource ProductivityTextPrimary}"
                                 BackgroundColor="Transparent"
                                 VerticalOptions="Center"/>
                     </Border>
 
                     <!-- Notes -->
                     <Border Padding="12,8"
-                            BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
-                            Stroke="{StaticResource ProductivityCardStroke}"
+                            BackgroundColor="{DynamicResource ProductivityCardBackgroundElevated}"
+                            Stroke="{DynamicResource ProductivityCardStroke}"
                             StrokeThickness="1">
                         <Border.StrokeShape><RoundRectangle CornerRadius="12"/></Border.StrokeShape>
                         <Editor x:Name="EventNotesEditor"
                                 Placeholder="Notes (optional)"
                                 PlaceholderColor="#44444F"
-                                TextColor="{StaticResource ProductivityTextPrimary}"
+                                TextColor="{DynamicResource ProductivityTextPrimary}"
                                 BackgroundColor="Transparent"
                                 AutoSize="TextChanges"
                                 MinimumHeightRequest="48"

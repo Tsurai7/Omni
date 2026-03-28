@@ -38,6 +38,7 @@ public static class ServiceCollectionExtensions
             ContentSerializer = new SystemTextJsonContentSerializer(jsonOptions)
         };
 
+        services.AddSingleton<IThemeService, ThemeService>();
         services.AddSingleton<ITokenStorage, MauiTokenStorage>();
         services.AddTransient<AuthenticatedHttpHandler>();
         services.AddTransient<UnauthorizedHttpHandler>();

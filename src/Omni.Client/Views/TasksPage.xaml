@@ -6,10 +6,11 @@
              xmlns:taskModels="clr-namespace:Omni.Client.Models.Task"
              x:Class="Omni.Client.TasksPage"
              x:DataType="vm:TasksViewModel"
-             Shell.NavBarIsVisible="False">
-    <ContentPage.Background>
-        <StaticResource Key="ProductivityPageGradient"/>
-    </ContentPage.Background>
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource ProductivityPageGradient}">
+    
+    
+    
 
     <Grid RowDefinitions="Auto,*">
 
@@ -37,8 +38,8 @@
 
             <!-- ── TO DO ─────────────────────────────────────────────── -->
             <Border Grid.Column="0"
-                    BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
-                    Stroke="{StaticResource ProductivityCardStroke}"
+                    BackgroundColor="{DynamicResource ProductivityCardBackgroundElevated}"
+                    Stroke="{DynamicResource ProductivityCardStroke}"
                     StrokeThickness="1" Padding="0" VerticalOptions="Fill">
                 <Border.StrokeShape><RoundRectangle CornerRadius="14"/></Border.StrokeShape>
                 <Grid RowDefinitions="Auto,*">
@@ -48,7 +49,7 @@
                                VerticalOptions="Center" FontSize="11"/>
                         <Label Grid.Column="1" Text="{Binding TodoCount}"
                                FontSize="11" FontFamily="InterMedium"
-                               TextColor="{StaticResource ProductivityTextMuted}"
+                               TextColor="{DynamicResource ProductivityTextMuted}"
                                VerticalOptions="Center"/>
                     </Grid>
                     <ScrollView Grid.Row="1" VerticalScrollBarVisibility="Never" HorizontalScrollBarVisibility="Never">
@@ -60,8 +61,8 @@
                             </BindableLayout.EmptyView>
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="taskModels:TaskDisplayItem">
-                                    <Border BackgroundColor="{StaticResource ProductivityCardBackground}"
-                                            Stroke="{StaticResource ProductivityCardStroke}"
+                                    <Border BackgroundColor="{DynamicResource ProductivityCardBackground}"
+                                            Stroke="{DynamicResource ProductivityCardStroke}"
                                             StrokeThickness="1">
                                         <Border.StrokeShape>
                                             <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
@@ -98,8 +99,8 @@
 
             <!-- ── IN PROGRESS ──────────────────────────────────────── -->
             <Border Grid.Column="1"
-                    BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
-                    Stroke="{StaticResource ProductivityCardStroke}"
+                    BackgroundColor="{DynamicResource ProductivityCardBackgroundElevated}"
+                    Stroke="{DynamicResource ProductivityCardStroke}"
                     StrokeThickness="1" Padding="0" VerticalOptions="Fill">
                 <Border.StrokeShape><RoundRectangle CornerRadius="14"/></Border.StrokeShape>
                 <Grid RowDefinitions="Auto,*">
@@ -109,7 +110,7 @@
                                VerticalOptions="Center" FontSize="11"/>
                         <Label Grid.Column="1" Text="{Binding InProgressCount}"
                                FontSize="11" FontFamily="InterMedium"
-                               TextColor="{StaticResource ProductivityTextMuted}"
+                               TextColor="{DynamicResource ProductivityTextMuted}"
                                VerticalOptions="Center"/>
                     </Grid>
                     <ScrollView Grid.Row="1" VerticalScrollBarVisibility="Never" HorizontalScrollBarVisibility="Never">
@@ -121,8 +122,8 @@
                             </BindableLayout.EmptyView>
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="taskModels:TaskDisplayItem">
-                                    <Border BackgroundColor="{StaticResource ProductivityCardBackground}"
-                                            Stroke="{StaticResource ProductivityCardStroke}"
+                                    <Border BackgroundColor="{DynamicResource ProductivityCardBackground}"
+                                            Stroke="{DynamicResource ProductivityCardStroke}"
                                             StrokeThickness="1">
                                         <Border.StrokeShape>
                                             <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
@@ -143,7 +144,7 @@
                                                 <HorizontalStackLayout Spacing="4">
                                                     <Button Text="← To Do"
                                                             BackgroundColor="#1A1A2E"
-                                                            TextColor="{StaticResource ProductivityTextMuted}"
+                                                            TextColor="{DynamicResource ProductivityTextMuted}"
                                                             FontSize="9" CornerRadius="4"
                                                             Padding="5,2" HeightRequest="22"
                                                             Clicked="OnMoveBackClicked"/>
@@ -166,8 +167,8 @@
 
             <!-- ── DONE ─────────────────────────────────────────────── -->
             <Border Grid.Column="2"
-                    BackgroundColor="{StaticResource ProductivityCardBackgroundElevated}"
-                    Stroke="{StaticResource ProductivityCardStroke}"
+                    BackgroundColor="{DynamicResource ProductivityCardBackgroundElevated}"
+                    Stroke="{DynamicResource ProductivityCardStroke}"
                     StrokeThickness="1" Padding="0" VerticalOptions="Fill">
                 <Border.StrokeShape><RoundRectangle CornerRadius="14"/></Border.StrokeShape>
                 <Grid RowDefinitions="Auto,*">
@@ -177,7 +178,7 @@
                                VerticalOptions="Center" FontSize="11"/>
                         <Label Grid.Column="1" Text="{Binding DoneCount}"
                                FontSize="11" FontFamily="InterMedium"
-                               TextColor="{StaticResource ProductivityTextMuted}"
+                               TextColor="{DynamicResource ProductivityTextMuted}"
                                VerticalOptions="Center"/>
                     </Grid>
                     <ScrollView Grid.Row="1" VerticalScrollBarVisibility="Never" HorizontalScrollBarVisibility="Never">
@@ -189,8 +190,8 @@
                             </BindableLayout.EmptyView>
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="taskModels:TaskDisplayItem">
-                                    <Border BackgroundColor="{StaticResource ProductivityCardBackground}"
-                                            Stroke="{StaticResource ProductivityCardStroke}"
+                                    <Border BackgroundColor="{DynamicResource ProductivityCardBackground}"
+                                            Stroke="{DynamicResource ProductivityCardStroke}"
                                             StrokeThickness="1" Opacity="0.65">
                                         <Border.StrokeShape>
                                             <RoundRectangle CornerRadius="{StaticResource ProductivityRadiusMd}"/>
@@ -212,7 +213,7 @@
                                                 <!-- Move back button -->
                                                 <Button Text="↩ In Progress"
                                                         BackgroundColor="#1A1A2E"
-                                                        TextColor="{StaticResource ProductivityTextMuted}"
+                                                        TextColor="{DynamicResource ProductivityTextMuted}"
                                                         FontSize="9" CornerRadius="4"
                                                         Padding="6,2" HeightRequest="22"
                                                         HorizontalOptions="Start"
