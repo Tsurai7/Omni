@@ -132,9 +132,19 @@ public class ChatService : IChatService
             Debug.WriteLine($"ChatService.SendMessageAsync: {(int)status} {errorBody}");
             resp.Dispose();
             req.Dispose();
-            var msg = status == HttpStatusCode.ServiceUnavailable
-                ? "Coach isn't available: the gateway needs AI_URL pointing at the omni-ai service (e.g. http://ai:8000 in Docker)."
-                : $"Couldn't reach the coach ({(int)status}). Try again.";
+            string msg;
+            if (status == HttpStatusCode.TooManyRequests)
+            {
+                msg = "You've reached the message limit. You can send up to 30 messages per hour and 200 per day. Try again in a little while.";
+            }
+            else if (status == HttpStatusCode.ServiceUnavailable)
+            {
+                msg = "Coach isn't available right now. Check that the AI service is running and try again.";
+            }
+            else
+            {
+                msg = $"Couldn't reach the coach ({(int)status}). Please try again.";
+            }
             yield return new ChatStreamDelta(msg, null, false, true, null);
             yield return new ChatStreamDelta(null, null, true, null, null);
             yield break;

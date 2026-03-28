@@ -194,6 +194,30 @@
                             </HorizontalStackLayout>
                         </VerticalStackLayout>
 
+                        <!-- Error bubble — shown when IsError=true (Gemini quota, rate limit, etc.) -->
+                        <Border IsVisible="{Binding IsError}"
+                                HorizontalOptions="Start"
+                                MaximumWidthRequest="300"
+                                Padding="14,10"
+                                BackgroundColor="#1A2020"
+                                Stroke="#FF6B6B"
+                                StrokeThickness="1">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="4,18,18,18"/>
+                            </Border.StrokeShape>
+                            <HorizontalStackLayout Spacing="8" VerticalOptions="Start">
+                                <Label Text="⚠"
+                                       TextColor="#FF6B6B"
+                                       FontSize="14"
+                                       VerticalOptions="Start"/>
+                                <Label Text="{Binding Content}"
+                                       TextColor="#FF9B9B"
+                                       FontSize="13"
+                                       LineBreakMode="WordWrap"
+                                       VerticalOptions="Start"/>
+                            </HorizontalStackLayout>
+                        </Border>
+
                     </Grid>
                 </DataTemplate>
             </CollectionView.ItemTemplate>

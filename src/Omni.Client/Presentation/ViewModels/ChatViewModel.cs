@@ -156,6 +156,14 @@ public partial class ChatViewModel : ObservableObject
                 if (delta.ConversationId != null)
                     _currentConversationId = delta.ConversationId;
 
+                if (delta.Error == true && delta.Delta != null)
+                {
+                    // Error delta from Gemini (quota, region, etc.) — show as error bubble
+                    assistantMsg.Content = delta.Delta;
+                    assistantMsg.IsError = true;
+                    break;
+                }
+
                 if (delta.Delta != null)
                     assistantMsg.Content += delta.Delta;
 
@@ -172,6 +180,7 @@ public partial class ChatViewModel : ObservableObject
         {
             Debug.WriteLine($"ChatViewModel.SendAsync: {ex.Message}");
             assistantMsg.Content = "Something went wrong. Please try again.";
+            assistantMsg.IsError = true;
         }
         finally
         {

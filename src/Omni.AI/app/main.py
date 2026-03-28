@@ -1,9 +1,13 @@
 """
 Omni AI microservice — health, recommendations, and AI coach chat.
 """
+import logging
 import sys
+import threading
 from contextlib import asynccontextmanager
 from uuid import UUID
+
+logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
@@ -28,15 +32,70 @@ from app.chat_db import (
     get_messages,
     insert_message,
 )
+from app.chunking import chunk_text, make_chunk_id
 from app.db import close_clients, get_clickhouse_client, get_pg_engine, init_clients
+from app.embedding_indexer import run_embedding_indexer
+from app.embeddings import search_similar, upsert_embedding
 from app.scheduler import run_recommendation_job_once, run_weekly_digest_job, start_scheduler, stop_scheduler
 from app.simulate import SimulationRequest, run_simulation
+
+
+def _startup_background() -> None:
+    """
+    Runs once in a background thread after service startup:
+      1. Seed the built-in productivity knowledge base (idempotent upsert).
+      2. Backfill embeddings for all existing sessions and tasks.
+    Both steps are non-fatal — failures are logged and the service continues.
+    """
+    import json as _json
+    import os
+
+    # ── 1. Knowledge base seed ─────────────────────────────────────────────
+    knowledge_dir = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "..", "knowledge")
+    )
+    total_chunks = 0
+    if os.path.isdir(knowledge_dir):
+        for filename in sorted(os.listdir(knowledge_dir)):
+            if not filename.endswith(".json"):
+                continue
+            path = os.path.join(knowledge_dir, filename)
+            try:
+                with open(path, encoding="utf-8") as f:
+                    article_data = _json.load(f)
+                chunks = chunk_text(article_data.get("content", ""))
+                for i, chunk in enumerate(chunks):
+                    chunk_id = make_chunk_id(article_data.get("source", filename), i)
+                    meta = {
+                        "title": article_data.get("title", ""),
+                        "source": article_data.get("source", ""),
+                        "tags": article_data.get("tags", []),
+                        "chunk_index": i,
+                    }
+                    upsert_embedding(None, "knowledge", chunk_id, chunk, meta)
+                    total_chunks += 1
+            except Exception as e:
+                logger.warning("Knowledge seed failed for %s: %s", filename, e)
+        logger.info("Startup: knowledge base seeded (%d chunks from %s)", total_chunks, knowledge_dir)
+    else:
+        logger.warning("Startup: knowledge directory not found at %s", knowledge_dir)
+
+    # ── 2. Backfill existing sessions and tasks ────────────────────────────
+    from app.embedding_indexer import index_pending_sessions, index_pending_tasks
+    try:
+        sessions = index_pending_sessions(batch_size=500)
+        tasks = index_pending_tasks(batch_size=500)
+        logger.info("Startup: backfilled embeddings — sessions=%d, tasks=%d", sessions, tasks)
+    except Exception as e:
+        logger.warning("Startup: backfill failed: %s", e)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_clients()
     start_scheduler()
+    # Seed knowledge base + backfill embeddings in background (non-blocking)
+    threading.Thread(target=_startup_background, daemon=True, name="startup-rag-init").start()
     print("omni-ai service started successfully", flush=True)
     sys.stdout.flush()
     yield
@@ -236,8 +295,8 @@ def send_message(user_id: str, req: SendMessageRequest):
     # Exclude the message we just inserted (it'll be appended by stream_chat_response)
     history = [m for m in history if not (m["role"] == "user" and m["content"] == req.content.strip())][-19:]
 
-    # Build system prompt with live user context
-    system_prompt = build_chat_context(uid)
+    # Build system prompt with live user context + RAG retrieval
+    system_prompt = build_chat_context(uid, user_message=req.content.strip())
 
     # Buffer the full response to persist it after streaming
     full_response_buffer: list[str] = []
@@ -333,6 +392,139 @@ def trigger_weekly_digest():
     Sends digest notifications to all users with activity in the last 7 days.
     """
     return run_weekly_digest_job()
+
+
+# ── Semantic search ────────────────────────────────────────────────────────────
+
+class SearchRequest(BaseModel):
+    query: str
+    source_types: list[str] | None = None  # ['session', 'task', 'knowledge']
+    limit: int = 8
+
+
+@app.post("/api/ai/search/{user_id}")
+def semantic_search(user_id: str, req: SearchRequest):
+    """
+    Semantic search across user's sessions, tasks, and knowledge base.
+    Answers questions like "what was I working on 2 weeks ago?" or
+    "how should I structure deep work sessions?" with cited sources.
+    """
+    uid = _parse_uid(user_id)
+    if not req.query or not req.query.strip():
+        raise HTTPException(status_code=400, detail="query cannot be empty")
+
+    results = search_similar(
+        user_id=uid,
+        query=req.query.strip(),
+        source_types=req.source_types,
+        limit=min(req.limit, 20),
+    )
+    return {"results": results, "query": req.query.strip()}
+
+
+# ── Knowledge base ─────────────────────────────────────────────────────────────
+
+class KnowledgeArticle(BaseModel):
+    title: str
+    content: str
+    source: str
+    tags: list[str] = []
+
+
+@app.post("/internal/knowledge/ingest")
+def ingest_knowledge(article: KnowledgeArticle):
+    """
+    Ingest a knowledge base article. Chunks the text and creates embeddings.
+    Use this to load productivity methodology content.
+
+    Example:
+      curl -X POST http://localhost:8000/internal/knowledge/ingest \\
+        -H "Content-Type: application/json" \\
+        -d '{"title":"My Article","content":"...","source":"Source Name","tags":["focus"]}'
+    """
+    if not article.content.strip():
+        raise HTTPException(status_code=400, detail="content cannot be empty")
+
+    chunks = chunk_text(article.content)
+    if not chunks:
+        raise HTTPException(status_code=400, detail="No chunks produced from content")
+
+    indexed = 0
+    for i, chunk in enumerate(chunks):
+        chunk_id = make_chunk_id(article.source, i)
+        meta = {
+            "title": article.title,
+            "source": article.source,
+            "tags": article.tags,
+            "chunk_index": i,
+            "total_chunks": len(chunks),
+        }
+        ok = upsert_embedding(
+            user_id=None,  # global knowledge, available to all users
+            source_type="knowledge",
+            source_id=chunk_id,
+            content_text=chunk,
+            metadata=meta,
+        )
+        if ok:
+            indexed += 1
+
+    return {
+        "title": article.title,
+        "total_chunks": len(chunks),
+        "indexed": indexed,
+    }
+
+
+@app.post("/internal/knowledge/seed")
+def seed_knowledge():
+    """
+    Load the built-in productivity knowledge base (Deep Work, GTD, Pomodoro, etc.).
+    Safe to call multiple times — uses upsert.
+
+    Example:
+      curl -X POST http://localhost:8000/internal/knowledge/seed
+    """
+    import json as _json
+    import os
+
+    knowledge_dir = os.path.join(os.path.dirname(__file__), "..", "knowledge")
+    knowledge_dir = os.path.normpath(knowledge_dir)
+
+    if not os.path.isdir(knowledge_dir):
+        raise HTTPException(status_code=500, detail=f"Knowledge directory not found: {knowledge_dir}")
+
+    results = []
+    for filename in sorted(os.listdir(knowledge_dir)):
+        if not filename.endswith(".json"):
+            continue
+        path = os.path.join(knowledge_dir, filename)
+        try:
+            with open(path, encoding="utf-8") as f:
+                article_data = _json.load(f)
+            article = KnowledgeArticle(**article_data)
+            resp = ingest_knowledge(article)
+            results.append({"file": filename, **resp})
+        except Exception as e:
+            results.append({"file": filename, "error": str(e)})
+
+    total_indexed = sum(r.get("indexed", 0) for r in results)
+    return {"files_processed": len(results), "total_chunks_indexed": total_indexed, "details": results}
+
+
+@app.post("/internal/run-embedding-indexer")
+def trigger_embedding_indexer():
+    """
+    Run the embedding indexer immediately (for testing or backfilling existing data).
+    Indexes sessions with reflection notes and tasks that don't have embeddings yet.
+
+    Example:
+      curl -X POST http://localhost:8000/internal/run-embedding-indexer
+    """
+    from app.embedding_indexer import index_pending_sessions, index_pending_tasks
+    sessions = index_pending_sessions(batch_size=200)
+    tasks = index_pending_tasks(batch_size=200)
+    return {"sessions_indexed": sessions, "tasks_indexed": tasks}
 
 
 @app.get("/internal/user-profile/{user_id}")

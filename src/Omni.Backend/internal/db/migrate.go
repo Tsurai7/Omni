@@ -151,6 +151,25 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 CREATE INDEX IF NOT EXISTS idx_chat_msg_conv ON chat_messages(conversation_id, created_at);
 `
 
+const createPgVectorExtension = `CREATE EXTENSION IF NOT EXISTS vector`
+
+const createTableEmbeddings = `
+CREATE TABLE IF NOT EXISTS embeddings (
+	id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+	source_type TEXT NOT NULL,
+	source_id UUID NOT NULL,
+	content_text TEXT NOT NULL,
+	embedding vector(768) NOT NULL,
+	metadata JSONB,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	UNIQUE (source_type, source_id)
+);
+CREATE INDEX IF NOT EXISTS idx_embeddings_user_source ON embeddings(user_id, source_type);
+CREATE INDEX IF NOT EXISTS idx_embeddings_vector ON embeddings USING hnsw (embedding vector_cosine_ops);
+`
+
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, err := pool.Exec(ctx, createTableUsers); err != nil {
 		return err
@@ -200,6 +219,13 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, err := pool.Exec(ctx, createTableChatConversations); err != nil {
 		return err
 	}
-	_, err := pool.Exec(ctx, createTableChatMessages)
+	if _, err := pool.Exec(ctx, createTableChatMessages); err != nil {
+		return err
+	}
+	// pgvector — non-fatal: requires pgvector/pgvector:pg16 image
+	if _, err := pool.Exec(ctx, createPgVectorExtension); err != nil {
+		return err
+	}
+	_, err := pool.Exec(ctx, createTableEmbeddings)
 	return err
 }

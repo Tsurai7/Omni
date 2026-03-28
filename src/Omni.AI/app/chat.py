@@ -21,6 +21,7 @@ from app.algorithm import (
     get_user_baseline,
 )
 from app.db import get_pg_engine
+from app.embeddings import search_similar
 
 logger = logging.getLogger(__name__)
 
@@ -277,9 +278,50 @@ def _detect_milestones(streak: int, score: int) -> list[str]:
     return milestones
 
 
-def build_chat_context(user_id: UUID) -> str:
+def _build_rag_section(user_id: UUID, user_message: str) -> str:
     """
-    Assemble a rich system prompt for the AI coach, injecting live user data.
+    Retrieve semantically relevant context for the user's message from pgvector.
+    Returns a formatted section string, or empty string if nothing found / RAG unavailable.
+    """
+    if not user_message.strip():
+        return ""
+    try:
+        results = search_similar(
+            user_id=user_id,
+            query=user_message,
+            limit=5,
+            score_threshold=0.32,
+        )
+    except Exception:
+        return ""
+
+    if not results:
+        return ""
+
+    lines: list[str] = []
+    for r in results:
+        stype = r["source_type"]
+        text = r["content_text"]
+        meta = r.get("metadata") or {}
+        if stype == "session":
+            date = meta.get("started_at", "")
+            prefix = f"[Past session{' on ' + date if date else ''}]"
+        elif stype == "task":
+            prefix = "[Task history]"
+        elif stype == "knowledge":
+            source = meta.get("source", "Productivity knowledge")
+            prefix = f"[{source}]"
+        else:
+            prefix = f"[{stype}]"
+        lines.append(f"  {prefix} {text}")
+
+    section = "\n".join(lines)
+    return f"\nRELEVANT CONTEXT (retrieved by semantic search — cite naturally, don't recite verbatim):\n{section}"
+
+
+def build_chat_context(user_id: UUID, user_message: str = "") -> str:
+    """
+    Assemble a rich system prompt for the AI coach, injecting live user data + RAG context.
     """
     hour = datetime.now().hour
     if hour < 12:
@@ -350,6 +392,8 @@ BEHAVIORAL BASELINE (30-day average):
     if milestones:
         milestones_section = "\nMILESTONES TO CELEBRATE:\n" + "\n".join(f"  - {m}" for m in milestones)
 
+    rag_section = _build_rag_section(user_id, user_message)
+
     return f"""You are Omni, an AI productivity coach built into the Omni focus-tracking app.
 
 LANGUAGE RULE (highest priority): Always reply in the exact same language the user writes in. If the user writes in Russian, reply in Russian. If in Spanish, reply in Spanish. Match their language every time, no exceptions.
@@ -369,6 +413,7 @@ PERSONALITY:
 {tasks_section}
 {sessions_section}
 {milestones_section}
+{rag_section}
 
 When the user asks to take an action (start session, create task, take a break), end your reply with a JSON block on its own line:
 ACTION:{{"type":"start_session","label":"Start 25min focus"}}

@@ -10,6 +10,7 @@ public class ChatMessageViewModel : INotifyPropertyChanged
 {
     private string _content = string.Empty;
     private List<ChatAction> _actions = [];
+    private bool _isError;
 
     public string Id { get; init; } = Guid.NewGuid().ToString();
     public string Role { get; init; } = "user";
@@ -31,8 +32,14 @@ public class ChatMessageViewModel : INotifyPropertyChanged
         set { if (_content != value) { _content = value; OnPropertyChanged(); } }
     }
 
+    public bool IsError
+    {
+        get => _isError;
+        set { if (_isError != value) { _isError = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsAssistant)); } }
+    }
+
     public bool IsUser => Role == "user";
-    public bool IsAssistant => Role == "assistant";
+    public bool IsAssistant => Role == "assistant" && !_isError;
     public bool HasActions => _actions.Count > 0;
 
     public event PropertyChangedEventHandler? PropertyChanged;

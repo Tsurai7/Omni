@@ -18,6 +18,7 @@ from app.algorithm import (
     get_streak_days,
     run_analysis_for_user,
 )
+from app.embedding_indexer import run_embedding_indexer
 from app.notifications_db import insert_notification
 
 logger = logging.getLogger(__name__)
@@ -129,8 +130,11 @@ def start_scheduler() -> None:
     # Weekly digest — every Monday at 09:00
     _scheduler.add_job(run_weekly_digest_job, "cron", day_of_week="mon", hour=9, minute=0, id="weekly_digest")
 
+    # RAG embedding indexer — every 5 minutes (best-effort, non-fatal)
+    _scheduler.add_job(run_embedding_indexer, "interval", minutes=5, id="embedding_indexer")
+
     _scheduler.start()
-    logger.info("Scheduler started: recommendations(10m), streak_milestones(10m), weekly_digest(Mon 09:00)")
+    logger.info("Scheduler started: recommendations(10m), streak_milestones(10m), weekly_digest(Mon 09:00), embedding_indexer(5m)")
 
 
 def stop_scheduler() -> None:
