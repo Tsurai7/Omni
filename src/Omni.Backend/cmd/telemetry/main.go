@@ -23,6 +23,9 @@ import (
 	"omni-backend/internal/logger"
 	"omni-backend/internal/middleware"
 	"omni-backend/internal/telemetry"
+	telhandler "omni-backend/internal/telemetry/handler"
+	telrepo "omni-backend/internal/telemetry/repository"
+	telsvc "omni-backend/internal/telemetry/service"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -61,10 +64,21 @@ func main() {
 	}
 	defer publisher.Close()
 
+	usageRepo := telrepo.NewPostgresUsage(pool)
+	sessionRepo := telrepo.NewPostgresSession(pool)
+	notifRepo := telrepo.NewPostgresNotification(pool)
+	svc := telsvc.New(usageRepo, sessionRepo, notifRepo, publisher, log)
+	h := telhandler.New(svc, log)
+
 	if os.Getenv("GIN_MODE") != "debug" {
 		gin.SetMode(gin.ReleaseMode)
 	}
-	router := gin.Default()
+	router := gin.New()
+	router.Use(
+		middleware.RequestID(),
+		middleware.StructuredLogger(log),
+		gin.Recovery(),
+	)
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
@@ -73,20 +87,16 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	usageHandler := telemetry.NewUsageHandler(pool, publisher, log)
-	sessionsHandler := telemetry.NewSessionsHandler(pool, publisher, log)
-	notificationsHandler := telemetry.NewNotificationsHandler(pool, log)
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	api := router.Group("/api")
-	api.Group("/usage").Use(middleware.AuthRequired(cfg.JWTSecret, log)).
-		POST("/sync", usageHandler.Sync).
-		GET("", usageHandler.List)
-	api.Group("/sessions").Use(middleware.AuthRequired(cfg.JWTSecret, log)).
-		POST("/sync", sessionsHandler.Sync).
-		GET("", sessionsHandler.List)
-	api.Group("/productivity").Use(middleware.AuthRequired(cfg.JWTSecret, log)).
-		GET("/notifications", notificationsHandler.List).
-		PATCH("/notifications/:id/read", notificationsHandler.MarkRead)
+	authMW := middleware.AuthRequired(cfg.JWTSecret, log)
+	usageGrp := api.Group("/usage")
+	usageGrp.Use(authMW)
+	sessionsGrp := api.Group("/sessions")
+	sessionsGrp.Use(authMW)
+	productivityGrp := api.Group("/productivity")
+	productivityGrp.Use(authMW)
+	h.RegisterRoutes(usageGrp, sessionsGrp, productivityGrp)
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: router}
 	go func() {

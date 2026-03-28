@@ -22,7 +22,9 @@ import (
 	"omni-backend/internal/db"
 	"omni-backend/internal/logger"
 	"omni-backend/internal/middleware"
-	"omni-backend/internal/task"
+	taskhandler "omni-backend/internal/task/handler"
+	taskrepo "omni-backend/internal/task/repository"
+	tasksvc "omni-backend/internal/task/service"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -54,10 +56,19 @@ func main() {
 	}
 	log.Info("migrations complete")
 
+	repo := taskrepo.NewPostgres(pool)
+	svc := tasksvc.New(repo, log)
+	h := taskhandler.New(svc, log)
+
 	if os.Getenv("GIN_MODE") != "debug" {
 		gin.SetMode(gin.ReleaseMode)
 	}
-	router := gin.Default()
+	router := gin.New()
+	router.Use(
+		middleware.RequestID(),
+		middleware.StructuredLogger(log),
+		gin.Recovery(),
+	)
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
@@ -66,17 +77,11 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	h := task.NewHandler(pool, log)
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	api := router.Group("/api")
-	tasks := api.Group("/tasks").Use(middleware.AuthRequired(cfg.JWTSecret, log))
-	{
-		tasks.GET("", h.List)
-		tasks.POST("", h.Create)
-		tasks.PUT("/:id", h.Update)
-		tasks.PATCH("/:id/status", h.UpdateStatus)
-		tasks.DELETE("/:id", h.Delete)
-	}
+	tasksGrp := api.Group("/tasks")
+	tasksGrp.Use(middleware.AuthRequired(cfg.JWTSecret, log))
+	h.RegisterRoutes(tasksGrp)
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: router}
 	go func() {

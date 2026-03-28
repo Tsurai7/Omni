@@ -22,7 +22,9 @@ import (
 	"omni-backend/internal/db"
 	"omni-backend/internal/logger"
 	"omni-backend/internal/middleware"
-	"omni-backend/internal/profile"
+	profilehandler "omni-backend/internal/profile/handler"
+	profilerepo "omni-backend/internal/profile/repository"
+	profilesvc "omni-backend/internal/profile/service"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -54,10 +56,19 @@ func main() {
 	}
 	log.Info("migrations complete")
 
+	repo := profilerepo.NewPostgres(pool)
+	svc := profilesvc.New(repo, cfg.JWTSecret, cfg.JWTExpiry(), log)
+	h := profilehandler.New(svc, log)
+
 	if os.Getenv("GIN_MODE") != "debug" {
 		gin.SetMode(gin.ReleaseMode)
 	}
-	router := gin.Default()
+	router := gin.New()
+	router.Use(
+		middleware.RequestID(),
+		middleware.StructuredLogger(log),
+		gin.Recovery(),
+	)
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
@@ -66,15 +77,12 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	h := profile.NewHandler(pool, cfg.JWTSecret, cfg.JWTExpiry(), log)
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	api := router.Group("/api")
-	auth := api.Group("/auth")
-	{
-		auth.POST("/register", h.Register)
-		auth.POST("/login", h.Login)
-		auth.GET("/me", middleware.AuthRequired(cfg.JWTSecret, log), h.Me)
-	}
+	publicAuthGrp := api.Group("/auth")
+	protectedAuthGrp := api.Group("/auth")
+	protectedAuthGrp.Use(middleware.AuthRequired(cfg.JWTSecret, log))
+	h.RegisterRoutes(publicAuthGrp, protectedAuthGrp)
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: router}
 	go func() {
